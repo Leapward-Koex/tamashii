@@ -7,7 +7,7 @@ part 'settings_provider.g.dart';
 
 /// Whether to auto-generate subfolders for each series.
 @riverpod
-class AutoGenerateFoldersNotifier extends _$AutoGenerateFoldersNotifier {
+class AutoGenerateFolders extends _$AutoGenerateFolders {
   static const _key = 'auto_generate_folders';
 
   @override
@@ -26,7 +26,7 @@ class AutoGenerateFoldersNotifier extends _$AutoGenerateFoldersNotifier {
 
 /// The base folder path where series subfolders are created.
 @riverpod
-class DownloadBasePathNotifier extends _$DownloadBasePathNotifier {
+class DownloadBasePath extends _$DownloadBasePath {
   static const _key = 'download_base_path';
 
   @override
@@ -45,7 +45,7 @@ class DownloadBasePathNotifier extends _$DownloadBasePathNotifier {
 
 /// Mapping of series → custom folder path for episodes.
 @riverpod
-class SeriesFolderMappingNotifier extends _$SeriesFolderMappingNotifier {
+class SeriesFolderMapping extends _$SeriesFolderMapping {
   static const _key = 'series_folder_mapping';
 
   @override

@@ -36,6 +36,7 @@ dependencies:
   http: ^0.13.0
   html: ^0.15.0
   intl: ^0.18.0
+  path: ^1.9.1
   shared_preferences: ^2.5.3
   simple_torrent:
     path: ../simple_torrent

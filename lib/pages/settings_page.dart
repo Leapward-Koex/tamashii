@@ -10,9 +10,9 @@ class SettingsPage extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final autoGen = ref.watch(autoGenerateFoldersNotifierProvider);
-    final basePath = ref.watch(downloadBasePathNotifierProvider);
-    final mapping = ref.watch(seriesFolderMappingNotifierProvider);
+    final autoGen = ref.watch(autoGenerateFoldersProvider);
+    final basePath = ref.watch(downloadBasePathProvider);
+    final mapping = ref.watch(seriesFolderMappingProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
@@ -28,7 +28,7 @@ class SettingsPage extends HookConsumerWidget {
                   onTap: () async {
                     final selected = await FilePicker.platform.getDirectoryPath();
                     if (selected != null) {
-                      await ref.read(downloadBasePathNotifierProvider.notifier).setBasePath(selected);
+                      await ref.read(downloadBasePathProvider.notifier).setBasePath(selected);
                     }
                   },
                 ),
@@ -44,7 +44,7 @@ class SettingsPage extends HookConsumerWidget {
                   title: const Text('Auto-generate Series Folders'),
                   value: value,
                   onChanged: (bool newVal) async {
-                    await ref.read(autoGenerateFoldersNotifierProvider.notifier).setAutoGenerate(newVal);
+                    await ref.read(autoGenerateFoldersProvider.notifier).setAutoGenerate(newVal);
                   },
                 ),
             loading: () => const ListTile(title: Text('Auto-generate Series Folders'), subtitle: Text('Loading...')),
@@ -70,7 +70,7 @@ class SettingsPage extends HookConsumerWidget {
                             onPressed: () async {
                               final selected = await FilePicker.platform.getDirectoryPath();
                               if (selected != null) {
-                                await ref.read(seriesFolderMappingNotifierProvider.notifier).setFolder(entry.key, selected);
+                                await ref.read(seriesFolderMappingProvider.notifier).setFolder(entry.key, selected);
                               }
                             },
                           ),

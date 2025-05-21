@@ -1,12 +1,15 @@
 // lib/widgets/show_card.dart
 
 import 'dart:async';
+import 'dart:io';
+import 'package:path/path.dart' as p;
+import 'package:file_picker/file_picker.dart'; // Ensure FilePicker is imported
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:simple_torrent/simple_torrent.dart';
+import 'package:tamashii/providers/settings_provider.dart';
+import 'package:tamashii/providers/torrent_download_provider.dart'; // Added
 
 import '../models/show_models.dart';
 import '../providers/bookmarked_series_provider.dart';
@@ -34,45 +37,76 @@ class ShowCard extends HookConsumerWidget {
     return '${gb.toStringAsFixed(1)} GB';
   }
 
+  Future<String?> _determineDownloadPath({
+    required BuildContext context,
+    required WidgetRef ref,
+    required ShowInfo showInfo,
+    required Map<String, String> currentMappings,
+    required bool isAutoGenEnabled,
+    required String currentBasePath,
+    required SeriesFolderMapping seriesMappingNotifier,
+  }) async {
+    final seriesSpecificPath = currentMappings[showInfo.show];
+
+    if (seriesSpecificPath != null && seriesSpecificPath.isNotEmpty) {
+      return seriesSpecificPath;
+    }
+
+    if (isAutoGenEnabled) {
+      if (currentBasePath.isEmpty) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Base download folder not set. Please configure it in Settings.')));
+        return null;
+      }
+      final path = p.join(currentBasePath, showInfo.show.replaceAll(RegExp(r'[^\w\s-]+'), '_')); // Sanitize folder name
+      try {
+        await Directory(path).create(recursive: true);
+        await seriesMappingNotifier.setFolder(showInfo.show, path);
+        return path;
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error creating folder: $e')));
+        return null;
+      }
+    } else {
+      final selectedDirectory = await FilePicker.platform.getDirectoryPath(dialogTitle: 'Select download folder for "${showInfo.show}"');
+      if (selectedDirectory != null && selectedDirectory.isNotEmpty) {
+        await seriesMappingNotifier.setFolder(showInfo.show, selectedDirectory);
+        return selectedDirectory;
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No folder selected. Download cancelled.')));
+        return null;
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final api = ref.watch(subsPleaseApiProvider);
     final List<String> bookmarks = ref.watch(bookmarkedSeriesNotifierProvider).valueOrNull ?? <String>[];
     final bool isBookmarked = bookmarks.contains(show.show);
     final bookmarkedNotifier = ref.read(bookmarkedSeriesNotifierProvider.notifier);
+    final seriesMappingSettings = ref.watch(seriesFolderMappingProvider);
+    final autoGenSettings = ref.watch(autoGenerateFoldersProvider);
+    final basePathSettings = ref.watch(downloadBasePathProvider);
+    final seriesMappingNotifier = ref.read(seriesFolderMappingProvider.notifier);
 
-    // --- Torrent state (hook-managed) -------------------------------------------------
-    final torrentIdState = useState<int?>(null);
-    final torrentStatsState = useState<TorrentStats?>(null);
-    final StreamSubscription<TorrentStats>? statsSub = useMemoized<StreamSubscription<TorrentStats>?>(() {
-      if (torrentIdState.value == null) {
-        return null;
-      }
-      // listen only to updates that match our torrent id
-      return SimpleTorrent.statsStream.listen((TorrentStats s) {
-        if (s.id == torrentIdState.value) {
-          torrentStatsState.value = s;
-        }
-      });
-    }, [torrentIdState.value]);
+    // Construct a unique key for the torrent download based on show and episode
+    final String torrentKey = "${show.show}-${show.episode}";
 
-    // Clean up subscription on unmount / id change
-    useEffect(() {
-      return () {
-        statsSub?.cancel();
-      };
-    }, [statsSub]);
+    // Watch the torrent download state for this specific show and episode
+    final torrentDownloadState = ref.watch(torrentDownloadProvider(torrentKey));
+    final torrentDownloadNotifier = ref.read(torrentDownloadProvider(torrentKey).notifier);
 
     // Derived values from stats
-    final double progressFraction = (torrentStatsState.value?.progress ?? 0) / 100.0;
-    final int downloadRate = torrentStatsState.value?.downloadRate ?? 0;
-    final int uploadRate = torrentStatsState.value?.uploadRate ?? 0;
+    final double progressFraction = torrentDownloadState.progressFraction;
+    final int downloadRate = torrentDownloadState.downloadRate;
+    final int uploadRate = torrentDownloadState.uploadRate;
+    final bool isLoadingTorrent = torrentDownloadState.isLoading;
+    final bool isDownloading = torrentDownloadState.isDownloading;
 
     // Resolve relative image URL
     final String imageUrl = show.imageUrl.startsWith('http') ? show.imageUrl : '${api.baseUrl}${show.imageUrl}';
-
-    // Default download path (replace with setting when available)
-    const String downloadPath = '/storage/emulated/0/Download';
 
     return Card(
       elevation: 4,
@@ -103,13 +137,13 @@ class ShowCard extends HookConsumerWidget {
             ),
           ),
           // Progress bar (visible only while downloading)
-          if (progressFraction > 0 && progressFraction < 1)
+          if (isDownloading && progressFraction < 1)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: LinearProgressIndicator(value: progressFraction, minHeight: 4),
             ),
           // Stats row
-          if (torrentIdState.value != null)
+          if (torrentDownloadState.torrentId != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
               child: Row(
@@ -127,29 +161,62 @@ class ShowCard extends HookConsumerWidget {
               mainAxisAlignment: MainAxisAlignment.end,
               children: <Widget>[
                 IconButton(
-                  icon: const Icon(Icons.download_rounded),
-                  onPressed: () async {
-                    if (torrentIdState.value != null) {
-                      // Already downloading
-                      return;
-                    }
-                    if (show.downloads.isEmpty) {
-                      return;
-                    }
-                    // Highest resolution magnet
-                    final best = show.downloads.reduce((a, b) {
-                      final int aRes = int.parse(a.resolution.toJson());
-                      final int bRes = int.parse(b.resolution.toJson());
-                      return aRes >= bRes ? a : b;
-                    });
-                    try {
-                      final int id = await SimpleTorrent.start(magnet: best.magnet, path: downloadPath);
-                      torrentIdState.value = id;
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Download started')));
-                    } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to start torrent: $e')));
-                    }
-                  },
+                  icon:
+                      isLoadingTorrent
+                          ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
+                          : Icon(isDownloading ? Icons.pause_circle_filled_rounded : Icons.download_rounded),
+                  onPressed:
+                      isLoadingTorrent
+                          ? null
+                          : () async {
+                            if (isDownloading) {
+                              await torrentDownloadNotifier.pauseDownloadTask();
+                              return;
+                            }
+                            if (torrentDownloadState.torrentId != null && !isDownloading && !torrentDownloadState.isCompleted) {
+                              await torrentDownloadNotifier.resumeDownloadTask();
+                              return;
+                            }
+                            if (torrentDownloadState.isCompleted) {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Download completed.')));
+                              return;
+                            }
+
+                            final String? seriesDownloadPath = await _determineDownloadPath(
+                              context: context,
+                              ref: ref,
+                              showInfo: show,
+                              currentMappings: seriesMappingSettings.valueOrNull ?? <String, String>{},
+                              isAutoGenEnabled: autoGenSettings.valueOrNull ?? true, // Default to true
+                              currentBasePath: basePathSettings.valueOrNull ?? '',
+                              seriesMappingNotifier: seriesMappingNotifier,
+                            );
+
+                            if (seriesDownloadPath == null || seriesDownloadPath.isEmpty) {
+                              return;
+                            }
+
+                            if (show.downloads.isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No download links available.')));
+                              return;
+                            }
+                            final best = show.downloads.reduce((a, b) {
+                              final int aRes = int.parse(a.resolution.toJson());
+                              final int bRes = int.parse(b.resolution.toJson());
+                              return aRes >= bRes ? a : b;
+                            });
+
+                            await torrentDownloadNotifier.startDownloadTask(best.magnet, seriesDownloadPath);
+                            if (torrentDownloadState.errorMessage != null) {
+                              ScaffoldMessenger.of(
+                                context,
+                              ).showSnackBar(SnackBar(content: Text('Error: ${torrentDownloadState.errorMessage}')));
+                            } else if (torrentDownloadState.torrentId != null) {
+                              ScaffoldMessenger.of(
+                                context,
+                              ).showSnackBar(SnackBar(content: Text('Download started to: $seriesDownloadPath')));
+                            }
+                          },
                 ),
                 IconButton(
                   icon: Icon(isBookmarked ? Icons.bookmark : Icons.bookmark_border),
