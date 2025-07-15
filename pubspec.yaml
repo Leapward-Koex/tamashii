@@ -33,7 +33,7 @@ dependencies:
   hooks_riverpod: ^2.0.0
   riverpod_annotation: ^2.0.0
   flutter_hooks: ^0.18.0
-  http: ^0.13.0
+  http: ^1.4.0
   html: ^0.15.0
   intl: ^0.18.0
   path: ^1.9.1

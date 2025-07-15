@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:tamashii/providers/settings_provider.dart';
 import 'package:tamashii/providers/torrent_download_provider.dart'; // Added
+import 'package:simple_torrent/simple_torrent.dart'; // For TorrentState
 
 import '../models/show_models.dart';
 import '../providers/bookmarked_series_provider.dart';
@@ -95,8 +96,7 @@ class ShowCard extends HookConsumerWidget {
     final String torrentKey = "${show.show}-${show.episode}";
 
     // Watch the torrent download state for this specific show and episode
-    final torrentDownloadState = ref.watch(torrentDownloadProvider(torrentKey));
-    final torrentDownloadNotifier = ref.read(torrentDownloadProvider(torrentKey).notifier);
+    final torrentDownloadState = ref.watch(torrentForShowProvider(torrentKey));
 
     // Derived values from stats
     final double progressFraction = torrentDownloadState.progressFraction;
@@ -142,15 +142,62 @@ class ShowCard extends HookConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: LinearProgressIndicator(value: progressFraction, minHeight: 4),
             ),
-          // Stats row
+          // Enhanced torrent info display
           if (torrentDownloadState.torrentId != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: <Widget>[
-                  Text('↓ ${_formatBytes(downloadRate)}/s', style: Theme.of(context).textTheme.bodySmall),
-                  Text('↑ ${_formatBytes(uploadRate)}/s', style: Theme.of(context).textTheme.bodySmall),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Torrent state and phase
+                  Row(
+                    children: [
+                      Icon(
+                        _getTorrentStateIcon(torrentDownloadState.currentState),
+                        size: 16,
+                        color: _getTorrentStateColor(torrentDownloadState.currentState),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        torrentDownloadState.currentState.name.toUpperCase(),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: _getTorrentStateColor(torrentDownloadState.currentState),
+                        ),
+                      ),
+                      if (torrentDownloadState.stats?.phase != null) ...[
+                        const SizedBox(width: 8),
+                        Text('• ${torrentDownloadState.stats!.phase}', style: Theme.of(context).textTheme.bodySmall),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  // File information from metadata
+                  if (torrentDownloadState.metadata != null) ...[
+                    Text(
+                      'File: ${torrentDownloadState.displayName}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      'Size: ${torrentDownloadState.formattedSize} • Files: ${torrentDownloadState.metadata!.fileCount}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                  // Download/upload speeds and peer info
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: <Widget>[
+                      Text('↓ ${_formatBytes(downloadRate)}/s', style: Theme.of(context).textTheme.bodySmall),
+                      Text('↑ ${_formatBytes(uploadRate)}/s', style: Theme.of(context).textTheme.bodySmall),
+                      if (torrentDownloadState.stats != null)
+                        Text(
+                          'S:${torrentDownloadState.stats!.seeds} P:${torrentDownloadState.stats!.peers}',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -170,11 +217,11 @@ class ShowCard extends HookConsumerWidget {
                           ? null
                           : () async {
                             if (isDownloading) {
-                              await torrentDownloadNotifier.pauseDownloadTask();
+                              await ref.read(torrentManagerProvider.notifier).pauseDownload(torrentKey);
                               return;
                             }
                             if (torrentDownloadState.torrentId != null && !isDownloading && !torrentDownloadState.isCompleted) {
-                              await torrentDownloadNotifier.resumeDownloadTask();
+                              await ref.read(torrentManagerProvider.notifier).resumeDownload(torrentKey);
                               return;
                             }
                             if (torrentDownloadState.isCompleted) {
@@ -206,7 +253,7 @@ class ShowCard extends HookConsumerWidget {
                               return aRes >= bRes ? a : b;
                             });
 
-                            await torrentDownloadNotifier.startDownloadTask(best.magnet, seriesDownloadPath);
+                            await ref.read(torrentManagerProvider.notifier).startDownload(torrentKey, best.magnet, seriesDownloadPath);
                             if (torrentDownloadState.errorMessage != null) {
                               ScaffoldMessenger.of(
                                 context,
@@ -234,5 +281,44 @@ class ShowCard extends HookConsumerWidget {
         ],
       ),
     );
+  }
+
+  // Helper methods for torrent state visualization
+  IconData _getTorrentStateIcon(TorrentState state) {
+    switch (state) {
+      case TorrentState.starting:
+        return Icons.play_circle_outline;
+      case TorrentState.downloadingMetadata:
+        return Icons.info_outline;
+      case TorrentState.downloading:
+        return Icons.download;
+      case TorrentState.seeding:
+        return Icons.upload;
+      case TorrentState.paused:
+        return Icons.pause_circle_outline;
+      case TorrentState.error:
+        return Icons.error_outline;
+      case TorrentState.stopped:
+        return Icons.stop;
+    }
+  }
+
+  Color _getTorrentStateColor(TorrentState state) {
+    switch (state) {
+      case TorrentState.starting:
+        return Colors.orange;
+      case TorrentState.downloadingMetadata:
+        return Colors.blue;
+      case TorrentState.downloading:
+        return Colors.green;
+      case TorrentState.seeding:
+        return Colors.purple;
+      case TorrentState.paused:
+        return Colors.grey;
+      case TorrentState.error:
+        return Colors.red;
+      case TorrentState.stopped:
+        return Colors.black54;
+    }
   }
 }

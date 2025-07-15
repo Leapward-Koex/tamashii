@@ -6,7 +6,7 @@ part of 'torrent_download_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$torrentDownloadHash() => r'5c5e1f3a2f1d4fa4face8bc531fcaa0f64109d72';
+String _$torrentForShowHash() => r'a52b771af4ba67a95a1c7d63f01a827259c77c44';
 
 /// Copied from Dart SDK
 class _SystemHash {
@@ -29,30 +29,23 @@ class _SystemHash {
   }
 }
 
-abstract class _$TorrentDownload
-    extends BuildlessNotifier<TorrentDownloadState> {
-  late final String showId;
+/// See also [torrentForShow].
+@ProviderFor(torrentForShow)
+const torrentForShowProvider = TorrentForShowFamily();
 
-  TorrentDownloadState build(String showId);
-}
+/// See also [torrentForShow].
+class TorrentForShowFamily extends Family<TorrentDownloadState> {
+  /// See also [torrentForShow].
+  const TorrentForShowFamily();
 
-/// See also [TorrentDownload].
-@ProviderFor(TorrentDownload)
-const torrentDownloadProvider = TorrentDownloadFamily();
-
-/// See also [TorrentDownload].
-class TorrentDownloadFamily extends Family<TorrentDownloadState> {
-  /// See also [TorrentDownload].
-  const TorrentDownloadFamily();
-
-  /// See also [TorrentDownload].
-  TorrentDownloadProvider call(String showId) {
-    return TorrentDownloadProvider(showId);
+  /// See also [torrentForShow].
+  TorrentForShowProvider call(String showId) {
+    return TorrentForShowProvider(showId);
   }
 
   @override
-  TorrentDownloadProvider getProviderOverride(
-    covariant TorrentDownloadProvider provider,
+  TorrentForShowProvider getProviderOverride(
+    covariant TorrentForShowProvider provider,
   ) {
     return call(provider.showId);
   }
@@ -69,29 +62,28 @@ class TorrentDownloadFamily extends Family<TorrentDownloadState> {
       _allTransitiveDependencies;
 
   @override
-  String? get name => r'torrentDownloadProvider';
+  String? get name => r'torrentForShowProvider';
 }
 
-/// See also [TorrentDownload].
-class TorrentDownloadProvider
-    extends NotifierProviderImpl<TorrentDownload, TorrentDownloadState> {
-  /// See also [TorrentDownload].
-  TorrentDownloadProvider(String showId)
+/// See also [torrentForShow].
+class TorrentForShowProvider extends AutoDisposeProvider<TorrentDownloadState> {
+  /// See also [torrentForShow].
+  TorrentForShowProvider(String showId)
     : this._internal(
-        () => TorrentDownload()..showId = showId,
-        from: torrentDownloadProvider,
-        name: r'torrentDownloadProvider',
+        (ref) => torrentForShow(ref as TorrentForShowRef, showId),
+        from: torrentForShowProvider,
+        name: r'torrentForShowProvider',
         debugGetCreateSourceHash:
             const bool.fromEnvironment('dart.vm.product')
                 ? null
-                : _$torrentDownloadHash,
-        dependencies: TorrentDownloadFamily._dependencies,
+                : _$torrentForShowHash,
+        dependencies: TorrentForShowFamily._dependencies,
         allTransitiveDependencies:
-            TorrentDownloadFamily._allTransitiveDependencies,
+            TorrentForShowFamily._allTransitiveDependencies,
         showId: showId,
       );
 
-  TorrentDownloadProvider._internal(
+  TorrentForShowProvider._internal(
     super._createNotifier, {
     required super.name,
     required super.dependencies,
@@ -104,16 +96,13 @@ class TorrentDownloadProvider
   final String showId;
 
   @override
-  TorrentDownloadState runNotifierBuild(covariant TorrentDownload notifier) {
-    return notifier.build(showId);
-  }
-
-  @override
-  Override overrideWith(TorrentDownload Function() create) {
+  Override overrideWith(
+    TorrentDownloadState Function(TorrentForShowRef provider) create,
+  ) {
     return ProviderOverride(
       origin: this,
-      override: TorrentDownloadProvider._internal(
-        () => create()..showId = showId,
+      override: TorrentForShowProvider._internal(
+        (ref) => create(ref as TorrentForShowRef),
         from: from,
         name: null,
         dependencies: null,
@@ -125,14 +114,13 @@ class TorrentDownloadProvider
   }
 
   @override
-  NotifierProviderElement<TorrentDownload, TorrentDownloadState>
-  createElement() {
-    return _TorrentDownloadProviderElement(this);
+  AutoDisposeProviderElement<TorrentDownloadState> createElement() {
+    return _TorrentForShowProviderElement(this);
   }
 
   @override
   bool operator ==(Object other) {
-    return other is TorrentDownloadProvider && other.showId == showId;
+    return other is TorrentForShowProvider && other.showId == showId;
   }
 
   @override
@@ -146,19 +134,36 @@ class TorrentDownloadProvider
 
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
-mixin TorrentDownloadRef on NotifierProviderRef<TorrentDownloadState> {
+mixin TorrentForShowRef on AutoDisposeProviderRef<TorrentDownloadState> {
   /// The parameter `showId` of this provider.
   String get showId;
 }
 
-class _TorrentDownloadProviderElement
-    extends NotifierProviderElement<TorrentDownload, TorrentDownloadState>
-    with TorrentDownloadRef {
-  _TorrentDownloadProviderElement(super.provider);
+class _TorrentForShowProviderElement
+    extends AutoDisposeProviderElement<TorrentDownloadState>
+    with TorrentForShowRef {
+  _TorrentForShowProviderElement(super.provider);
 
   @override
-  String get showId => (origin as TorrentDownloadProvider).showId;
+  String get showId => (origin as TorrentForShowProvider).showId;
 }
 
+String _$torrentManagerHash() => r'fc85d151432e338253e38c25c8fa0561b35294c7';
+
+/// See also [TorrentManager].
+@ProviderFor(TorrentManager)
+final torrentManagerProvider =
+    NotifierProvider<TorrentManager, TorrentManagerState>.internal(
+      TorrentManager.new,
+      name: r'torrentManagerProvider',
+      debugGetCreateSourceHash:
+          const bool.fromEnvironment('dart.vm.product')
+              ? null
+              : _$torrentManagerHash,
+      dependencies: null,
+      allTransitiveDependencies: null,
+    );
+
+typedef _$TorrentManager = Notifier<TorrentManagerState>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package

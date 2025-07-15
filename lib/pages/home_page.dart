@@ -3,11 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:tamashii/pages/settings_page.dart';
-import 'package:tamashii/providers/bookmarked_series_provider.dart';
 import 'package:tamashii/providers/subsplease_api_providers.dart';
 import 'package:tamashii/widgets/show_card.dart';
 import '../models/show_models.dart';
-import '../providers.dart';
 
 class HomePage extends HookConsumerWidget {
   const HomePage({super.key});
@@ -43,9 +41,9 @@ class HomePage extends HookConsumerWidget {
 
     Future<void> refresh() async {
       if (currentQuery.isEmpty) {
-        await ref.refresh(latestShowsProvider.future);
+        return await ref.refresh(latestShowsProvider.future);
       } else {
-        await ref.refresh(searchShowsProvider(currentQuery).future);
+        return await ref.refresh(searchShowsProvider(currentQuery).future);
       }
     }
 
