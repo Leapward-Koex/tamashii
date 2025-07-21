@@ -181,6 +181,127 @@ class _SearchShowsProviderElement
   String get searchTerm => (origin as SearchShowsProvider).searchTerm;
 }
 
+String _$filteredShowsHash() => r'59633afb73431c80fc604568bbe7301d92e4e9fa';
+
+/// See also [filteredShows].
+@ProviderFor(filteredShows)
+const filteredShowsProvider = FilteredShowsFamily();
+
+/// See also [filteredShows].
+class FilteredShowsFamily extends Family<AsyncValue<List<ShowInfo>>> {
+  /// See also [filteredShows].
+  const FilteredShowsFamily();
+
+  /// See also [filteredShows].
+  FilteredShowsProvider call(String searchTerm) {
+    return FilteredShowsProvider(searchTerm);
+  }
+
+  @override
+  FilteredShowsProvider getProviderOverride(
+    covariant FilteredShowsProvider provider,
+  ) {
+    return call(provider.searchTerm);
+  }
+
+  static const Iterable<ProviderOrFamily>? _dependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
+
+  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
+      _allTransitiveDependencies;
+
+  @override
+  String? get name => r'filteredShowsProvider';
+}
+
+/// See also [filteredShows].
+class FilteredShowsProvider extends AutoDisposeFutureProvider<List<ShowInfo>> {
+  /// See also [filteredShows].
+  FilteredShowsProvider(String searchTerm)
+    : this._internal(
+        (ref) => filteredShows(ref as FilteredShowsRef, searchTerm),
+        from: filteredShowsProvider,
+        name: r'filteredShowsProvider',
+        debugGetCreateSourceHash:
+            const bool.fromEnvironment('dart.vm.product')
+                ? null
+                : _$filteredShowsHash,
+        dependencies: FilteredShowsFamily._dependencies,
+        allTransitiveDependencies:
+            FilteredShowsFamily._allTransitiveDependencies,
+        searchTerm: searchTerm,
+      );
+
+  FilteredShowsProvider._internal(
+    super._createNotifier, {
+    required super.name,
+    required super.dependencies,
+    required super.allTransitiveDependencies,
+    required super.debugGetCreateSourceHash,
+    required super.from,
+    required this.searchTerm,
+  }) : super.internal();
+
+  final String searchTerm;
+
+  @override
+  Override overrideWith(
+    FutureOr<List<ShowInfo>> Function(FilteredShowsRef provider) create,
+  ) {
+    return ProviderOverride(
+      origin: this,
+      override: FilteredShowsProvider._internal(
+        (ref) => create(ref as FilteredShowsRef),
+        from: from,
+        name: null,
+        dependencies: null,
+        allTransitiveDependencies: null,
+        debugGetCreateSourceHash: null,
+        searchTerm: searchTerm,
+      ),
+    );
+  }
+
+  @override
+  AutoDisposeFutureProviderElement<List<ShowInfo>> createElement() {
+    return _FilteredShowsProviderElement(this);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is FilteredShowsProvider && other.searchTerm == searchTerm;
+  }
+
+  @override
+  int get hashCode {
+    var hash = _SystemHash.combine(0, runtimeType.hashCode);
+    hash = _SystemHash.combine(hash, searchTerm.hashCode);
+
+    return _SystemHash.finish(hash);
+  }
+}
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+mixin FilteredShowsRef on AutoDisposeFutureProviderRef<List<ShowInfo>> {
+  /// The parameter `searchTerm` of this provider.
+  String get searchTerm;
+}
+
+class _FilteredShowsProviderElement
+    extends AutoDisposeFutureProviderElement<List<ShowInfo>>
+    with FilteredShowsRef {
+  _FilteredShowsProviderElement(super.provider);
+
+  @override
+  String get searchTerm => (origin as FilteredShowsProvider).searchTerm;
+}
+
 String _$showSynopsisHash() => r'628c445a90cbee14311e9e9efd9e2061d45ffe19';
 
 /// See also [showSynopsis].

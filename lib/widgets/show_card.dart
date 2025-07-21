@@ -113,172 +113,200 @@ class ShowCard extends HookConsumerWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       clipBehavior: Clip.hardEdge,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          // Poster
-          CachedNetworkImage(
-            imageUrl: imageUrl,
-            height: 180,
-            fit: BoxFit.cover,
-            placeholder: (context, url) => const SizedBox(height: 180, child: Center(child: CircularProgressIndicator())),
-            errorWidget: (context, url, error) => const SizedBox(height: 180, child: Center(child: Icon(Icons.broken_image))),
-          ),
-          // Title & episode
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(show.show, style: Theme.of(context).textTheme.titleMedium, maxLines: 2, overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 4),
-                Text('Episode: ${show.episode}', style: Theme.of(context).textTheme.bodyMedium),
-              ],
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            // Poster - Fixed width to maintain aspect ratio
+            SizedBox(
+              width: 120, // Maintains roughly 2:3 aspect ratio (120x180)
+              child: CachedNetworkImage(
+                imageUrl: imageUrl,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => const SizedBox(
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+                errorWidget: (context, url, error) => const SizedBox(
+                  child: Center(child: Icon(Icons.broken_image, size: 40)),
+                ),
+              ),
             ),
-          ),
-          // Progress bar (visible only while downloading)
-          if (isDownloading && progressFraction < 1)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: LinearProgressIndicator(value: progressFraction, minHeight: 4),
-            ),
-          // Enhanced torrent info display
-          if (torrentDownloadState.torrentId != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            // Content area
+            Expanded(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Torrent state and phase
-                  Row(
-                    children: [
-                      Icon(
-                        _getTorrentStateIcon(torrentDownloadState.currentState),
-                        size: 16,
-                        color: _getTorrentStateColor(torrentDownloadState.currentState),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        torrentDownloadState.currentState.name.toUpperCase(),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: _getTorrentStateColor(torrentDownloadState.currentState),
-                        ),
-                      ),
-                      if (torrentDownloadState.stats?.phase != null) ...[
-                        const SizedBox(width: 8),
-                        Text('• ${torrentDownloadState.stats!.phase}', style: Theme.of(context).textTheme.bodySmall),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  // File information from metadata
-                  if (torrentDownloadState.metadata != null) ...[
-                    Text(
-                      'File: ${torrentDownloadState.displayName}',
-                      style: Theme.of(context).textTheme.bodySmall,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      'Size: ${torrentDownloadState.formattedSize} • Files: ${torrentDownloadState.metadata!.fileCount}',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
-                  // Download/upload speeds and peer info
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: <Widget>[
-                      Text('↓ ${_formatBytes(downloadRate)}/s', style: Theme.of(context).textTheme.bodySmall),
-                      Text('↑ ${_formatBytes(uploadRate)}/s', style: Theme.of(context).textTheme.bodySmall),
-                      if (torrentDownloadState.stats != null)
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  // Title & episode
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
                         Text(
-                          'S:${torrentDownloadState.stats!.seeds} P:${torrentDownloadState.stats!.peers}',
-                          style: Theme.of(context).textTheme.bodySmall,
+                          show.show, 
+                          style: Theme.of(context).textTheme.titleMedium, 
+                          maxLines: 2, 
+                          overflow: TextOverflow.ellipsis,
                         ),
-                    ],
+                        const SizedBox(height: 4),
+                        Text(
+                          'Episode: ${show.episode}', 
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Progress bar (visible only while downloading)
+                  if (isDownloading && progressFraction < 1)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: LinearProgressIndicator(value: progressFraction, minHeight: 4),
+                    ),
+                  // Enhanced torrent info display
+                  if (torrentDownloadState.torrentId != null)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Torrent state and phase
+                          Row(
+                            children: [
+                              Icon(
+                                _getTorrentStateIcon(torrentDownloadState.currentState),
+                                size: 16,
+                                color: _getTorrentStateColor(torrentDownloadState.currentState),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                torrentDownloadState.currentState.name.toUpperCase(),
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: _getTorrentStateColor(torrentDownloadState.currentState),
+                                ),
+                              ),
+                              if (torrentDownloadState.stats?.phase != null) ...[
+                                const SizedBox(width: 8),
+                                Text('• ${torrentDownloadState.stats!.phase}', style: Theme.of(context).textTheme.bodySmall),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          // File information from metadata
+                          if (torrentDownloadState.metadata != null) ...[
+                            Text(
+                              'File: ${torrentDownloadState.displayName}',
+                              style: Theme.of(context).textTheme.bodySmall,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              'Size: ${torrentDownloadState.formattedSize} • Files: ${torrentDownloadState.metadata!.fileCount}',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ],
+                          // Download/upload speeds and peer info
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: <Widget>[
+                              Text('↓ ${_formatBytes(downloadRate)}/s', style: Theme.of(context).textTheme.bodySmall),
+                              Text('↑ ${_formatBytes(uploadRate)}/s', style: Theme.of(context).textTheme.bodySmall),
+                              if (torrentDownloadState.stats != null)
+                                Text(
+                                  'S:${torrentDownloadState.stats!.seeds} P:${torrentDownloadState.stats!.peers}',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  // Spacer to push action buttons to bottom
+                  const Spacer(),
+                  // Action buttons
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: <Widget>[
+                        IconButton(
+                          icon:
+                              isLoadingTorrent
+                                  ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
+                                  : Icon(isDownloading ? Icons.pause_circle_filled_rounded : Icons.download_rounded),
+                          onPressed:
+                              isLoadingTorrent
+                                  ? null
+                                  : () async {
+                                    if (isDownloading) {
+                                      await ref.read(torrentManagerProvider.notifier).pauseDownload(torrentKey);
+                                      return;
+                                    }
+                                    if (torrentDownloadState.torrentId != null && !isDownloading && !torrentDownloadState.isCompleted) {
+                                      await ref.read(torrentManagerProvider.notifier).resumeDownload(torrentKey);
+                                      return;
+                                    }
+                                    if (torrentDownloadState.isCompleted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Download completed.')));
+                                      return;
+                                    }
+
+                                    final String? seriesDownloadPath = await _determineDownloadPath(
+                                      context: context,
+                                      ref: ref,
+                                      showInfo: show,
+                                      currentMappings: seriesMappingSettings.valueOrNull ?? <String, String>{},
+                                      isAutoGenEnabled: autoGenSettings.valueOrNull ?? true, // Default to true
+                                      currentBasePath: basePathSettings.valueOrNull ?? '',
+                                      seriesMappingNotifier: seriesMappingNotifier,
+                                    );
+
+                                    if (seriesDownloadPath == null || seriesDownloadPath.isEmpty) {
+                                      return;
+                                    }
+
+                                    if (show.downloads.isEmpty) {
+                                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No download links available.')));
+                                      return;
+                                    }
+                                    final best = show.downloads.reduce((a, b) {
+                                      final int aRes = int.parse(a.resolution.toJson());
+                                      final int bRes = int.parse(b.resolution.toJson());
+                                      return aRes >= bRes ? a : b;
+                                    });
+
+                                    await ref.read(torrentManagerProvider.notifier).startDownload(torrentKey, best.magnet, seriesDownloadPath);
+                                    if (torrentDownloadState.errorMessage != null) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(SnackBar(content: Text('Error: ${torrentDownloadState.errorMessage}')));
+                                    } else if (torrentDownloadState.torrentId != null) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(SnackBar(content: Text('Download started to: $seriesDownloadPath')));
+                                    }
+                                  },
+                        ),
+                        IconButton(
+                          icon: Icon(isBookmarked ? Icons.bookmark : Icons.bookmark_border),
+                          onPressed: () async {
+                            if (isBookmarked) {
+                              // Remove from bookmarks
+                              await bookmarkedNotifier.remove(show.show);
+                            } else {
+                              // Add to bookmarks
+                              await bookmarkedNotifier.add(show.show);
+                            }
+                          },
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
-          // Action buttons
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: <Widget>[
-                IconButton(
-                  icon:
-                      isLoadingTorrent
-                          ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
-                          : Icon(isDownloading ? Icons.pause_circle_filled_rounded : Icons.download_rounded),
-                  onPressed:
-                      isLoadingTorrent
-                          ? null
-                          : () async {
-                            if (isDownloading) {
-                              await ref.read(torrentManagerProvider.notifier).pauseDownload(torrentKey);
-                              return;
-                            }
-                            if (torrentDownloadState.torrentId != null && !isDownloading && !torrentDownloadState.isCompleted) {
-                              await ref.read(torrentManagerProvider.notifier).resumeDownload(torrentKey);
-                              return;
-                            }
-                            if (torrentDownloadState.isCompleted) {
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Download completed.')));
-                              return;
-                            }
-
-                            final String? seriesDownloadPath = await _determineDownloadPath(
-                              context: context,
-                              ref: ref,
-                              showInfo: show,
-                              currentMappings: seriesMappingSettings.valueOrNull ?? <String, String>{},
-                              isAutoGenEnabled: autoGenSettings.valueOrNull ?? true, // Default to true
-                              currentBasePath: basePathSettings.valueOrNull ?? '',
-                              seriesMappingNotifier: seriesMappingNotifier,
-                            );
-
-                            if (seriesDownloadPath == null || seriesDownloadPath.isEmpty) {
-                              return;
-                            }
-
-                            if (show.downloads.isEmpty) {
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No download links available.')));
-                              return;
-                            }
-                            final best = show.downloads.reduce((a, b) {
-                              final int aRes = int.parse(a.resolution.toJson());
-                              final int bRes = int.parse(b.resolution.toJson());
-                              return aRes >= bRes ? a : b;
-                            });
-
-                            await ref.read(torrentManagerProvider.notifier).startDownload(torrentKey, best.magnet, seriesDownloadPath);
-                            if (torrentDownloadState.errorMessage != null) {
-                              ScaffoldMessenger.of(
-                                context,
-                              ).showSnackBar(SnackBar(content: Text('Error: ${torrentDownloadState.errorMessage}')));
-                            } else if (torrentDownloadState.torrentId != null) {
-                              ScaffoldMessenger.of(
-                                context,
-                              ).showSnackBar(SnackBar(content: Text('Download started to: $seriesDownloadPath')));
-                            }
-                          },
-                ),
-                IconButton(
-                  icon: Icon(isBookmarked ? Icons.bookmark : Icons.bookmark_border),
-                  onPressed: () {
-                    if (isBookmarked) {
-                      bookmarkedNotifier.remove(show.show);
-                    } else {
-                      bookmarkedNotifier.add(show.show);
-                    }
-                  },
-                ),
-              ],
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
