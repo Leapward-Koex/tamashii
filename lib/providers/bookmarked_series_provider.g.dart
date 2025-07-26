@@ -7,7 +7,7 @@ part of 'bookmarked_series_provider.dart';
 // **************************************************************************
 
 String _$bookmarkedSeriesNotifierHash() =>
-    r'cd98de6e888dd49ebcfccb51e152e62f32cf2d48';
+    r'be226640f22a623372e0d22538451ca28d3e3821';
 
 /// Maintains the list of bookmarked series (by slug/page ID), persisted to storage.
 ///

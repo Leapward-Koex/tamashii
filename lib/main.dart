@@ -6,6 +6,7 @@ import 'package:simple_torrent/simple_torrent.dart';
 
 import 'pages/home_page.dart';
 import 'providers/api_cache_sync_provider.dart';
+import 'providers/foreground_torrent_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -38,6 +39,9 @@ class TamashiiApp extends ConsumerWidget {
     // Initialize the cache sync service
     final cacheSync = ref.watch(apiCacheSyncProvider);
     cacheSync.initialize();
+
+    // Initialize the foreground torrent service (lazy initialization)
+    ref.read(foregroundTorrentManagerProvider);
 
     return MaterialApp(title: 'Tamashii', theme: ThemeData(), home: const HomePage());
   }

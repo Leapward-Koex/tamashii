@@ -305,7 +305,7 @@ class _FilteredCombinedEpisodesProviderElement
 }
 
 String _$cachedEpisodesNotifierHash() =>
-    r'a925d8a178f1dd23185a8523ab6f8083b72cfac1';
+    r'eb024c8805e2b0aa003a1214aec1410554a6cee3';
 
 /// Manages cached episodes from bookmarked series
 ///
