@@ -5,6 +5,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:simple_torrent/simple_torrent.dart';
 
 import 'pages/home_page.dart';
+import 'providers/api_cache_sync_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,6 +35,10 @@ class TamashiiApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Initialize the cache sync service
+    final cacheSync = ref.watch(apiCacheSyncProvider);
+    cacheSync.initialize();
+
     return MaterialApp(title: 'Tamashii', theme: ThemeData(), home: const HomePage());
   }
 }

@@ -76,14 +76,19 @@ class ShowInfo {
   });
 
   factory ShowInfo.fromJson(Map<String, dynamic> json) {
-    // parse mm/dd/yy into a full DateTime
+    // parse date from various formats
     final String rawDate = json['release_date'] as String;
     late DateTime parsedDate;
     try {
-      // EEE = Mon, dd = 19, MMM = May, yyyy = 2025, HH:mm:ss = 04:09:55, Z = +1200
+      // Try RFC format first (from API): EEE, dd MMM yyyy HH:mm:ss Z
       parsedDate = DateFormat('EEE, dd MMM yyyy HH:mm:ss Z', 'en_US').parseUTC(rawDate);
     } catch (error) {
-      throw FormatException('Invalid release_date format: $rawDate');
+      try {
+        // Try short format (from cache): MM/dd/yy
+        parsedDate = DateFormat('MM/dd/yy', 'en_US').parse(rawDate);
+      } catch (secondError) {
+        throw FormatException('Invalid release_date format: $rawDate');
+      }
     }
 
     return ShowInfo(

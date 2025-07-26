@@ -181,7 +181,7 @@ class _SearchShowsProviderElement
   String get searchTerm => (origin as SearchShowsProvider).searchTerm;
 }
 
-String _$filteredShowsHash() => r'59633afb73431c80fc604568bbe7301d92e4e9fa';
+String _$filteredShowsHash() => r'7bed9373efd283c4f71db6e38eb71ca2d95370a1';
 
 /// See also [filteredShows].
 @ProviderFor(filteredShows)
