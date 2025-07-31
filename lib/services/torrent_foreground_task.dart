@@ -16,20 +16,26 @@ class TorrentTaskHandler extends TaskHandler {
   StreamSubscription<TorrentMetadata>? _metadataSub;
   Timer? _updateTimer;
 
+  // Track current torrent states for notification updates
+  final Map<String, TorrentStats> _currentStats = {};
+  final Map<String, TorrentMetadata> _currentMetadata = {};
+  final Map<String, bool> _completedTorrents = {};
+
   @override
   Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
     print('TorrentTaskHandler onStart');
-    
+
     // Listen to metadata updates for all torrents
     _metadataSub = SimpleTorrent.metadataStream.listen((metadata) {
       _handleMetadataUpdate(metadata);
     });
-    
-    // Set up periodic updates every 1 seconds
-    _updateTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+
+    // Set up periodic updates every 2 seconds for responsive notifications
+    _updateTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
       _broadcastTorrentStates();
+      _updateNotificationWithProgress(); // Update notification with latest progress
     });
-    
+
     // Send initial ready message to UI
     FlutterForegroundTask.sendDataToMain({
       'type': 'service_ready',
@@ -40,29 +46,97 @@ class TorrentTaskHandler extends TaskHandler {
   @override
   void onRepeatEvent(DateTime timestamp) {
     // Update notification with current download status
+    _updateNotificationWithProgress();
+  }
+
+  void _updateNotificationWithProgress() {
     final activeTorrents = _torrentIds.length;
-    FlutterForegroundTask.updateService(
-      notificationTitle: 'Tamashii - Torrent Service',
-      notificationText: activeTorrents > 0 
-        ? 'Managing $activeTorrents torrent(s)'
-        : 'Ready for downloads',
-    );
+
+    if (activeTorrents == 0) {
+      // No active torrents - stop the service
+      print('🛑 No active torrents, stopping foreground service');
+      FlutterForegroundTask.stopService();
+      return;
+    }
+
+    // Check if all torrents are completed (no longer downloading)
+    final completedCount =
+        _completedTorrents.values.where((completed) => completed).length;
+    final downloadingCount =
+        _currentStats.values.where((stats) => stats.progress < 1.0).length;
+
+    if (completedCount == activeTorrents &&
+        downloadingCount == 0 &&
+        activeTorrents > 0) {
+      // All torrents finished downloading - show completion notification briefly then stop
+      FlutterForegroundTask.updateService(
+        notificationTitle: 'Tamashii - Downloads Complete! 🎉',
+        notificationText: 'All $activeTorrents torrent(s) finished downloading',
+      );
+
+      // Stop the service after a short delay to let user see the completion message
+      Timer(const Duration(seconds: 5), () {
+        print('🛑 All downloads complete, stopping foreground service');
+        FlutterForegroundTask.stopService();
+      });
+      return;
+    }
+
+    // Calculate overall progress and speeds for active downloads
+    double totalProgress = 0;
+    int totalDownloadRate = 0;
+    int totalUploadRate = 0;
+
+    for (final entry in _currentStats.entries) {
+      final stats = entry.value;
+      totalProgress += stats.progress;
+      totalDownloadRate += stats.downloadRate;
+      totalUploadRate += stats.uploadRate;
+    }
+
+    if (_currentStats.isNotEmpty) {
+      final avgProgress =
+          (totalProgress / _currentStats.length) *
+          100; // Convert to percentage for display
+      final downloadSpeed = _formatBytes(totalDownloadRate);
+      final uploadSpeed = _formatBytes(totalUploadRate);
+
+      String title = 'Tamashii - ${avgProgress.toStringAsFixed(1)}% Complete';
+      String text;
+
+      if (downloadingCount > 0) {
+        text =
+            '$downloadingCount downloading • ↓$downloadSpeed/s • ↑$uploadSpeed/s';
+      } else {
+        text = 'Seeding $activeTorrents torrent(s) • ↑$uploadSpeed/s';
+      }
+
+      FlutterForegroundTask.updateService(
+        notificationTitle: title,
+        notificationText: text,
+      );
+    } else {
+      FlutterForegroundTask.updateService(
+        notificationTitle: 'Tamashii - Torrent Service',
+        notificationText: 'Managing $activeTorrents torrent(s)',
+      );
+    }
   }
 
   @override
   Future<void> onDestroy(DateTime timestamp, bool isTimeout) async {
     print('TorrentTaskHandler onDestroy');
-    
+
     // Clean up resources
     _updateTimer?.cancel();
     _metadataSub?.cancel();
-    
+
     // Cancel all subscriptions
     for (final sub in _statsSubs.values) {
       sub.cancel();
     }
     _statsSubs.clear();
-    
+
     // Stop all torrents
     for (final torrentId in _torrentIds.values) {
       try {
@@ -71,7 +145,7 @@ class TorrentTaskHandler extends TaskHandler {
         print('Error removing torrent $torrentId: $e');
       }
     }
-    
+
     _torrentIds.clear();
   }
 
@@ -103,7 +177,7 @@ class TorrentTaskHandler extends TaskHandler {
 
   void _handleCommand(Map<String, dynamic> command) async {
     final String? type = command['type'];
-    
+
     switch (type) {
       case 'start_download':
         await _startDownload(command);
@@ -130,20 +204,23 @@ class TorrentTaskHandler extends TaskHandler {
       final String torrentKey = command['torrentKey'];
       final String magnetUri = command['magnetUri'];
       final String downloadPath = command['downloadPath'];
-      
+
       // Use SimpleTorrentHelpers for enhanced functionality
       final (id, statsStream) = await SimpleTorrentHelpers.startAndWatch(
         magnet: magnetUri,
         path: downloadPath,
         displayName: torrentKey, // Use torrentKey as display name
       );
-      
+
       // Store mapping
       _torrentIds[torrentKey] = id;
-      
+
+      // Initialize tracking
+      _completedTorrents[torrentKey] = false;
+
       // Listen to stats updates
       _listenToTorrent(id, torrentKey, statsStream);
-      
+
       // Send success response
       FlutterForegroundTask.sendDataToMain({
         'type': 'download_started',
@@ -151,7 +228,6 @@ class TorrentTaskHandler extends TaskHandler {
         'torrentId': id,
         'success': true,
       });
-      
     } catch (e) {
       final String torrentKey = command['torrentKey'] ?? 'unknown';
       _sendError(torrentKey, 'Failed to start download: $e');
@@ -162,21 +238,20 @@ class TorrentTaskHandler extends TaskHandler {
     try {
       final String torrentKey = command['torrentKey'];
       final int? torrentId = _torrentIds[torrentKey];
-      
+
       if (torrentId == null) {
         _sendError(torrentKey, 'Torrent not found');
         return;
       }
-      
+
       await SimpleTorrent.pause(torrentId);
-      
+
       FlutterForegroundTask.sendDataToMain({
         'type': 'download_paused',
         'torrentKey': torrentKey,
         'torrentId': torrentId,
         'success': true,
       });
-      
     } catch (e) {
       final String torrentKey = command['torrentKey'] ?? 'unknown';
       _sendError(torrentKey, 'Failed to pause download: $e');
@@ -187,21 +262,20 @@ class TorrentTaskHandler extends TaskHandler {
     try {
       final String torrentKey = command['torrentKey'];
       final int? torrentId = _torrentIds[torrentKey];
-      
+
       if (torrentId == null) {
         _sendError(torrentKey, 'Torrent not found');
         return;
       }
-      
+
       await SimpleTorrent.resume(torrentId);
-      
+
       FlutterForegroundTask.sendDataToMain({
         'type': 'download_resumed',
         'torrentKey': torrentKey,
         'torrentId': torrentId,
         'success': true,
       });
-      
     } catch (e) {
       final String torrentKey = command['torrentKey'] ?? 'unknown';
       _sendError(torrentKey, 'Failed to resume download: $e');
@@ -212,26 +286,28 @@ class TorrentTaskHandler extends TaskHandler {
     try {
       final String torrentKey = command['torrentKey'];
       final int? torrentId = _torrentIds[torrentKey];
-      
+
       if (torrentId == null) {
         _sendError(torrentKey, 'Torrent not found');
         return;
       }
-      
+
       await SimpleTorrent.cancel(torrentId);
-      
-      // Clean up subscriptions
+
+      // Clean up subscriptions and tracking data
       _statsSubs[torrentId]?.cancel();
       _statsSubs.remove(torrentId);
       _torrentIds.remove(torrentKey);
-      
+      _currentStats.remove(torrentKey);
+      _currentMetadata.remove(torrentKey);
+      _completedTorrents.remove(torrentKey);
+
       FlutterForegroundTask.sendDataToMain({
         'type': 'download_removed',
         'torrentKey': torrentKey,
         'torrentId': torrentId,
         'success': true,
       });
-      
     } catch (e) {
       final String torrentKey = command['torrentKey'] ?? 'unknown';
       _sendError(torrentKey, 'Failed to remove download: $e');
@@ -242,21 +318,20 @@ class TorrentTaskHandler extends TaskHandler {
     try {
       final String torrentKey = command['torrentKey'];
       final int? torrentId = _torrentIds[torrentKey];
-      
+
       if (torrentId == null) {
         _sendError(torrentKey, 'Torrent not found');
         return;
       }
-      
+
       final TorrentInfo info = await SimpleTorrent.getTorrentInfo(torrentId);
-      
+
       FlutterForegroundTask.sendDataToMain({
         'type': 'torrent_state',
         'torrentKey': torrentKey,
         'torrentId': torrentId,
         'info': _serializeTorrentInfo(info),
       });
-      
     } catch (e) {
       final String torrentKey = command['torrentKey'] ?? 'unknown';
       _sendError(torrentKey, 'Failed to get torrent state: $e');
@@ -268,36 +343,63 @@ class TorrentTaskHandler extends TaskHandler {
     for (final entry in _torrentIds.entries) {
       final torrentKey = entry.key;
       final torrentId = entry.value;
-      
+
       if (torrentId == metadata.id) {
+        // Store the metadata for notification updates
+        _currentMetadata[torrentKey] = metadata;
+
         FlutterForegroundTask.sendDataToMain({
           'type': 'metadata_update',
           'torrentKey': torrentKey,
           'torrentId': torrentId,
-          'metadata': _serializeTorrentMetadata(metadata),
+          'metadata': metadata.toMap(),
         });
         break;
       }
     }
   }
 
-  void _listenToTorrent(int torrentId, String torrentKey, Stream<TorrentStats> statsStream) {
+  void _listenToTorrent(
+    int torrentId,
+    String torrentKey,
+    Stream<TorrentStats> statsStream,
+  ) {
     _statsSubs[torrentId]?.cancel();
 
     final sub = statsStream.listen(
       (stats) {
+        // Store current stats for notification updates
+        _currentStats[torrentKey] = stats;
+
+        // Track completion status
+        _completedTorrents[torrentKey] = stats.progress >= 1.0;
+
         FlutterForegroundTask.sendDataToMain({
           'type': 'stats_update',
           'torrentKey': torrentKey,
           'torrentId': torrentId,
-          'stats': _serializeTorrentStats(stats),
+          'stats': stats.toMap(),
         });
 
-        // Auto-cleanup completed torrents
-        if (stats.progress >= 100) {
+        // Auto-cleanup completed torrents but keep them for final notification
+        if (stats.progress >= 1.0) {
           print('✅ Torrent completed for $torrentKey');
+
+          // Show individual completion notification
+          SimpleTorrent.finalise(torrentId);
+          _showTorrentCompletionNotification(torrentKey);
+
           _statsSubs[torrentId]?.cancel();
           _statsSubs.remove(torrentId);
+
+          // Check if all torrents are now complete
+          final allComplete = _completedTorrents.values.every(
+            (completed) => completed,
+          );
+          if (allComplete && _torrentIds.isNotEmpty) {
+            // Trigger final notification update
+            _updateNotificationWithProgress();
+          }
         }
       },
       onError: (error) {
@@ -311,14 +413,14 @@ class TorrentTaskHandler extends TaskHandler {
 
   void _broadcastTorrentStates() async {
     final Map<String, dynamic> allStates = {};
-    
+
     for (final entry in _torrentIds.entries) {
       final String torrentKey = entry.key;
       final int torrentId = entry.value;
-      
+
       try {
         final TorrentInfo? info = await SimpleTorrent.getTorrentInfo(torrentId);
-        
+
         allStates[torrentKey] = {
           'torrentId': torrentId,
           'info': _serializeTorrentInfo(info),
@@ -328,7 +430,7 @@ class TorrentTaskHandler extends TaskHandler {
         print('Error getting state for $torrentKey: $e');
       }
     }
-    
+
     if (allStates.isNotEmpty) {
       FlutterForegroundTask.sendDataToMain({
         'type': 'bulk_torrent_states',
@@ -374,31 +476,30 @@ class TorrentTaskHandler extends TaskHandler {
   // Serialization helpers
   Map<String, dynamic>? _serializeTorrentInfo(TorrentInfo? info) {
     if (info == null) return null;
-    return {
-      'toString': info.toString(),
-    };
+    return {'toString': info.toString()};
   }
 
-  Map<String, dynamic>? _serializeTorrentStats(TorrentStats? stats) {
-    if (stats == null) return null;
-    return {
-      'progress': stats.progress,
-      'downloadRate': stats.downloadRate,
-      'uploadRate': stats.uploadRate,
-      'seeds': stats.seeds,
-      'peers': stats.peers,
-      'phase': stats.phase,
-      'state': stats.state?.name ?? 'unknown',
-    };
+  void _showTorrentCompletionNotification(String torrentKey) {
+    // Get the metadata for display name
+    final metadata = _currentMetadata[torrentKey];
+    final displayName = metadata?.name ?? torrentKey;
+
+    // Show a separate completion notification for this specific torrent
+    FlutterForegroundTask.sendDataToMain({
+      'type': 'show_completion_notification',
+      'torrentKey': torrentKey,
+      'displayName': displayName,
+      'message': 'Download completed: $displayName',
+    });
+
+    print('🎉 Showing completion notification for: $displayName');
   }
 
-  Map<String, dynamic>? _serializeTorrentMetadata(TorrentMetadata? metadata) {
-    if (metadata == null) return null;
-    return {
-      'id': metadata.id,
-      'name': metadata.name,
-      'totalBytes': metadata.totalBytes,
-      'fileCount': metadata.fileCount,
-    };
+  String _formatBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    if (bytes < 1024 * 1024 * 1024)
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
 }

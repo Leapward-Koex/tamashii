@@ -23,17 +23,6 @@ class TorrentDownloadState {
   final bool isLoading;
   final bool isPaused;
   final String? errorMessage;
-  
-  // Custom fields for tracking serialized data from foreground service
-  final double? customProgress;
-  final int? customDownloadRate;
-  final int? customUploadRate;
-  final int? customSeeds;
-  final int? customPeers;
-  final String? customDisplayName;
-  final int? customTotalBytes;
-  final int? customFileCount;
-  final String? customState; // Add custom state tracking
 
   const TorrentDownloadState({
     this.torrentId, 
@@ -42,15 +31,6 @@ class TorrentDownloadState {
     this.isLoading = false, 
     this.isPaused = false, 
     this.errorMessage,
-    this.customProgress,
-    this.customDownloadRate,
-    this.customUploadRate,
-    this.customSeeds,
-    this.customPeers,
-    this.customDisplayName,
-    this.customTotalBytes,
-    this.customFileCount,
-    this.customState,
   });
 
   TorrentDownloadState copyWith({
@@ -61,15 +41,6 @@ class TorrentDownloadState {
     bool? isPaused,
     String? errorMessage,
     bool clearError = false,
-    double? customProgress,
-    int? customDownloadRate,
-    int? customUploadRate,
-    int? customSeeds,
-    int? customPeers,
-    String? customDisplayName,
-    int? customTotalBytes,
-    int? customFileCount,
-    String? customState,
   }) {
     return TorrentDownloadState(
       torrentId: torrentId ?? this.torrentId,
@@ -78,74 +49,29 @@ class TorrentDownloadState {
       isLoading: isLoading ?? this.isLoading,
       isPaused: isPaused ?? this.isPaused,
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
-      customProgress: customProgress ?? this.customProgress,
-      customDownloadRate: customDownloadRate ?? this.customDownloadRate,
-      customUploadRate: customUploadRate ?? this.customUploadRate,
-      customSeeds: customSeeds ?? this.customSeeds,
-      customPeers: customPeers ?? this.customPeers,
-      customDisplayName: customDisplayName ?? this.customDisplayName,
-      customTotalBytes: customTotalBytes ?? this.customTotalBytes,
-      customFileCount: customFileCount ?? this.customFileCount,
-      customState: customState ?? this.customState,
     );
   }
 
-  // Custom copyWith methods for foreground service updates
-  TorrentDownloadState copyWithCustomProgress({
-    required double progress,
-    required int downloadRate,
-    required int uploadRate,
-    required int seeds,
-    required int peers,
-    String? state,
-  }) {
-    return copyWith(
-      customProgress: progress,
-      customDownloadRate: downloadRate,
-      customUploadRate: uploadRate,
-      customSeeds: seeds,
-      customPeers: peers,
-      customState: state,
-    );
-  }
+  // Custom copyWith methods for foreground service updates (removed - using proper objects now)
 
-  TorrentDownloadState copyWithCustomMetadata({
-    required String displayName,
-    required int totalBytes,
-    required int fileCount,
-  }) {
-    return copyWith(
-      customDisplayName: displayName,
-      customTotalBytes: totalBytes,
-      customFileCount: fileCount,
-    );
-  }
-
-  double get progressFraction => (customProgress ?? stats?.progress ?? 0) / 100.0;
-  int get downloadRate => customDownloadRate ?? stats?.downloadRate ?? 0;
-  bool get isCompleted => (customProgress ?? stats?.progress ?? 0) >= 100;
-  int get uploadRate => customUploadRate ?? stats?.uploadRate ?? 0;
-  bool get isDownloading => torrentId != null && (customProgress ?? stats?.progress ?? 0) < 100;
+  double get progressFraction => stats?.progress ?? 0;
+  int get downloadRate => stats?.downloadRate ?? 0;
+  bool get isCompleted => (stats?.progress ?? 0) >= 1.0;
+  int get uploadRate => stats?.uploadRate ?? 0;
+  bool get isDownloading => torrentId != null && (stats?.progress ?? 0) < 1.0;
 
   // Enhanced state information
-  String get displayName => customDisplayName ?? metadata?.name ?? 'Unknown';
+  String get displayName => metadata?.name ?? 'Unknown';
   String get formattedSize {
-    final totalBytes = customTotalBytes ?? metadata?.totalBytes;
+    final totalBytes = metadata?.totalBytes;
     return totalBytes != null ? _formatBytes(totalBytes) : 'Unknown';
   }
-  TorrentState get currentState {
-    // Use custom state from foreground service if available
-    if (customState != null) {
-      return _parseTorrentState(customState!);
-    }
-    // Fall back to stats state
-    return stats?.state ?? TorrentState.starting;
-  }
+  TorrentState get currentState => stats?.state ?? TorrentState.starting;
   
-  // Additional getters for custom stats
-  int get seeds => customSeeds ?? 0;
-  int get peers => customPeers ?? 0;
-  int get fileCount => customFileCount ?? 0;
+  // Additional getters for stats
+  int get seeds => stats?.seeds ?? 0;
+  int get peers => stats?.peers ?? 0;
+  int get fileCount => metadata?.fileCount ?? 0;
 
   static String _formatBytes(int bytes) {
     if (bytes < 1024) return '$bytes B';
@@ -157,27 +83,6 @@ class TorrentDownloadState {
       index++;
     }
     return '${value.toStringAsFixed(1)} ${units[index]}';
-  }
-
-  static TorrentState _parseTorrentState(String stateName) {
-    switch (stateName.toLowerCase()) {
-      case 'starting':
-        return TorrentState.starting;
-      case 'downloadingmetadata':
-        return TorrentState.downloadingMetadata;
-      case 'downloading':
-        return TorrentState.downloading;
-      case 'seeding':
-        return TorrentState.seeding;
-      case 'paused':
-        return TorrentState.paused;
-      case 'error':
-        return TorrentState.error;
-      case 'stopped':
-        return TorrentState.stopped;
-      default:
-        return TorrentState.starting;
-    }
   }
 }
 
@@ -284,7 +189,7 @@ class TorrentManager extends _$TorrentManager {
         _update(showId, current.copyWith(stats: stats));
 
         // Auto-cleanup completed torrents
-        if (stats.progress >= 100) {
+        if (stats.progress >= 1.0) {
           debugPrint('✅ Torrent completed for $showId');
           _statsSubs[torrentId]?.cancel();
           _statsSubs.remove(torrentId);

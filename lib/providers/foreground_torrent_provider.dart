@@ -5,7 +5,9 @@ import 'dart:io';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+import 'package:simple_torrent/simple_torrent.dart';
 import '../services/torrent_foreground_task.dart';
+import '../services/notification_service.dart';
 import '../providers/torrent_download_provider.dart';
 
 part 'foreground_torrent_provider.g.dart';
@@ -20,7 +22,7 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
   TorrentManagerState build() {
     // Add callback to receive data from the foreground service
     FlutterForegroundTask.addTaskDataCallback(_onReceiveTaskData);
-    
+
     ref.onDispose(() {
       _dataSubscription?.cancel();
       // Remove the callback when disposing
@@ -28,7 +30,21 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
       _stopForegroundService();
     });
 
+    // Initialize permissions and communication port but don't start service
+    _initializeWithoutStarting();
+
     return const TorrentManagerState();
+  }
+
+  Future<void> _initializeWithoutStarting() async {
+    // Initialize communication port first
+    FlutterForegroundTask.initCommunicationPort();
+
+    // Request permissions
+    await _requestPermissions();
+
+    // Initialize the service configuration but don't start it
+    _initService();
   }
 
   // Callback to receive data sent from the TaskHandler
@@ -37,25 +53,32 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
     handleServiceData(data);
   }
 
-  Future<void> initializeForegroundService() async {
-    // Initialize communication port first
-    FlutterForegroundTask.initCommunicationPort();
-    
-    // Request permissions
-    await _requestPermissions();
-    
-    // Initialize the service
-    _initService();
-    
-    // Start the service if not already running
-    if (!_isServiceRunning) {
-      await _startForegroundService();
+  Future<void> _startForegroundServiceIfNeeded() async {
+    if (_isServiceRunning) return;
+
+    if (await FlutterForegroundTask.isRunningService) {
+      await FlutterForegroundTask.restartService();
+    } else {
+      await FlutterForegroundTask.startService(
+        serviceId: 256,
+        notificationTitle: 'Tamashii - Starting Downloads',
+        notificationText: 'Initializing torrent downloads...',
+        notificationIcon: null,
+        notificationButtons: [
+          const NotificationButton(id: 'pause_all', text: 'Pause All'),
+          const NotificationButton(id: 'resume_all', text: 'Resume All'),
+        ],
+        callback: startTorrentCallback,
+      );
     }
+
+    _isServiceRunning = true;
   }
 
   Future<void> _requestPermissions() async {
     // Request notification permission
-    final notificationPermission = await FlutterForegroundTask.checkNotificationPermission();
+    final notificationPermission =
+        await FlutterForegroundTask.checkNotificationPermission();
     if (notificationPermission != NotificationPermission.granted) {
       await FlutterForegroundTask.requestNotificationPermission();
     }
@@ -83,34 +106,15 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
         playSound: false,
       ),
       foregroundTaskOptions: ForegroundTaskOptions(
-        eventAction: ForegroundTaskEventAction.repeat(5000), // Update every 5 seconds
-        autoRunOnBoot: true,
-        autoRunOnMyPackageReplaced: true,
+        eventAction: ForegroundTaskEventAction.repeat(
+          5000,
+        ), // Update every 5 seconds
+        autoRunOnBoot: false, // Don't auto-start on boot
+        autoRunOnMyPackageReplaced: false, // Don't auto-restart
         allowWakeLock: true,
         allowWifiLock: true,
       ),
     );
-  }
-
-  Future<void> _startForegroundService() async {
-    if (await FlutterForegroundTask.isRunningService) {
-      await FlutterForegroundTask.restartService();
-    } else {
-      await FlutterForegroundTask.startService(
-        serviceId: 256,
-        notificationTitle: 'Tamashii - Torrent Service',
-        notificationText: 'Managing torrent downloads',
-        notificationIcon: null,
-        notificationButtons: [
-          const NotificationButton(id: 'pause_all', text: 'Pause All'),
-          const NotificationButton(id: 'resume_all', text: 'Resume All'),
-        ],
-        callback: startTorrentCallback,
-      );
-      
-      // Assume success since startService completed without exception
-      _isServiceRunning = true;
-    }
   }
 
   Future<void> _stopForegroundService() async {
@@ -120,16 +124,39 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
     }
   }
 
-  // Public methods to control downloads
-  Future<void> startDownload(String torrentKey, String magnetUri, String downloadPath) async {
-    if (!_isServiceRunning) {
-      await initializeForegroundService();
+  void _checkAndStopServiceIfIdle() {
+    // Stop service if no active downloads and all torrents are complete or removed
+    final activeTorrents =
+        state.torrents.values
+            .where(
+              (torrent) => torrent.torrentId != null && !torrent.isCompleted,
+            )
+            .length;
+
+    if (activeTorrents == 0 && _isServiceRunning) {
+      _stopForegroundService();
     }
-    
+  }
+
+  // Public methods to control downloads
+  Future<void> startDownload(
+    String torrentKey,
+    String magnetUri,
+    String downloadPath,
+  ) async {
+    // Start the service only when we actually need to download something
+    if (!_isServiceRunning) {
+      await _startForegroundServiceIfNeeded();
+    }
+
     // Set loading state immediately
-    final currentState = state.torrents[torrentKey] ?? const TorrentDownloadState();
-    _updateTorrentState(torrentKey, currentState.copyWith(isLoading: true, clearError: true));
-    
+    final currentState =
+        state.torrents[torrentKey] ?? const TorrentDownloadState();
+    _updateTorrentState(
+      torrentKey,
+      currentState.copyWith(isLoading: true, clearError: true),
+    );
+
     // Send command to service
     FlutterForegroundTask.sendDataToTask({
       'type': 'start_download',
@@ -170,7 +197,9 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
   String _formatBytes(int bytes) {
     if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    if (bytes < 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
 
@@ -178,43 +207,49 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
   void handleServiceData(dynamic data) {
     if (data is Map<String, dynamic>) {
       final String? type = data['type'];
-      
+
       switch (type) {
         case 'service_ready':
           print('✅ Foreground service is ready');
           break;
-          
+
         case 'download_started':
           _handleDownloadStarted(data);
           break;
-          
+
         case 'download_paused':
         case 'download_resumed':
         case 'download_removed':
           _handleTorrentStatusUpdate(data);
           break;
-          
+
         case 'stats_update':
           _handleStatsUpdate(data);
           break;
-          
+
         case 'metadata_update':
           _handleMetadataUpdate(data);
           break;
-          
+
         case 'bulk_torrent_states':
           _handleBulkStates(data);
           break;
-          
+
         case 'all_paused':
         case 'all_resumed':
-          print('📢 ${type == 'all_paused' ? 'All torrents paused' : 'All torrents resumed'}');
+          print(
+            '📢 ${type == 'all_paused' ? 'All torrents paused' : 'All torrents resumed'}',
+          );
           break;
-          
+
         case 'error':
           _handleError(data);
           break;
-          
+
+        case 'show_completion_notification':
+          _handleCompletionNotification(data);
+          break;
+
         default:
           print('🔍 Unknown data type from service: $type');
       }
@@ -224,9 +259,10 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
   void _handleDownloadStarted(Map<String, dynamic> data) {
     final String? torrentKey = data['torrentKey'];
     final int? torrentId = data['torrentId'];
-    
+
     if (torrentKey != null && torrentId != null) {
-      final currentState = state.torrents[torrentKey] ?? const TorrentDownloadState();
+      final currentState =
+          state.torrents[torrentKey] ?? const TorrentDownloadState();
       final newState = currentState.copyWith(
         torrentId: torrentId,
         isLoading: false,
@@ -240,12 +276,13 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
   void _handleTorrentStatusUpdate(Map<String, dynamic> data) {
     final String? torrentKey = data['torrentKey'];
     final String? type = data['type'];
-    
+
     if (torrentKey == null || type == null) return;
-    
-    final currentState = state.torrents[torrentKey] ?? const TorrentDownloadState();
+
+    final currentState =
+        state.torrents[torrentKey] ?? const TorrentDownloadState();
     TorrentDownloadState newState;
-    
+
     switch (type) {
       case 'download_paused':
         newState = currentState.copyWith(isPaused: true);
@@ -262,102 +299,137 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
       default:
         return;
     }
-    
+
     _updateTorrentState(torrentKey, newState);
+
+    // Check if we should stop the service after a torrent is removed
+    if (type == 'download_removed') {
+      _checkAndStopServiceIfIdle();
+    }
   }
 
   void _handleStatsUpdate(Map<String, dynamic> data) {
     final String? torrentKey = data['torrentKey'];
     final Map<String, dynamic>? statsData = data['stats'];
-    
+
     if (torrentKey == null || statsData == null) return;
-    
-    final currentState = state.torrents[torrentKey] ?? const TorrentDownloadState();
-    
-    // Extract progress information from serialized data
-    final progress = (statsData['progress'] as num?)?.toDouble() ?? 0.0;
-    final downloadRate = statsData['downloadRate'] ?? 0;
-    final uploadRate = statsData['uploadRate'] ?? 0;
-    final seeds = statsData['seeds'] ?? 0;
-    final peers = statsData['peers'] ?? 0;
-    final torrentState = statsData['state'] as String?; // Extract state
-    
-    // Create a new state with custom progress tracking
-    final newState = currentState.copyWithCustomProgress(
-      progress: progress,
-      downloadRate: downloadRate,
-      uploadRate: uploadRate,
-      seeds: seeds,
-      peers: peers,
-      state: torrentState, // Pass the state
-    );
-    
-    _updateTorrentState(torrentKey, newState);
-    
-    // Log the stats for debugging
-    print('📊 Stats update for $torrentKey: ${progress.toStringAsFixed(1)}% (${_formatBytes(downloadRate)}/s) - State: ${torrentState ?? 'unknown'}');
+
+    final currentState =
+        state.torrents[torrentKey] ?? const TorrentDownloadState();
+
+    // Recreate TorrentStats from serialized data using fromMap()
+    try {
+      final stats = TorrentStats.fromMap(statsData);
+      final newState = currentState.copyWith(stats: stats);
+
+      _updateTorrentState(torrentKey, newState);
+
+      // Check if we should stop the service after this update
+      if (stats.progress >= 1.0) {
+        _checkAndStopServiceIfIdle();
+      }
+
+      // Log the stats for debugging
+      print(
+        '📊 Stats update for $torrentKey: ${(stats.progress * 100).toStringAsFixed(1)}% (${_formatBytes(stats.downloadRate)}/s) - State: ${stats.state?.name ?? 'unknown'}',
+      );
+    } catch (e) {
+      print('❌ Failed to recreate TorrentStats from serialized data: $e');
+    }
   }
 
   void _handleMetadataUpdate(Map<String, dynamic> data) {
     final String? torrentKey = data['torrentKey'];
     final Map<String, dynamic>? metadataData = data['metadata'];
-    
+
     if (torrentKey == null || metadataData == null) return;
-    
-    final currentState = state.torrents[torrentKey] ?? const TorrentDownloadState();
-    
-    // Extract metadata information from serialized data
-    final name = metadataData['name'] as String? ?? 'Unknown';
-    final totalBytes = metadataData['totalBytes'] as int? ?? 0;
-    final fileCount = metadataData['fileCount'] as int? ?? 0;
-    
-    // Create a new state with custom metadata tracking
-    final newState = currentState.copyWithCustomMetadata(
-      displayName: name,
-      totalBytes: totalBytes,
-      fileCount: fileCount,
-    );
-    
-    _updateTorrentState(torrentKey, newState);
-    
-    print('📋 Metadata updated for $torrentKey: $name');
+
+    final currentState =
+        state.torrents[torrentKey] ?? const TorrentDownloadState();
+
+    // Recreate TorrentMetadata from serialized data using fromMap()
+    try {
+      final metadata = TorrentMetadata.fromMap(metadataData);
+      final newState = currentState.copyWith(metadata: metadata);
+
+      _updateTorrentState(torrentKey, newState);
+
+      print('📋 Metadata updated for $torrentKey: ${metadata.name}');
+    } catch (e) {
+      print('❌ Failed to recreate TorrentMetadata from serialized data: $e');
+    }
   }
 
   void _handleBulkStates(Map<String, dynamic> data) {
     final Map<String, dynamic>? states = data['states'];
     if (states == null) return;
-    
-    final Map<String, TorrentDownloadState> newTorrents = Map.from(state.torrents);
-    
+
+    final Map<String, TorrentDownloadState> newTorrents = Map.from(
+      state.torrents,
+    );
+
     for (final entry in states.entries) {
       final String torrentKey = entry.key;
       final Map<String, dynamic> stateData = entry.value;
       final int? torrentId = stateData['torrentId'];
-      
+
       if (torrentId != null) {
-        final currentState = newTorrents[torrentKey] ?? const TorrentDownloadState();
+        final currentState =
+            newTorrents[torrentKey] ?? const TorrentDownloadState();
         // Update with current torrent ID if it's different
         if (currentState.torrentId != torrentId) {
           newTorrents[torrentKey] = currentState.copyWith(torrentId: torrentId);
         }
       }
     }
-    
+
     state = state.copyWith(torrents: newTorrents);
   }
 
   void _handleError(Map<String, dynamic> data) {
     final String? torrentKey = data['torrentKey'];
     final String? message = data['message'];
-    
+
     if (torrentKey != null && message != null) {
-      final currentState = state.torrents[torrentKey] ?? const TorrentDownloadState();
+      final currentState =
+          state.torrents[torrentKey] ?? const TorrentDownloadState();
       final newState = currentState.copyWith(
         errorMessage: message,
         isLoading: false,
       );
       _updateTorrentState(torrentKey, newState);
       print('❌ Error for $torrentKey: $message');
+    }
+  }
+
+  void _handleCompletionNotification(Map<String, dynamic> data) {
+    final String? torrentKey = data['torrentKey'];
+    final String? displayName = data['displayName'];
+    final String? message = data['message'];
+
+    if (torrentKey != null && displayName != null && message != null) {
+      print('🎉 Torrent completed: $displayName');
+
+      // Show a local notification using flutter_foreground_task's notification capability
+      // We can send a separate notification by temporarily updating the service notification
+      // with completion info, then reverting back to the main notification
+      _showCompletionNotificationToUser(displayName, message);
+    }
+  }
+
+  void _showCompletionNotificationToUser(
+    String displayName,
+    String message,
+  ) async {
+    // Show a proper local notification using flutter_local_notifications
+    try {
+      await NotificationService.showTorrentCompletionNotification(
+        torrentName: displayName,
+        message: message,
+      );
+      print('📱 Local notification shown for: $displayName');
+    } catch (e) {
+      print('❌ Failed to show notification: $e');
     }
   }
 }
