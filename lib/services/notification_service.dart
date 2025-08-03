@@ -65,7 +65,7 @@ class NotificationService {
 
     await _notifications.show(
       notificationId,
-      'Download Complete! 🎉',
+      'Download Complete',
       message,
       notificationDetails,
     );
