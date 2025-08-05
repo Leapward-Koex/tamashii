@@ -10,6 +10,7 @@ import '../services/torrent_foreground_task.dart';
 import '../services/notification_service.dart';
 import '../services/permission_service.dart';
 import '../providers/torrent_download_provider.dart';
+import 'downloaded_torrents_provider.dart';
 
 part 'foreground_torrent_provider.g.dart';
 
@@ -18,6 +19,7 @@ part 'foreground_torrent_provider.g.dart';
 class ForegroundTorrentManager extends _$ForegroundTorrentManager {
   bool _isServiceRunning = false;
   StreamSubscription<dynamic>? _dataSubscription;
+  final Map<String, String> _downloadPaths = {}; // torrentKey -> downloadPath
 
   @override
   TorrentManagerState build() {
@@ -192,6 +194,9 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
       if (!_isServiceRunning) {
         await _startForegroundServiceIfNeeded();
       }
+
+      // Record download path for later persistence
+      _downloadPaths[torrentKey] = downloadPath;
 
       // Send command to service
       FlutterForegroundTask.sendDataToTask({
@@ -385,8 +390,13 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
 
       _updateTorrentState(torrentKey, newState);
 
-      // Check if we should stop the service after this update
+      // Persist completed download and stop service if idle
       if (stats.progress >= 1.0) {
+        if (_downloadPaths.containsKey(torrentKey)) {
+          ref
+              .read(downloadedTorrentsProvider.notifier)
+              .addDownloaded(torrentKey);
+        }
         _checkAndStopServiceIfIdle();
       }
 
@@ -470,6 +480,11 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
 
     if (torrentKey != null && displayName != null && message != null) {
       print('🎉 Torrent completed: $displayName');
+
+      // Persist completion info
+      if (_downloadPaths.containsKey(torrentKey)) {
+        ref.read(downloadedTorrentsProvider.notifier).addDownloaded(torrentKey);
+      }
 
       // Show a local notification using flutter_foreground_task's notification capability
       // We can send a separate notification by temporarily updating the service notification

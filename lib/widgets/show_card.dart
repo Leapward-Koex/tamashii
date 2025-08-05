@@ -1,6 +1,5 @@
 // lib/widgets/show_card.dart
 
-import 'dart:async';
 import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:file_picker/file_picker.dart'; // Ensure FilePicker is imported
@@ -9,7 +8,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:tamashii/providers/settings_provider.dart';
-import 'package:tamashii/providers/foreground_torrent_provider.dart'; // Added for background service
+import 'package:tamashii/providers/foreground_torrent_provider.dart'; // Foreground / background service
+import 'package:tamashii/providers/downloaded_torrents_provider.dart';
 import 'package:simple_torrent/simple_torrent.dart'; // For TorrentState
 
 import '../models/show_models.dart';
@@ -18,7 +18,7 @@ import '../providers/subsplease_api_providers.dart';
 
 /// A card widget displaying a show's poster, title, episode, torrent progress,
 /// upload / download stats, and action buttons (download + bookmark).
-class ShowCard extends HookConsumerWidget {
+class ShowCard extends ConsumerWidget {
   final ShowInfo show;
   const ShowCard({super.key, required this.show});
 
@@ -120,6 +120,11 @@ class ShowCard extends HookConsumerWidget {
       foregroundTorrentForShowProvider(torrentKey),
     );
 
+    // Persistent downloaded files map
+    final downloadedSet =
+        ref.watch(downloadedTorrentsProvider).value ?? <String>{};
+    final bool isDownloaded = downloadedSet.contains(torrentKey);
+
     // Derived values from stats
     final double progressFraction = torrentDownloadState.progressFraction;
     final int downloadRate = torrentDownloadState.downloadRate;
@@ -143,20 +148,49 @@ class ShowCard extends HookConsumerWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            // Poster - Fixed width to maintain aspect ratio
+            // Poster with "downloaded" badge overlay
             SizedBox(
               width: 120, // Maintains roughly 2:3 aspect ratio (120x180)
-              child: CachedNetworkImage(
-                imageUrl: imageUrl,
-                fit: BoxFit.cover,
-                placeholder:
-                    (context, url) => const SizedBox(
-                      child: Center(child: CircularProgressIndicator()),
+              height: 180,
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: CachedNetworkImage(
+                      imageUrl: imageUrl,
+                      fit: BoxFit.cover,
+                      placeholder:
+                          (context, url) =>
+                              const Center(child: CircularProgressIndicator()),
+                      errorWidget:
+                          (context, url, error) => const Center(
+                            child: Icon(Icons.broken_image, size: 40),
+                          ),
                     ),
-                errorWidget:
-                    (context, url, error) => const SizedBox(
-                      child: Center(child: Icon(Icons.broken_image, size: 40)),
+                  ),
+                  if (isDownloaded)
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.green,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        child: const Text(
+                          'DOWNLOADED',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
                     ),
+                ],
               ),
             ),
             // Content area
@@ -289,6 +323,8 @@ class ShowCard extends HookConsumerWidget {
                                         ? Icons.pause_circle_filled_rounded
                                         : isPaused
                                         ? Icons.play_circle_filled_rounded
+                                        : isDownloaded
+                                        ? Icons.replay
                                         : Icons.download_rounded,
                                   ),
                           onPressed:
@@ -316,6 +352,43 @@ class ShowCard extends HookConsumerWidget {
                                           .resumeDownload(torrentKey);
                                       return;
                                     }
+
+                                    // Recheck / redownload existing file
+                                    if (isDownloaded && !isDownloading) {
+                                      final String? seriesDownloadPath =
+                                          await _determineDownloadPath(
+                                            context: context,
+                                            ref: ref,
+                                            showInfo: show,
+                                            currentMappings:
+                                                seriesMappingSettings
+                                                    .valueOrNull ??
+                                                <String, String>{},
+                                            isAutoGenEnabled:
+                                                autoGenSettings.valueOrNull ??
+                                                true,
+                                            currentBasePath:
+                                                basePathSettings.valueOrNull ??
+                                                '',
+                                            seriesMappingNotifier:
+                                                seriesMappingNotifier,
+                                          );
+                                      if (seriesDownloadPath != null &&
+                                          seriesDownloadPath.isNotEmpty) {
+                                        await ref
+                                            .read(
+                                              foregroundTorrentManagerProvider
+                                                  .notifier,
+                                            )
+                                            .startDownload(
+                                              torrentKey,
+                                              show.downloads.first.magnet,
+                                              seriesDownloadPath,
+                                            );
+                                      }
+                                      return;
+                                    }
+
                                     if (torrentDownloadState.isCompleted) {
                                       ScaffoldMessenger.of(
                                         context,

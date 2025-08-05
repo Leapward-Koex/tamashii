@@ -4,6 +4,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:simple_torrent/simple_torrent.dart';
 import '../services/permission_service.dart';
+import 'downloaded_torrents_provider.dart';
 
 part 'torrent_download_provider.g.dart';
 
@@ -162,7 +163,7 @@ class TorrentManager extends _$TorrentManager {
         displayName: 'Anime Episode', // Could be customized per show
       );
 
-      _listenToTorrent(id, showId, statsStream);
+      _listenToTorrent(id, showId, statsStream, path);
       _update(showId, current.copyWith(torrentId: id, isLoading: false));
 
       debugPrint('🎬 Started torrent for $showId with ID: $id');
@@ -210,6 +211,7 @@ class TorrentManager extends _$TorrentManager {
     int torrentId,
     String showId,
     Stream<TorrentStats> statsStream,
+    String downloadDir,
   ) {
     _statsSubs[torrentId]?.cancel();
 
@@ -221,6 +223,10 @@ class TorrentManager extends _$TorrentManager {
         // Auto-cleanup completed torrents
         if (stats.progress >= 1.0) {
           debugPrint('✅ Torrent completed for $showId');
+
+          // Persist downloaded info
+          ref.read(downloadedTorrentsProvider.notifier).addDownloaded(showId);
+
           _statsSubs[torrentId]?.cancel();
           _statsSubs.remove(torrentId);
         }

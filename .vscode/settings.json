@@ -1,3 +1,6 @@
 {
-    "cmake.ignoreCMakeListsMissing": true
+    "cmake.ignoreCMakeListsMissing": true,
+    "[dart]": {
+        "editor.rulers": [140]
+    }
 }
