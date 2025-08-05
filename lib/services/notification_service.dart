@@ -20,10 +20,19 @@ class NotificationService {
           requestSoundPermission: true,
         );
 
+    const WindowsInitializationSettings initializationSettingsWindows =
+        WindowsInitializationSettings(
+          appName: 'Tamashii',
+          appUserModelId: 'com.leapwardkoex.tamashii',
+          // Search online for GUID generators to make your own
+          guid: '949ba289-6ae5-4e94-8f8a-b17a9472997c',
+        );
+
     const InitializationSettings initializationSettings =
         InitializationSettings(
           android: initializationSettingsAndroid,
           iOS: initializationSettingsIOS,
+          windows: initializationSettingsWindows,
         );
 
     await _notifications.initialize(initializationSettings);
