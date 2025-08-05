@@ -21,23 +21,27 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
 
   @override
   TorrentManagerState build() {
-    // Add callback to receive data from the foreground service
-    FlutterForegroundTask.addTaskDataCallback(_onReceiveTaskData);
+    if (Platform.isAndroid) {
+      // Add callback to receive data from the foreground service
+      FlutterForegroundTask.addTaskDataCallback(_onReceiveTaskData);
 
-    ref.onDispose(() {
-      _dataSubscription?.cancel();
-      // Remove the callback when disposing
-      FlutterForegroundTask.removeTaskDataCallback(_onReceiveTaskData);
-      _stopForegroundService();
-    });
+      ref.onDispose(() {
+        _dataSubscription?.cancel();
+        // Remove the callback when disposing
+        FlutterForegroundTask.removeTaskDataCallback(_onReceiveTaskData);
+        _stopForegroundService();
+      });
 
-    // Initialize permissions and communication port but don't start service
-    _initializeWithoutStarting();
+      // Initialize permissions and communication port but don't start service
+      _initializeWithoutStarting();
+    }
 
     return const TorrentManagerState();
   }
 
   Future<void> _initializeWithoutStarting() async {
+    if (!Platform.isAndroid) return;
+
     // Initialize communication port first
     FlutterForegroundTask.initCommunicationPort();
 
@@ -55,6 +59,8 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
   }
 
   Future<void> _startForegroundServiceIfNeeded() async {
+    if (!Platform.isAndroid) return;
+
     if (_isServiceRunning) return;
 
     if (await FlutterForegroundTask.isRunningService) {
@@ -119,6 +125,8 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
   }
 
   Future<void> _stopForegroundService() async {
+    if (!Platform.isAndroid) return;
+
     if (_isServiceRunning) {
       await FlutterForegroundTask.stopService();
       _isServiceRunning = false;
@@ -145,6 +153,16 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
     String magnetUri,
     String downloadPath,
   ) async {
+    if (!Platform.isAndroid) {
+      // On non-Android platforms, fall back to the standard torrent manager
+      await ref
+          .read(torrentManagerProvider.notifier)
+          .startDownload(torrentKey, magnetUri, downloadPath);
+      return;
+    }
+
+    // Android: proceed with foreground-service based logic
+
     // Set loading state immediately
     final currentState =
         state.torrents[torrentKey] ?? const TorrentDownloadState();
@@ -193,6 +211,11 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
   }
 
   Future<void> pauseDownload(String torrentKey) async {
+    if (!Platform.isAndroid) {
+      await ref.read(torrentManagerProvider.notifier).pauseDownload(torrentKey);
+      return;
+    }
+
     FlutterForegroundTask.sendDataToTask({
       'type': 'pause_download',
       'torrentKey': torrentKey,
@@ -200,6 +223,13 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
   }
 
   Future<void> resumeDownload(String torrentKey) async {
+    if (!Platform.isAndroid) {
+      await ref
+          .read(torrentManagerProvider.notifier)
+          .resumeDownload(torrentKey);
+      return;
+    }
+
     FlutterForegroundTask.sendDataToTask({
       'type': 'resume_download',
       'torrentKey': torrentKey,
@@ -207,6 +237,11 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
   }
 
   Future<void> removeDownload(String torrentKey) async {
+    if (!Platform.isAndroid) {
+      await ref.read(torrentManagerProvider.notifier).stopDownload(torrentKey);
+      return;
+    }
+
     FlutterForegroundTask.sendDataToTask({
       'type': 'remove_download',
       'torrentKey': torrentKey,
@@ -463,6 +498,11 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
 // Provider for individual torrent states
 @riverpod
 TorrentDownloadState foregroundTorrentForShow(Ref ref, String showId) {
-  final manager = ref.watch(foregroundTorrentManagerProvider);
-  return manager.torrents[showId] ?? const TorrentDownloadState();
+  if (Platform.isAndroid) {
+    final manager = ref.watch(foregroundTorrentManagerProvider);
+    return manager.torrents[showId] ?? const TorrentDownloadState();
+  } else {
+    final manager = ref.watch(torrentManagerProvider);
+    return manager.torrents[showId] ?? const TorrentDownloadState();
+  }
 }
