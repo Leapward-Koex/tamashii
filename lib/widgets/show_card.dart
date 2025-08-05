@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:tamashii/providers/settings_provider.dart';
 import 'package:tamashii/providers/torrent_download_provider.dart'; // Added
+import 'package:tamashii/providers/foreground_torrent_provider.dart'; // Added for background service
 import 'package:simple_torrent/simple_torrent.dart'; // For TorrentState
 
 import '../models/show_models.dart';
@@ -96,7 +97,7 @@ class ShowCard extends HookConsumerWidget {
     final String torrentKey = "${show.show}-${show.episode}";
 
     // Watch the torrent download state for this specific show and episode
-    final torrentDownloadState = ref.watch(torrentForShowProvider(torrentKey));
+    final torrentDownloadState = ref.watch(foregroundTorrentForShowProvider(torrentKey));
 
     // Derived values from stats
     final double progressFraction = torrentDownloadState.progressFraction;
@@ -275,7 +276,7 @@ class ShowCard extends HookConsumerWidget {
                                       return aRes >= bRes ? a : b;
                                     });
 
-                                    await ref.read(torrentManagerProvider.notifier).startDownload(torrentKey, best.magnet, seriesDownloadPath);
+                                    await ref.read(foregroundTorrentManagerProvider.notifier).startDownload(torrentKey, best.magnet, seriesDownloadPath);
                                     if (torrentDownloadState.errorMessage != null) {
                                       ScaffoldMessenger.of(
                                         context,

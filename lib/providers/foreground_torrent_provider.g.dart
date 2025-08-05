@@ -1,12 +1,13 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'torrent_download_provider.dart';
+part of 'foreground_torrent_provider.dart';
 
 // **************************************************************************
 // RiverpodGenerator
 // **************************************************************************
 
-String _$torrentForShowHash() => r'a52b771af4ba67a95a1c7d63f01a827259c77c44';
+String _$foregroundTorrentForShowHash() =>
+    r'3bd548cd6a6582a7825ec236214cf971d840fc1c';
 
 /// Copied from Dart SDK
 class _SystemHash {
@@ -29,23 +30,23 @@ class _SystemHash {
   }
 }
 
-/// See also [torrentForShow].
-@ProviderFor(torrentForShow)
-const torrentForShowProvider = TorrentForShowFamily();
+/// See also [foregroundTorrentForShow].
+@ProviderFor(foregroundTorrentForShow)
+const foregroundTorrentForShowProvider = ForegroundTorrentForShowFamily();
 
-/// See also [torrentForShow].
-class TorrentForShowFamily extends Family<TorrentDownloadState> {
-  /// See also [torrentForShow].
-  const TorrentForShowFamily();
+/// See also [foregroundTorrentForShow].
+class ForegroundTorrentForShowFamily extends Family<TorrentDownloadState> {
+  /// See also [foregroundTorrentForShow].
+  const ForegroundTorrentForShowFamily();
 
-  /// See also [torrentForShow].
-  TorrentForShowProvider call(String showId) {
-    return TorrentForShowProvider(showId);
+  /// See also [foregroundTorrentForShow].
+  ForegroundTorrentForShowProvider call(String showId) {
+    return ForegroundTorrentForShowProvider(showId);
   }
 
   @override
-  TorrentForShowProvider getProviderOverride(
-    covariant TorrentForShowProvider provider,
+  ForegroundTorrentForShowProvider getProviderOverride(
+    covariant ForegroundTorrentForShowProvider provider,
   ) {
     return call(provider.showId);
   }
@@ -62,28 +63,32 @@ class TorrentForShowFamily extends Family<TorrentDownloadState> {
       _allTransitiveDependencies;
 
   @override
-  String? get name => r'torrentForShowProvider';
+  String? get name => r'foregroundTorrentForShowProvider';
 }
 
-/// See also [torrentForShow].
-class TorrentForShowProvider extends AutoDisposeProvider<TorrentDownloadState> {
-  /// See also [torrentForShow].
-  TorrentForShowProvider(String showId)
+/// See also [foregroundTorrentForShow].
+class ForegroundTorrentForShowProvider
+    extends AutoDisposeProvider<TorrentDownloadState> {
+  /// See also [foregroundTorrentForShow].
+  ForegroundTorrentForShowProvider(String showId)
     : this._internal(
-        (ref) => torrentForShow(ref as TorrentForShowRef, showId),
-        from: torrentForShowProvider,
-        name: r'torrentForShowProvider',
+        (ref) => foregroundTorrentForShow(
+          ref as ForegroundTorrentForShowRef,
+          showId,
+        ),
+        from: foregroundTorrentForShowProvider,
+        name: r'foregroundTorrentForShowProvider',
         debugGetCreateSourceHash:
             const bool.fromEnvironment('dart.vm.product')
                 ? null
-                : _$torrentForShowHash,
-        dependencies: TorrentForShowFamily._dependencies,
+                : _$foregroundTorrentForShowHash,
+        dependencies: ForegroundTorrentForShowFamily._dependencies,
         allTransitiveDependencies:
-            TorrentForShowFamily._allTransitiveDependencies,
+            ForegroundTorrentForShowFamily._allTransitiveDependencies,
         showId: showId,
       );
 
-  TorrentForShowProvider._internal(
+  ForegroundTorrentForShowProvider._internal(
     super._createNotifier, {
     required super.name,
     required super.dependencies,
@@ -97,12 +102,12 @@ class TorrentForShowProvider extends AutoDisposeProvider<TorrentDownloadState> {
 
   @override
   Override overrideWith(
-    TorrentDownloadState Function(TorrentForShowRef provider) create,
+    TorrentDownloadState Function(ForegroundTorrentForShowRef provider) create,
   ) {
     return ProviderOverride(
       origin: this,
-      override: TorrentForShowProvider._internal(
-        (ref) => create(ref as TorrentForShowRef),
+      override: ForegroundTorrentForShowProvider._internal(
+        (ref) => create(ref as ForegroundTorrentForShowRef),
         from: from,
         name: null,
         dependencies: null,
@@ -115,12 +120,12 @@ class TorrentForShowProvider extends AutoDisposeProvider<TorrentDownloadState> {
 
   @override
   AutoDisposeProviderElement<TorrentDownloadState> createElement() {
-    return _TorrentForShowProviderElement(this);
+    return _ForegroundTorrentForShowProviderElement(this);
   }
 
   @override
   bool operator ==(Object other) {
-    return other is TorrentForShowProvider && other.showId == showId;
+    return other is ForegroundTorrentForShowProvider && other.showId == showId;
   }
 
   @override
@@ -134,36 +139,38 @@ class TorrentForShowProvider extends AutoDisposeProvider<TorrentDownloadState> {
 
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
-mixin TorrentForShowRef on AutoDisposeProviderRef<TorrentDownloadState> {
+mixin ForegroundTorrentForShowRef
+    on AutoDisposeProviderRef<TorrentDownloadState> {
   /// The parameter `showId` of this provider.
   String get showId;
 }
 
-class _TorrentForShowProviderElement
+class _ForegroundTorrentForShowProviderElement
     extends AutoDisposeProviderElement<TorrentDownloadState>
-    with TorrentForShowRef {
-  _TorrentForShowProviderElement(super.provider);
+    with ForegroundTorrentForShowRef {
+  _ForegroundTorrentForShowProviderElement(super.provider);
 
   @override
-  String get showId => (origin as TorrentForShowProvider).showId;
+  String get showId => (origin as ForegroundTorrentForShowProvider).showId;
 }
 
-String _$torrentManagerHash() => r'02e26b8f12b98563e225056f3a13a98ea6d4e91f';
+String _$foregroundTorrentManagerHash() =>
+    r'30ea1bf62363430ca1423a3551524327414ef327';
 
-/// See also [TorrentManager].
-@ProviderFor(TorrentManager)
-final torrentManagerProvider =
-    NotifierProvider<TorrentManager, TorrentManagerState>.internal(
-      TorrentManager.new,
-      name: r'torrentManagerProvider',
+/// See also [ForegroundTorrentManager].
+@ProviderFor(ForegroundTorrentManager)
+final foregroundTorrentManagerProvider =
+    NotifierProvider<ForegroundTorrentManager, TorrentManagerState>.internal(
+      ForegroundTorrentManager.new,
+      name: r'foregroundTorrentManagerProvider',
       debugGetCreateSourceHash:
           const bool.fromEnvironment('dart.vm.product')
               ? null
-              : _$torrentManagerHash,
+              : _$foregroundTorrentManagerHash,
       dependencies: null,
       allTransitiveDependencies: null,
     );
 
-typedef _$TorrentManager = Notifier<TorrentManagerState>;
+typedef _$ForegroundTorrentManager = Notifier<TorrentManagerState>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package
