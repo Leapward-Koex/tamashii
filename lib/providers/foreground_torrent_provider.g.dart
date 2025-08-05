@@ -155,7 +155,7 @@ class _ForegroundTorrentForShowProviderElement
 }
 
 String _$foregroundTorrentManagerHash() =>
-    r'345e2f87d5f2f32a880e49a71e69973b9d724f5b';
+    r'30ea1bf62363430ca1423a3551524327414ef327';
 
 /// See also [ForegroundTorrentManager].
 @ProviderFor(ForegroundTorrentManager)

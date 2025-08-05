@@ -8,6 +8,7 @@ import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:simple_torrent/simple_torrent.dart';
 import '../services/torrent_foreground_task.dart';
 import '../services/notification_service.dart';
+import '../services/permission_service.dart';
 import '../providers/torrent_download_provider.dart';
 
 part 'foreground_torrent_provider.g.dart';
@@ -144,11 +145,6 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
     String magnetUri,
     String downloadPath,
   ) async {
-    // Start the service only when we actually need to download something
-    if (!_isServiceRunning) {
-      await _startForegroundServiceIfNeeded();
-    }
-
     // Set loading state immediately
     final currentState =
         state.torrents[torrentKey] ?? const TorrentDownloadState();
@@ -157,13 +153,43 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
       currentState.copyWith(isLoading: true, clearError: true),
     );
 
-    // Send command to service
-    FlutterForegroundTask.sendDataToTask({
-      'type': 'start_download',
-      'torrentKey': torrentKey,
-      'magnetUri': magnetUri,
-      'downloadPath': downloadPath,
-    });
+    try {
+      // Check storage permissions before starting download
+      print('🔐 Checking storage permissions for $torrentKey');
+      final hasPermissions = await PermissionService.hasStoragePermissions();
+
+      if (!hasPermissions) {
+        print('🔒 Storage permissions not granted, requesting...');
+        final granted = await PermissionService.requestStoragePermissions();
+
+        if (!granted) {
+          throw Exception(
+            'Storage permissions are required to download torrents. Please grant storage access in app settings.',
+          );
+        }
+        print('✅ Storage permissions granted');
+      }
+
+      // Start the service only when we actually need to download something
+      if (!_isServiceRunning) {
+        await _startForegroundServiceIfNeeded();
+      }
+
+      // Send command to service
+      FlutterForegroundTask.sendDataToTask({
+        'type': 'start_download',
+        'torrentKey': torrentKey,
+        'magnetUri': magnetUri,
+        'downloadPath': downloadPath,
+      });
+    } catch (e) {
+      // Handle permission errors
+      print('❌ Failed to start download for $torrentKey: $e');
+      _updateTorrentState(
+        torrentKey,
+        currentState.copyWith(errorMessage: e.toString(), isLoading: false),
+      );
+    }
   }
 
   Future<void> pauseDownload(String torrentKey) async {

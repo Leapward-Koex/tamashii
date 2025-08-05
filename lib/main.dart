@@ -7,6 +7,8 @@ import 'package:simple_torrent/simple_torrent.dart';
 import 'pages/home_page.dart';
 import 'providers/api_cache_sync_provider.dart';
 import 'providers/foreground_torrent_provider.dart';
+import 'services/notification_service.dart';
+import 'services/permission_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,6 +30,25 @@ Future<void> main() async {
     // Continue anyway, as the app might still work
   }
 
+  // Initialize notification service for torrent completion notifications
+  try {
+    await NotificationService.initialize();
+    debugPrint('✅ Notification service initialized successfully');
+  } catch (e) {
+    debugPrint('❌ Failed to initialize notification service: $e');
+  }
+
+  // Request notification permission on app start
+  try {
+    final notificationGranted =
+        await PermissionService.requestNotificationPermission();
+    debugPrint(
+      '📱 Notification permission: ${notificationGranted ? 'granted' : 'denied'}',
+    );
+  } catch (e) {
+    debugPrint('❌ Failed to request notification permission: $e');
+  }
+
   runApp(const ProviderScope(child: TamashiiApp()));
 }
 
@@ -43,6 +64,10 @@ class TamashiiApp extends ConsumerWidget {
     // Initialize the foreground torrent service (lazy initialization)
     ref.read(foregroundTorrentManagerProvider);
 
-    return MaterialApp(title: 'Tamashii', theme: ThemeData(), home: const HomePage());
+    return MaterialApp(
+      title: 'Tamashii',
+      theme: ThemeData(),
+      home: const HomePage(),
+    );
   }
 }

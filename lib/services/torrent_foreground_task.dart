@@ -206,6 +206,10 @@ class TorrentTaskHandler extends TaskHandler {
       final String downloadPath = command['downloadPath'];
 
       // Use SimpleTorrentHelpers for enhanced functionality
+      // /storage/emulated/0/Download
+      // /storage/emulated/0/SdCardBackUp/Tamashii/Witch Watch
+      // "/storage/emulated/0/SdCardBackUp/Tamashii/Ww"
+
       final (id, statsStream) = await SimpleTorrentHelpers.startAndWatch(
         magnet: magnetUri,
         path: downloadPath,

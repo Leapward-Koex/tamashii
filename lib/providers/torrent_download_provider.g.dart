@@ -148,7 +148,7 @@ class _TorrentForShowProviderElement
   String get showId => (origin as TorrentForShowProvider).showId;
 }
 
-String _$torrentManagerHash() => r'fc85d151432e338253e38c25c8fa0561b35294c7';
+String _$torrentManagerHash() => r'02e26b8f12b98563e225056f3a13a98ea6d4e91f';
 
 /// See also [TorrentManager].
 @ProviderFor(TorrentManager)

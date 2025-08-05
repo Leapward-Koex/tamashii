@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:simple_torrent/simple_torrent.dart';
+import '../services/permission_service.dart';
 
 part 'torrent_download_provider.g.dart';
 
@@ -25,11 +26,11 @@ class TorrentDownloadState {
   final String? errorMessage;
 
   const TorrentDownloadState({
-    this.torrentId, 
-    this.stats, 
-    this.metadata, 
-    this.isLoading = false, 
-    this.isPaused = false, 
+    this.torrentId,
+    this.stats,
+    this.metadata,
+    this.isLoading = false,
+    this.isPaused = false,
     this.errorMessage,
   });
 
@@ -66,8 +67,9 @@ class TorrentDownloadState {
     final totalBytes = metadata?.totalBytes;
     return totalBytes != null ? _formatBytes(totalBytes) : 'Unknown';
   }
+
   TorrentState get currentState => stats?.state ?? TorrentState.starting;
-  
+
   // Additional getters for stats
   int get seeds => stats?.seeds ?? 0;
   int get peers => stats?.peers ?? 0;
@@ -125,13 +127,33 @@ class TorrentManager extends _$TorrentManager {
   }
 
   // Start a download for showId with enhanced error handling
-  Future<void> startDownload(String showId, String magnetLink, String path) async {
+  Future<void> startDownload(
+    String showId,
+    String magnetLink,
+    String path,
+  ) async {
     final current = state.torrents[showId] ?? const TorrentDownloadState();
     if (current.isLoading || current.torrentId != null) return;
 
     _update(showId, current.copyWith(isLoading: true, clearError: true));
 
     try {
+      // Check storage permissions before starting download
+      debugPrint('🔐 Checking storage permissions for $showId');
+      final hasPermissions = await PermissionService.hasStoragePermissions();
+
+      if (!hasPermissions) {
+        debugPrint('🔒 Storage permissions not granted, requesting...');
+        final granted = await PermissionService.requestStoragePermissions();
+
+        if (!granted) {
+          throw Exception(
+            'Storage permissions are required to download torrents. Please grant storage access in app settings.',
+          );
+        }
+        debugPrint('✅ Storage permissions granted');
+      }
+
       // Use SimpleTorrentHelpers for enhanced functionality
       final (id, statsStream) = await SimpleTorrentHelpers.startAndWatch(
         magnet: magnetLink,
@@ -145,7 +167,10 @@ class TorrentManager extends _$TorrentManager {
       debugPrint('🎬 Started torrent for $showId with ID: $id');
     } catch (e) {
       debugPrint('❌ Failed to start torrent for $showId: $e');
-      _update(showId, current.copyWith(errorMessage: e.toString(), isLoading: false));
+      _update(
+        showId,
+        current.copyWith(errorMessage: e.toString(), isLoading: false),
+      );
     }
   }
 
@@ -180,7 +205,11 @@ class TorrentManager extends _$TorrentManager {
   }
 
   // Enhanced torrent listening with dedicated stream
-  void _listenToTorrent(int torrentId, String showId, Stream<TorrentStats> statsStream) {
+  void _listenToTorrent(
+    int torrentId,
+    String showId,
+    Stream<TorrentStats> statsStream,
+  ) {
     _statsSubs[torrentId]?.cancel();
 
     final sub = statsStream.listen(
