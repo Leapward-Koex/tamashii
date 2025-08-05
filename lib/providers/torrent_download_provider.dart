@@ -59,7 +59,8 @@ class TorrentDownloadState {
   int get downloadRate => stats?.downloadRate ?? 0;
   bool get isCompleted => (stats?.progress ?? 0) >= 1.0;
   int get uploadRate => stats?.uploadRate ?? 0;
-  bool get isDownloading => torrentId != null && (stats?.progress ?? 0) < 1.0;
+  bool get isDownloading =>
+      torrentId != null && !isPaused && (stats?.progress ?? 0) < 1.0;
 
   // Enhanced state information
   String get displayName => metadata?.name ?? 'Unknown';

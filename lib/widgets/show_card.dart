@@ -9,7 +9,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:tamashii/providers/settings_provider.dart';
-import 'package:tamashii/providers/torrent_download_provider.dart'; // Added
 import 'package:tamashii/providers/foreground_torrent_provider.dart'; // Added for background service
 import 'package:simple_torrent/simple_torrent.dart'; // For TorrentState
 
@@ -56,27 +55,42 @@ class ShowCard extends HookConsumerWidget {
 
     if (isAutoGenEnabled) {
       if (currentBasePath.isEmpty) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Base download folder not set. Please configure it in Settings.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Base download folder not set. Please configure it in Settings.',
+            ),
+          ),
+        );
         return null;
       }
-      final path = p.join(currentBasePath, showInfo.show.replaceAll(RegExp(r'[^\w\s-]+'), '_')); // Sanitize folder name
+      final path = p.join(
+        currentBasePath,
+        showInfo.show.replaceAll(RegExp(r'[^\w\s-]+'), '_'),
+      ); // Sanitize folder name
       try {
         await Directory(path).create(recursive: true);
         await seriesMappingNotifier.setFolder(showInfo.show, path);
         return path;
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error creating folder: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error creating folder: $e')));
         return null;
       }
     } else {
-      final selectedDirectory = await FilePicker.platform.getDirectoryPath(dialogTitle: 'Select download folder for "${showInfo.show}"');
+      final selectedDirectory = await FilePicker.platform.getDirectoryPath(
+        dialogTitle: 'Select download folder for "${showInfo.show}"',
+      );
       if (selectedDirectory != null && selectedDirectory.isNotEmpty) {
         await seriesMappingNotifier.setFolder(showInfo.show, selectedDirectory);
         return selectedDirectory;
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No folder selected. Download cancelled.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No folder selected. Download cancelled.'),
+          ),
+        );
         return null;
       }
     }
@@ -85,19 +99,26 @@ class ShowCard extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final api = ref.watch(subsPleaseApiProvider);
-    final List<String> bookmarks = ref.watch(bookmarkedSeriesNotifierProvider).valueOrNull ?? <String>[];
+    final List<String> bookmarks =
+        ref.watch(bookmarkedSeriesNotifierProvider).valueOrNull ?? <String>[];
     final bool isBookmarked = bookmarks.contains(show.show);
-    final bookmarkedNotifier = ref.read(bookmarkedSeriesNotifierProvider.notifier);
+    final bookmarkedNotifier = ref.read(
+      bookmarkedSeriesNotifierProvider.notifier,
+    );
     final seriesMappingSettings = ref.watch(seriesFolderMappingProvider);
     final autoGenSettings = ref.watch(autoGenerateFoldersProvider);
     final basePathSettings = ref.watch(downloadBasePathProvider);
-    final seriesMappingNotifier = ref.read(seriesFolderMappingProvider.notifier);
+    final seriesMappingNotifier = ref.read(
+      seriesFolderMappingProvider.notifier,
+    );
 
     // Construct a unique key for the torrent download based on show and episode
     final String torrentKey = "${show.show}-${show.episode}";
 
     // Watch the torrent download state for this specific show and episode
-    final torrentDownloadState = ref.watch(foregroundTorrentForShowProvider(torrentKey));
+    final torrentDownloadState = ref.watch(
+      foregroundTorrentForShowProvider(torrentKey),
+    );
 
     // Derived values from stats
     final double progressFraction = torrentDownloadState.progressFraction;
@@ -105,9 +126,13 @@ class ShowCard extends HookConsumerWidget {
     final int uploadRate = torrentDownloadState.uploadRate;
     final bool isLoadingTorrent = torrentDownloadState.isLoading;
     final bool isDownloading = torrentDownloadState.isDownloading;
+    final bool isPaused = torrentDownloadState.isPaused;
 
     // Resolve relative image URL
-    final String imageUrl = show.imageUrl.startsWith('http') ? show.imageUrl : '${api.baseUrl}${show.imageUrl}';
+    final String imageUrl =
+        show.imageUrl.startsWith('http')
+            ? show.imageUrl
+            : '${api.baseUrl}${show.imageUrl}';
 
     return Card(
       elevation: 4,
@@ -124,12 +149,14 @@ class ShowCard extends HookConsumerWidget {
               child: CachedNetworkImage(
                 imageUrl: imageUrl,
                 fit: BoxFit.cover,
-                placeholder: (context, url) => const SizedBox(
-                  child: Center(child: CircularProgressIndicator()),
-                ),
-                errorWidget: (context, url, error) => const SizedBox(
-                  child: Center(child: Icon(Icons.broken_image, size: 40)),
-                ),
+                placeholder:
+                    (context, url) => const SizedBox(
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
+                errorWidget:
+                    (context, url, error) => const SizedBox(
+                      child: Center(child: Icon(Icons.broken_image, size: 40)),
+                    ),
               ),
             ),
             // Content area
@@ -144,14 +171,14 @@ class ShowCard extends HookConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
                         Text(
-                          show.show, 
-                          style: Theme.of(context).textTheme.titleMedium, 
-                          maxLines: 2, 
+                          show.show,
+                          style: Theme.of(context).textTheme.titleMedium,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Episode: ${show.episode}', 
+                          'Episode: ${show.episode}',
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
                       ],
@@ -161,7 +188,10 @@ class ShowCard extends HookConsumerWidget {
                   if (isDownloading && progressFraction < 1)
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: LinearProgressIndicator(value: progressFraction, minHeight: 4),
+                      child: LinearProgressIndicator(
+                        value: progressFraction,
+                        minHeight: 4,
+                      ),
                     ),
                   // Enhanced torrent info display
                   if (torrentDownloadState.torrentId != null)
@@ -170,26 +200,31 @@ class ShowCard extends HookConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Torrent state and phase
+                          // Torrent state
                           Row(
                             children: [
                               Icon(
-                                _getTorrentStateIcon(torrentDownloadState.currentState),
+                                _getTorrentStateIcon(
+                                  torrentDownloadState.currentState,
+                                ),
                                 size: 16,
-                                color: _getTorrentStateColor(torrentDownloadState.currentState),
+                                color: _getTorrentStateColor(
+                                  torrentDownloadState.currentState,
+                                ),
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                torrentDownloadState.currentState.name.toUpperCase(),
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                torrentDownloadState.currentState.name
+                                    .toUpperCase(),
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.bodySmall?.copyWith(
                                   fontWeight: FontWeight.bold,
-                                  color: _getTorrentStateColor(torrentDownloadState.currentState),
+                                  color: _getTorrentStateColor(
+                                    torrentDownloadState.currentState,
+                                  ),
                                 ),
                               ),
-                              if (torrentDownloadState.stats?.phase != null) ...[
-                                const SizedBox(width: 8),
-                                Text('• ${torrentDownloadState.stats!.phase}', style: Theme.of(context).textTheme.bodySmall),
-                              ],
                             ],
                           ),
                           const SizedBox(height: 4),
@@ -210,8 +245,14 @@ class ShowCard extends HookConsumerWidget {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: <Widget>[
-                              Text('↓ ${_formatBytes(downloadRate)}/s', style: Theme.of(context).textTheme.bodySmall),
-                              Text('↑ ${_formatBytes(uploadRate)}/s', style: Theme.of(context).textTheme.bodySmall),
+                              Text(
+                                '↓ ${_formatBytes(downloadRate)}/s',
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                              Text(
+                                '↑ ${_formatBytes(uploadRate)}/s',
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
                               if (torrentDownloadState.stats != null)
                                 Text(
                                   'S:${torrentDownloadState.stats!.seeds} P:${torrentDownloadState.stats!.peers}',
@@ -226,70 +267,153 @@ class ShowCard extends HookConsumerWidget {
                   const Spacer(),
                   // Action buttons
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: <Widget>[
                         IconButton(
                           icon:
                               isLoadingTorrent
-                                  ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
-                                  : Icon(isDownloading ? Icons.pause_circle_filled_rounded : Icons.download_rounded),
+                                  ? const SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                  : Icon(
+                                    isDownloading
+                                        ? Icons.pause_circle_filled_rounded
+                                        : isPaused
+                                        ? Icons.play_circle_filled_rounded
+                                        : Icons.download_rounded,
+                                  ),
                           onPressed:
                               isLoadingTorrent
                                   ? null
                                   : () async {
                                     if (isDownloading) {
-                                      await ref.read(torrentManagerProvider.notifier).pauseDownload(torrentKey);
+                                      await ref
+                                          .read(
+                                            foregroundTorrentManagerProvider
+                                                .notifier,
+                                          )
+                                          .pauseDownload(torrentKey);
                                       return;
                                     }
-                                    if (torrentDownloadState.torrentId != null && !isDownloading && !torrentDownloadState.isCompleted) {
-                                      await ref.read(torrentManagerProvider.notifier).resumeDownload(torrentKey);
+                                    if (torrentDownloadState.torrentId !=
+                                            null &&
+                                        !isDownloading &&
+                                        !torrentDownloadState.isCompleted) {
+                                      await ref
+                                          .read(
+                                            foregroundTorrentManagerProvider
+                                                .notifier,
+                                          )
+                                          .resumeDownload(torrentKey);
                                       return;
                                     }
                                     if (torrentDownloadState.isCompleted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Download completed.')));
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Download completed.'),
+                                        ),
+                                      );
                                       return;
                                     }
 
-                                    final String? seriesDownloadPath = await _determineDownloadPath(
-                                      context: context,
-                                      ref: ref,
-                                      showInfo: show,
-                                      currentMappings: seriesMappingSettings.valueOrNull ?? <String, String>{},
-                                      isAutoGenEnabled: autoGenSettings.valueOrNull ?? true, // Default to true
-                                      currentBasePath: basePathSettings.valueOrNull ?? '',
-                                      seriesMappingNotifier: seriesMappingNotifier,
-                                    );
+                                    final String? seriesDownloadPath =
+                                        await _determineDownloadPath(
+                                          context: context,
+                                          ref: ref,
+                                          showInfo: show,
+                                          currentMappings:
+                                              seriesMappingSettings
+                                                  .valueOrNull ??
+                                              <String, String>{},
+                                          isAutoGenEnabled:
+                                              autoGenSettings.valueOrNull ??
+                                              true, // Default to true
+                                          currentBasePath:
+                                              basePathSettings.valueOrNull ??
+                                              '',
+                                          seriesMappingNotifier:
+                                              seriesMappingNotifier,
+                                        );
 
-                                    if (seriesDownloadPath == null || seriesDownloadPath.isEmpty) {
+                                    if (seriesDownloadPath == null ||
+                                        seriesDownloadPath.isEmpty) {
                                       return;
                                     }
 
                                     if (show.downloads.isEmpty) {
-                                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No download links available.')));
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'No download links available.',
+                                          ),
+                                        ),
+                                      );
                                       return;
                                     }
                                     final best = show.downloads.reduce((a, b) {
-                                      final int aRes = int.parse(a.resolution.toJson());
-                                      final int bRes = int.parse(b.resolution.toJson());
+                                      final int aRes = int.parse(
+                                        a.resolution.toJson(),
+                                      );
+                                      final int bRes = int.parse(
+                                        b.resolution.toJson(),
+                                      );
                                       return aRes >= bRes ? a : b;
                                     });
 
-                                    await ref.read(foregroundTorrentManagerProvider.notifier).startDownload(torrentKey, best.magnet, seriesDownloadPath);
-                                    if (torrentDownloadState.errorMessage != null) {
+                                    await ref
+                                        .read(
+                                          foregroundTorrentManagerProvider
+                                              .notifier,
+                                        )
+                                        .startDownload(
+                                          torrentKey,
+                                          best.magnet,
+                                          seriesDownloadPath,
+                                        );
+                                    if (torrentDownloadState.errorMessage !=
+                                        null) {
                                       ScaffoldMessenger.of(
                                         context,
-                                      ).showSnackBar(SnackBar(content: Text('Error: ${torrentDownloadState.errorMessage}')));
-                                    } else if (torrentDownloadState.torrentId != null) {
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            'Error: ${torrentDownloadState.errorMessage}',
+                                          ),
+                                        ),
+                                      );
+                                    } else if (torrentDownloadState.torrentId !=
+                                        null) {
                                       ScaffoldMessenger.of(
                                         context,
-                                      ).showSnackBar(SnackBar(content: Text('Download started to: $seriesDownloadPath')));
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            'Download started to: $seriesDownloadPath',
+                                          ),
+                                        ),
+                                      );
                                     }
                                   },
                         ),
                         IconButton(
-                          icon: Icon(isBookmarked ? Icons.bookmark : Icons.bookmark_border),
+                          icon: Icon(
+                            isBookmarked
+                                ? Icons.bookmark
+                                : Icons.bookmark_border,
+                          ),
                           onPressed: () async {
                             if (isBookmarked) {
                               // Remove from bookmarks
