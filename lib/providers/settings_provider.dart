@@ -53,7 +53,8 @@ class SeriesFolderMapping extends _$SeriesFolderMapping {
     final prefs = await SharedPreferences.getInstance();
     final jsonString = prefs.getString(_key);
     if (jsonString != null && jsonString.isNotEmpty) {
-      final Map<String, dynamic> raw = json.decode(jsonString) as Map<String, dynamic>;
+      final Map<String, dynamic> raw =
+          json.decode(jsonString) as Map<String, dynamic>;
       return raw.map((key, value) => MapEntry(key, value as String));
     }
     return <String, String>{};
@@ -63,6 +64,16 @@ class SeriesFolderMapping extends _$SeriesFolderMapping {
   Future<void> setFolder(String series, String path) async {
     final current = state.value ?? <String, String>{};
     final updated = {...current, series: path};
+    state = AsyncValue.data(updated);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_key, json.encode(updated));
+  }
+
+  /// Remove mapping for a series and persist.
+  Future<void> removeFolder(String series) async {
+    final current = state.value ?? <String, String>{};
+    if (!current.containsKey(series)) return;
+    final updated = Map<String, String>.from(current)..remove(series);
     state = AsyncValue.data(updated);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_key, json.encode(updated));

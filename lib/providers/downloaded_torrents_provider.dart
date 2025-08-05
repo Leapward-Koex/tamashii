@@ -49,6 +49,14 @@ class DownloadedTorrentsNotifier
     state = AsyncValue.data(updated);
     await _save(updated);
   }
+
+  /// Remove all torrent keys that correspond to [showId] prefix.
+  Future<void> removeByShow(String showId) async {
+    final current = state.value ?? <String>{};
+    final updated = current.where((k) => !k.startsWith('$showId-')).toSet();
+    state = AsyncValue.data(updated);
+    await _save(updated);
+  }
 }
 
 final downloadedTorrentsProvider =

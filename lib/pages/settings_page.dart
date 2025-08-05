@@ -3,7 +3,9 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
+import 'dart:io';
 import 'package:tamashii/providers/settings_provider.dart';
+import 'package:tamashii/providers/downloaded_torrents_provider.dart';
 
 class SettingsPage extends HookConsumerWidget {
   const SettingsPage({super.key});
@@ -26,14 +28,25 @@ class SettingsPage extends HookConsumerWidget {
                   subtitle: Text(path.isEmpty ? 'Not set' : path),
                   trailing: const Icon(Icons.folder_open),
                   onTap: () async {
-                    final selected = await FilePicker.platform.getDirectoryPath();
+                    final selected =
+                        await FilePicker.platform.getDirectoryPath();
                     if (selected != null) {
-                      await ref.read(downloadBasePathProvider.notifier).setBasePath(selected);
+                      await ref
+                          .read(downloadBasePathProvider.notifier)
+                          .setBasePath(selected);
                     }
                   },
                 ),
-            loading: () => const ListTile(title: Text('Download Base Folder'), subtitle: Text('Loading...')),
-            error: (e, _) => ListTile(title: const Text('Download Base Folder'), subtitle: Text('Error: $e')),
+            loading:
+                () => const ListTile(
+                  title: Text('Download Base Folder'),
+                  subtitle: Text('Loading...'),
+                ),
+            error:
+                (e, _) => ListTile(
+                  title: const Text('Download Base Folder'),
+                  subtitle: Text('Error: $e'),
+                ),
           ),
           const Divider(),
 
@@ -44,18 +57,31 @@ class SettingsPage extends HookConsumerWidget {
                   title: const Text('Auto-generate Series Folders'),
                   value: value,
                   onChanged: (bool newVal) async {
-                    await ref.read(autoGenerateFoldersProvider.notifier).setAutoGenerate(newVal);
+                    await ref
+                        .read(autoGenerateFoldersProvider.notifier)
+                        .setAutoGenerate(newVal);
                   },
                 ),
-            loading: () => const ListTile(title: Text('Auto-generate Series Folders'), subtitle: Text('Loading...')),
-            error: (e, _) => ListTile(title: const Text('Auto-generate Series Folders'), subtitle: Text('Error: $e')),
+            loading:
+                () => const ListTile(
+                  title: Text('Auto-generate Series Folders'),
+                  subtitle: Text('Loading...'),
+                ),
+            error:
+                (e, _) => ListTile(
+                  title: const Text('Auto-generate Series Folders'),
+                  subtitle: Text('Error: $e'),
+                ),
           ),
           const Divider(),
 
           // Custom folder per series
           const Padding(
             padding: EdgeInsets.all(16),
-            child: Text('Series Folder Overrides', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            child: Text(
+              'Series Folder Overrides',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
           ),
           mapping.when(
             data:
@@ -65,14 +91,73 @@ class SettingsPage extends HookConsumerWidget {
                         return ListTile(
                           title: Text(entry.key),
                           subtitle: Text(entry.value),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.edit),
-                            onPressed: () async {
-                              final selected = await FilePicker.platform.getDirectoryPath();
-                              if (selected != null) {
-                                await ref.read(seriesFolderMappingProvider.notifier).setFolder(entry.key, selected);
-                              }
-                            },
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.delete_outline),
+                                onPressed: () async {
+                                  final bool? confirm = await showDialog<bool>(
+                                    context: context,
+                                    builder:
+                                        (ctx) => AlertDialog(
+                                          title: const Text(
+                                            'Delete Series Folder',
+                                          ),
+                                          content: Text(
+                                            'This will delete the folder and all files for "${entry.key}". Continue?',
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed:
+                                                  () =>
+                                                      Navigator.pop(ctx, false),
+                                              child: const Text('Cancel'),
+                                            ),
+                                            TextButton(
+                                              onPressed:
+                                                  () =>
+                                                      Navigator.pop(ctx, true),
+                                              child: const Text('Delete'),
+                                            ),
+                                          ],
+                                        ),
+                                  );
+                                  if (confirm == true) {
+                                    try {
+                                      await Directory(
+                                        entry.value,
+                                      ).delete(recursive: true);
+                                    } catch (_) {}
+                                    await ref
+                                        .read(
+                                          seriesFolderMappingProvider.notifier,
+                                        )
+                                        .removeFolder(entry.key);
+                                    await ref
+                                        .read(
+                                          downloadedTorrentsProvider.notifier,
+                                        )
+                                        .removeByShow(entry.key);
+                                  }
+                                },
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.edit),
+                                onPressed: () async {
+                                  final selected =
+                                      await FilePicker.platform
+                                          .getDirectoryPath();
+                                  if (selected != null) {
+                                    await ref
+                                        .read(
+                                          seriesFolderMappingProvider.notifier,
+                                        )
+                                        .setFolder(entry.key, selected);
+                                  }
+                                },
+                              ),
+                            ],
                           ),
                         );
                       }).toList(),
