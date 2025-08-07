@@ -6,7 +6,7 @@ import 'package:tamashii/pages/settings_page.dart';
 import 'package:tamashii/providers/subsplease_api_providers.dart';
 import 'package:tamashii/providers/filter_provider.dart';
 import 'package:tamashii/widgets/show_card.dart';
-import '../models/show_models.dart';
+import 'package:tamashii/models/show_models.dart';
 
 class HomePage extends HookConsumerWidget {
   const HomePage({super.key});
@@ -37,13 +37,15 @@ class HomePage extends HookConsumerWidget {
     }, [searchController]);
 
     final String currentQuery = debouncedQuery.value;
-    
+
     // Watch the current filter
     final filterAsync = ref.watch(showFilterNotifierProvider);
     final currentFilter = filterAsync.value ?? ShowFilter.all;
-    
+
     // Use filtered shows instead of raw shows
-    final AsyncValue<List<ShowInfo>> itemsValue = ref.watch(filteredShowsProvider(currentQuery));
+    final AsyncValue<List<ShowInfo>> itemsValue = ref.watch(
+      filteredShowsProvider(currentQuery),
+    );
 
     Future<void> refresh() async {
       return await ref.refresh(filteredShowsProvider(currentQuery).future);
@@ -58,13 +60,17 @@ class HomePage extends HookConsumerWidget {
             icon: Icon(currentFilter.icon),
             tooltip: currentFilter.displayName,
             onPressed: () async {
-              await ref.read(showFilterNotifierProvider.notifier).toggleFilter();
+              await ref
+                  .read(showFilterNotifierProvider.notifier)
+                  .toggleFilter();
             },
           ),
           IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () {
-              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsPage()));
+              Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => const SettingsPage()));
             },
           ),
         ],
@@ -77,26 +83,41 @@ class HomePage extends HookConsumerWidget {
               children: [
                 TextField(
                   controller: searchController,
-                  decoration: const InputDecoration(labelText: 'Search', suffixIcon: Icon(Icons.search)),
+                  decoration: const InputDecoration(
+                    labelText: 'Search',
+                    suffixIcon: Icon(Icons.search),
+                  ),
                 ),
                 const SizedBox(height: 8),
                 // Filter status indicator
                 if (currentFilter == ShowFilter.saved)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: Theme.of(context).primaryColor.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Theme.of(context).primaryColor.withOpacity(0.3)),
+                      border: Border.all(
+                        color: Theme.of(context).primaryColor.withOpacity(0.3),
+                      ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.bookmark, size: 16, color: Theme.of(context).primaryColor),
+                        Icon(
+                          Icons.bookmark,
+                          size: 16,
+                          color: Theme.of(context).primaryColor,
+                        ),
                         const SizedBox(width: 4),
                         Text(
                           'Showing Saved Series Only',
-                          style: TextStyle(color: Theme.of(context).primaryColor, fontSize: 12),
+                          style: TextStyle(
+                            color: Theme.of(context).primaryColor,
+                            fontSize: 12,
+                          ),
                         ),
                       ],
                     ),
@@ -112,7 +133,11 @@ class HomePage extends HookConsumerWidget {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.bookmark_border, size: 64, color: Colors.grey),
+                        Icon(
+                          Icons.bookmark_border,
+                          size: 64,
+                          color: Colors.grey,
+                        ),
                         SizedBox(height: 16),
                         Text('No saved series found'),
                         SizedBox(height: 8),
@@ -124,7 +149,7 @@ class HomePage extends HookConsumerWidget {
                     ),
                   );
                 }
-                
+
                 return RefreshIndicator(
                   onRefresh: refresh,
                   child: ListView.builder(
