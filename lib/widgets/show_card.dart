@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:file_picker/file_picker.dart'; // Ensure FilePicker is imported
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:tamashii/providers/settings_provider.dart';
@@ -14,7 +13,7 @@ import 'package:simple_torrent/simple_torrent.dart'; // For TorrentState
 
 import '../models/show_models.dart';
 import '../providers/bookmarked_series_provider.dart';
-import '../providers/subsplease_api_providers.dart';
+import 'package:tamashii/widgets/show_image.dart'; // use shared ShowImage
 
 /// A card widget displaying a show's poster, title, episode, torrent progress,
 /// upload / download stats, and action buttons (download + bookmark).
@@ -98,7 +97,6 @@ class ShowCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final api = ref.watch(subsPleaseApiProvider);
     final List<String> bookmarks =
         ref.watch(bookmarkedSeriesNotifierProvider).valueOrNull ?? <String>[];
     final bool isBookmarked = bookmarks.contains(show.show);
@@ -133,12 +131,6 @@ class ShowCard extends ConsumerWidget {
     final bool isDownloading = torrentDownloadState.isDownloading;
     final bool isPaused = torrentDownloadState.isPaused;
 
-    // Resolve relative image URL
-    final String imageUrl =
-        show.imageUrl.startsWith('http')
-            ? show.imageUrl
-            : '${api.baseUrl}${show.imageUrl}';
-
     return Card(
       elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -155,17 +147,7 @@ class ShowCard extends ConsumerWidget {
               child: Stack(
                 children: [
                   Positioned.fill(
-                    child: CachedNetworkImage(
-                      imageUrl: imageUrl,
-                      fit: BoxFit.cover,
-                      placeholder:
-                          (context, url) =>
-                              const Center(child: CircularProgressIndicator()),
-                      errorWidget:
-                          (context, url, error) => const Center(
-                            child: Icon(Icons.broken_image, size: 40),
-                          ),
-                    ),
+                    child: ShowImage(show: show, fit: BoxFit.cover),
                   ),
                   if (isDownloaded)
                     Positioned(

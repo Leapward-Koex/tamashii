@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:tamashii/pages/settings_page.dart';
+import 'package:tamashii/pages/schedule_page.dart';
 import 'package:tamashii/providers/subsplease_api_providers.dart';
 import 'package:tamashii/providers/filter_provider.dart';
 import 'package:tamashii/widgets/show_card.dart';
@@ -52,31 +53,11 @@ class HomePage extends HookConsumerWidget {
       return await ref.refresh(filteredShowsProvider(currentQuery).future);
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Tamashii'),
-        actions: [
-          // Filter toggle button
-          IconButton(
-            icon: Icon(currentFilter.icon),
-            tooltip: currentFilter.displayName,
-            onPressed: () async {
-              await ref
-                  .read(showFilterNotifierProvider.notifier)
-                  .toggleFilter();
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () {
-              Navigator.of(
-                context,
-              ).push(MaterialPageRoute(builder: (_) => const SettingsPage()));
-            },
-          ),
-        ],
-      ),
-      body: Stack(
+    // Navigation state for pages
+    final selectedIndex = useState<int>(0);
+    final pages = <Widget>[
+      // Home content
+      Stack(
         children: [
           // Scrollable content behind search bar
           Positioned.fill(
@@ -150,6 +131,49 @@ class HomePage extends HookConsumerWidget {
                 ),
               ),
             ),
+          ),
+        ],
+      ),
+      // Schedule page
+      const SchedulePage(),
+      // Settings page
+      const SettingsPage(),
+    ];
+    const titles = ['Tamashii', 'Schedule', 'Settings'];
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(titles[selectedIndex.value]),
+        elevation: 0,
+        actions:
+            selectedIndex.value == 0
+                ? [
+                  // Filter toggle button
+                  IconButton(
+                    icon: Icon(currentFilter.icon),
+                    tooltip: currentFilter.displayName,
+                    onPressed: () async {
+                      await ref
+                          .read(showFilterNotifierProvider.notifier)
+                          .toggleFilter();
+                    },
+                  ),
+                ]
+                : null,
+      ),
+      body: IndexedStack(index: selectedIndex.value, children: pages),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: selectedIndex.value,
+        onTap: (i) => selectedIndex.value = i,
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.schedule),
+            label: 'Schedule',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.settings),
+            label: 'Settings',
           ),
         ],
       ),

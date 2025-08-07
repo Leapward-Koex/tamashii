@@ -11,7 +11,7 @@ void main() {
         'episode': 'Test Episode 01',
         'image_url': 'https://example.com/image.jpg',
         'page': 'https://example.com/page',
-        'release_date': 'Sat, 26 Jul 2025 12:00:00 +0000',
+        'release_date': 'Sat, 26 Jul 2025 10:15:00 +0000',
         'show': 'Test Show',
         'time': '12:00',
         'xdcc': 'test_xdcc',
@@ -22,6 +22,8 @@ void main() {
       expect(showInfo.releaseDate.year, 2025);
       expect(showInfo.releaseDate.month, 7);
       expect(showInfo.releaseDate.day, 26);
+      expect(showInfo.releaseDate.hour, 10);
+      expect(showInfo.releaseDate.minute, 15);
     });
 
     test('ShowInfo should parse cache date format correctly', () {
@@ -62,7 +64,10 @@ void main() {
       expect(deserializedShowInfo.show, showInfo.show);
       expect(deserializedShowInfo.episode, showInfo.episode);
       expect(deserializedShowInfo.releaseDate.year, showInfo.releaseDate.year);
-      expect(deserializedShowInfo.releaseDate.month, showInfo.releaseDate.month);
+      expect(
+        deserializedShowInfo.releaseDate.month,
+        showInfo.releaseDate.month,
+      );
       expect(deserializedShowInfo.releaseDate.day, showInfo.releaseDate.day);
     });
 
