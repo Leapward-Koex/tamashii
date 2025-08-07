@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -75,57 +76,10 @@ class HomePage extends HookConsumerWidget {
           ),
         ],
       ),
-      body: Column(
-        children: <Widget>[
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                TextField(
-                  controller: searchController,
-                  decoration: const InputDecoration(
-                    labelText: 'Search',
-                    suffixIcon: Icon(Icons.search),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                // Filter status indicator
-                if (currentFilter == ShowFilter.saved)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).primaryColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: Theme.of(context).primaryColor.withOpacity(0.3),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.bookmark,
-                          size: 16,
-                          color: Theme.of(context).primaryColor,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Showing Saved Series Only',
-                          style: TextStyle(
-                            color: Theme.of(context).primaryColor,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          Expanded(
+      body: Stack(
+        children: [
+          // Scrollable content behind search bar
+          Positioned.fill(
             child: itemsValue.when(
               data: (List<ShowInfo> shows) {
                 if (shows.isEmpty && currentFilter == ShowFilter.saved) {
@@ -149,10 +103,10 @@ class HomePage extends HookConsumerWidget {
                     ),
                   );
                 }
-
                 return RefreshIndicator(
                   onRefresh: refresh,
                   child: ListView.builder(
+                    padding: const EdgeInsets.only(top: 80),
                     itemCount: shows.length,
                     itemBuilder: (context, index) {
                       final show = shows[index];
@@ -163,6 +117,38 @@ class HomePage extends HookConsumerWidget {
               },
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, _) => Center(child: Text('Error: $error')),
+            ),
+          ),
+          // Frosted glass search bar overlay
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                    child: Container(
+                      color: Theme.of(context).canvasColor.withOpacity(0.5),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      height: 48,
+                      alignment: Alignment.center,
+                      child: TextField(
+                        controller: searchController,
+                        decoration: const InputDecoration(
+                          hintText: 'Search',
+                          border: InputBorder.none,
+                          suffixIcon: Icon(Icons.search),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
         ],
