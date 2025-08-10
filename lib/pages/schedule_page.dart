@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:tamashii/models/show_models.dart';
-import 'package:tamashii/providers/subsplease_api_providers.dart';
+import 'package:tamashii/providers/cached_episodes_provider.dart';
 import 'package:tamashii/providers/bookmarked_series_provider.dart';
 import 'package:tamashii/widgets/show_image.dart';
 
@@ -14,7 +14,7 @@ class SchedulePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final bookmarked =
         ref.watch(bookmarkedSeriesNotifierProvider).valueOrNull ?? <String>[];
-    final latestAsync = ref.watch(latestShowsProvider);
+    final latestAsync = ref.watch(combinedEpisodesProvider(''));
 
     // Controller for continuous horizontal scrolling
     final controller = PageController(
