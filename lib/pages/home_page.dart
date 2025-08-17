@@ -19,6 +19,10 @@ class HomePage extends HookConsumerWidget {
     final debounceTimerRef = useRef<Timer?>(null);
     final debouncedQuery = useState<String>('');
 
+    final refreshKey = useMemoized<GlobalKey<RefreshIndicatorState>>(
+      () => GlobalKey<RefreshIndicatorState>(),
+    );
+
     useEffect(() {
       void listener() {
         if (debounceTimerRef.value != null) {
@@ -50,7 +54,7 @@ class HomePage extends HookConsumerWidget {
     );
 
     Future<void> refresh() async {
-      return await ref.refresh(filteredShowsProvider(currentQuery).future);
+      return await ref.refresh(latestShowsProvider.future);
     }
 
     // Navigation state for pages
@@ -85,14 +89,27 @@ class HomePage extends HookConsumerWidget {
                   );
                 }
                 return RefreshIndicator(
+                  key: refreshKey,
                   onRefresh: refresh,
-                  child: ListView.builder(
-                    padding: const EdgeInsets.only(top: 80),
-                    itemCount: shows.length,
-                    itemBuilder: (context, index) {
-                      final show = shows[index];
-                      return ShowCard(show: show);
-                    },
+                  child: ScrollConfiguration(
+                    behavior: const MaterialScrollBehavior().copyWith(
+                      // Allow pull-to-refresh with mouse/trackpad on desktop
+                      dragDevices: {
+                        PointerDeviceKind.touch,
+                        PointerDeviceKind.mouse,
+                        PointerDeviceKind.trackpad,
+                      },
+                    ),
+                    child: ListView.builder(
+                      // Allow pull even when list doesn't overflow
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.only(top: 80),
+                      itemCount: shows.length,
+                      itemBuilder: (context, index) {
+                        final show = shows[index];
+                        return ShowCard(show: show);
+                      },
+                    ),
                   ),
                 );
               },
@@ -156,6 +173,15 @@ class HomePage extends HookConsumerWidget {
                       await ref
                           .read(showFilterNotifierProvider.notifier)
                           .toggleFilter();
+                    },
+                  ),
+                  // Manual refresh button (desktop-friendly)
+                  IconButton(
+                    icon: const Icon(Icons.refresh),
+                    tooltip: 'Refresh',
+                    onPressed: () {
+                      // Shows the indicator and invokes onRefresh
+                      refreshKey.currentState?.show();
                     },
                   ),
                 ]

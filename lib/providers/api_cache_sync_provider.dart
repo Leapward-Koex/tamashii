@@ -34,13 +34,15 @@ class ApiCacheSyncService {
       if (previous?.hasValue == true && next.hasValue) {
         final previousBookmarks = previous!.value!.toSet();
         final currentBookmarks = next.value!.toSet();
-        
+
         // Find removed bookmarks
         final removedBookmarks = previousBookmarks.difference(currentBookmarks);
-        
+
         // Remove cached episodes for unbookmarked series
         for (final removedSeries in removedBookmarks) {
-          _ref.read(cachedEpisodesNotifierProvider.notifier).removeSeriesFromCache(removedSeries);
+          _ref
+              .read(cachedEpisodesNotifierProvider.notifier)
+              .removeSeriesFromCache(removedSeries);
         }
       }
     });
@@ -58,16 +60,21 @@ class ApiCacheSyncService {
   /// Perform initial sync of bookmarked episodes
   Future<void> _performInitialSync() async {
     try {
-      final bookmarkedSeries = await _ref.read(bookmarkedSeriesNotifierProvider.future);
+      final bookmarkedSeries = await _ref.read(
+        bookmarkedSeriesNotifierProvider.future,
+      );
       if (bookmarkedSeries.isEmpty) return;
 
       final latestEpisodes = await _ref.read(latestShowsProvider.future);
-      final bookmarkedEpisodes = latestEpisodes
-          .where((episode) => bookmarkedSeries.contains(episode.show))
-          .toList();
+      final bookmarkedEpisodes =
+          latestEpisodes
+              .where((episode) => bookmarkedSeries.contains(episode.show))
+              .toList();
 
       if (bookmarkedEpisodes.isNotEmpty) {
-        await _ref.read(cachedEpisodesNotifierProvider.notifier).cacheEpisodes(bookmarkedEpisodes);
+        await _ref
+            .read(cachedEpisodesNotifierProvider.notifier)
+            .cacheEpisodes(bookmarkedEpisodes);
       }
     } catch (e) {
       // Ignore initial sync errors
