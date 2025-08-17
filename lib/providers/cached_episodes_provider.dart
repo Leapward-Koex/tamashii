@@ -181,9 +181,11 @@ Future<List<ShowInfo>> combinedEpisodes(Ref ref, String searchTerm) async {
   final Map<String, ShowInfo> episodeMap = {};
 
   // Add cached episodes first
-  for (final episode in cachedEpisodes) {
-    final key = '${episode.show}-${episode.episode}';
-    episodeMap[key] = episode;
+  if (searchTerm.isEmpty) {
+    for (final episode in cachedEpisodes) {
+      final key = '${episode.show}-${episode.episode}';
+      episodeMap[key] = episode;
+    }
   }
 
   // Add API episodes (will override cached if same episode)
@@ -210,7 +212,7 @@ Future<List<ShowInfo>> filteredCombinedEpisodes(
   final filter = filterAsync.value ?? ShowFilter.all;
 
   // For saved filter, use only bookmarked series
-  if (filter == ShowFilter.saved) {
+  if (filter == ShowFilter.saved && searchTerm.isEmpty) {
     final bookmarkedSeriesAsync = ref.watch(bookmarkedSeriesNotifierProvider);
 
     // If bookmarks are still loading, return empty list
