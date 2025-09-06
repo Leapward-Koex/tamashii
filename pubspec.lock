@@ -907,9 +907,11 @@ packages:
   simple_torrent:
     dependency: "direct main"
     description:
-      path: "../simple_torrent"
-      relative: true
-    source: path
+      path: "."
+      ref: HEAD
+      resolved-ref: "6d27de66cd884d04094577329bc6bbafaaea2432"
+      url: "https://github.com/Leapward-Koex/simple_torrent.git"
+    source: git
     version: "0.0.1"
   sky_engine:
     dependency: transitive
