@@ -2,31 +2,29 @@
 
 import 'dart:convert';
 
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Stores a set of torrent keys that have completed downloading.
-class DownloadedTorrentsNotifier
-    extends StateNotifier<AsyncValue<Set<String>>> {
-  DownloadedTorrentsNotifier() : super(const AsyncValue.loading()) {
-    _load();
-  }
+part 'downloaded_torrents_provider.g.dart';
 
+/// Stores a set of torrent keys that have completed downloading.
+@riverpod
+class DownloadedTorrentsNotifier extends _$DownloadedTorrentsNotifier {
   static const String _storageKey = 'downloaded_torrents';
 
-  Future<void> _load() async {
+  @override
+  Future<Set<String>> build() async {
     final prefs = await SharedPreferences.getInstance();
     final String? jsonString = prefs.getString(_storageKey);
     if (jsonString != null && jsonString.isNotEmpty) {
       try {
         final List<dynamic> raw = json.decode(jsonString) as List<dynamic>;
-        state = AsyncValue.data(raw.cast<String>().toSet());
-        return;
+        return raw.cast<String>().toSet();
       } catch (_) {
         await prefs.remove(_storageKey);
       }
     }
-    state = const AsyncValue.data(<String>{});
+    return <String>{};
   }
 
   Future<void> _save(Set<String> set) async {
@@ -58,8 +56,3 @@ class DownloadedTorrentsNotifier
     await _save(updated);
   }
 }
-
-final downloadedTorrentsProvider =
-    StateNotifierProvider<DownloadedTorrentsNotifier, AsyncValue<Set<String>>>(
-      (ref) => DownloadedTorrentsNotifier(),
-    );

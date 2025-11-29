@@ -30,7 +30,7 @@ class ApiCacheSyncService {
     });
 
     // Listen to bookmarked series changes to clean up cache
-    _ref.listen(bookmarkedSeriesNotifierProvider, (previous, next) {
+    _ref.listen(bookmarkedSeriesProvider, (previous, next) {
       if (previous?.hasValue == true && next.hasValue) {
         final previousBookmarks = previous!.value!.toSet();
         final currentBookmarks = next.value!.toSet();
@@ -41,7 +41,7 @@ class ApiCacheSyncService {
         // Remove cached episodes for unbookmarked series
         for (final removedSeries in removedBookmarks) {
           _ref
-              .read(cachedEpisodesNotifierProvider.notifier)
+              .read(cachedEpisodesProvider.notifier)
               .removeSeriesFromCache(removedSeries.showName);
         }
       }
@@ -53,16 +53,14 @@ class ApiCacheSyncService {
 
   /// Sync new episodes from API to cache
   Future<void> _syncNewEpisodes(List<ShowInfo> apiEpisodes) async {
-    final cachedNotifier = _ref.read(cachedEpisodesNotifierProvider.notifier);
+    final cachedNotifier = _ref.read(cachedEpisodesProvider.notifier);
     await cachedNotifier.cacheNewBookmarkedEpisodes(apiEpisodes);
   }
 
   /// Perform initial sync of bookmarked episodes
   Future<void> _performInitialSync() async {
     try {
-      final bookmarkedSeries = await _ref.read(
-        bookmarkedSeriesNotifierProvider.future,
-      );
+      final bookmarkedSeries = await _ref.read(bookmarkedSeriesProvider.future);
       if (bookmarkedSeries.isEmpty) return;
       final bookmarkedNames = bookmarkedSeries.map((b) => b.showName).toSet();
 
@@ -74,7 +72,7 @@ class ApiCacheSyncService {
 
       if (bookmarkedEpisodes.isNotEmpty) {
         await _ref
-            .read(cachedEpisodesNotifierProvider.notifier)
+            .read(cachedEpisodesProvider.notifier)
             .cacheEpisodes(bookmarkedEpisodes);
       }
     } catch (e) {

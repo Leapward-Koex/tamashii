@@ -53,9 +53,7 @@ class CachedEpisodesNotifier extends _$CachedEpisodesNotifier {
 
   /// Cache new episodes from bookmarked series
   Future<void> cacheNewBookmarkedEpisodes(List<ShowInfo> apiEpisodes) async {
-    final bookmarkedSeries = await ref.read(
-      bookmarkedSeriesNotifierProvider.future,
-    );
+    final bookmarkedSeries = await ref.read(bookmarkedSeriesProvider.future);
     final bookmarkedNames = bookmarkedSeries.map((b) => b.showName).toSet();
 
     // Get current cached episodes, defaulting to empty list if null
@@ -184,7 +182,7 @@ class CachedEpisodesNotifier extends _$CachedEpisodesNotifier {
 /// Combined provider that merges API data with cached episodes
 @riverpod
 Future<List<ShowInfo>> combinedEpisodes(Ref ref, String searchTerm) async {
-  final cachedEpisodes = await ref.watch(cachedEpisodesNotifierProvider.future);
+  final cachedEpisodes = await ref.watch(cachedEpisodesProvider.future);
 
   // Get API data
   final List<ShowInfo> apiEpisodes;
@@ -225,12 +223,12 @@ Future<List<ShowInfo>> filteredCombinedEpisodes(
   String searchTerm,
 ) async {
   // Get the current filter
-  final filterAsync = ref.watch(showFilterNotifierProvider);
+  final filterAsync = ref.watch(showFilterProvider);
   final filter = filterAsync.value ?? ShowFilter.all;
 
   // For saved filter, use only bookmarked series
   if (filter == ShowFilter.saved && searchTerm.isEmpty) {
-    final bookmarkedSeriesAsync = ref.watch(bookmarkedSeriesNotifierProvider);
+    final bookmarkedSeriesAsync = ref.watch(bookmarkedSeriesProvider);
 
     // If bookmarks are still loading, return empty list
     if (bookmarkedSeriesAsync.isLoading) {

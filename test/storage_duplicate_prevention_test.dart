@@ -20,8 +20,8 @@ void main() {
     });
 
     test('should not save duplicate episodes to storage', () async {
-      final cachedNotifier = container.read(cachedEpisodesNotifierProvider.notifier);
-      
+      final cachedNotifier = container.read(cachedEpisodesProvider.notifier);
+
       // Create duplicate episodes (same show and episode number)
       final episode1 = ShowInfo(
         downloads: [],
@@ -33,7 +33,7 @@ void main() {
         timeLabel: '10:00',
         xdcc: 'test1',
       );
-      
+
       final episode2 = ShowInfo(
         downloads: [],
         episode: '1', // Same episode number
@@ -44,7 +44,7 @@ void main() {
         timeLabel: '12:00',
         xdcc: 'test2',
       );
-      
+
       final episode3 = ShowInfo(
         downloads: [],
         episode: '2', // Different episode
@@ -55,20 +55,20 @@ void main() {
         timeLabel: '14:00',
         xdcc: 'test3',
       );
-      
+
       // Cache episodes with duplicates
       await cachedNotifier.cacheEpisodes([episode1, episode2, episode3]);
-      
+
       // Check cached episodes
-      final cachedState = await container.read(cachedEpisodesNotifierProvider.future);
-      
+      final cachedState = await container.read(cachedEpisodesProvider.future);
+
       // Should only have 2 episodes (episode1/episode2 are duplicates, only one should remain)
       expect(cachedState, hasLength(2));
-      
+
       // Check that we have episode 1 and episode 2, but not both versions of episode 1
       final episodeNumbers = cachedState.map((e) => e.episode).toSet();
       expect(episodeNumbers, containsAll(['1', '2']));
-      
+
       // Verify that the latest version of episode 1 is kept (episode2 has later time)
       final episode1Stored = cachedState.firstWhere((e) => e.episode == '1');
       expect(episode1Stored.timeLabel, '12:00'); // Should be episode2's time
@@ -76,8 +76,8 @@ void main() {
     });
 
     test('should remove duplicates when manually adding episodes', () async {
-      final cachedNotifier = container.read(cachedEpisodesNotifierProvider.notifier);
-      
+      final cachedNotifier = container.read(cachedEpisodesProvider.notifier);
+
       // Add initial episode
       final initialEpisode = ShowInfo(
         downloads: [],
@@ -89,9 +89,9 @@ void main() {
         timeLabel: '10:00',
         xdcc: 'initial',
       );
-      
+
       await cachedNotifier.cacheEpisodes([initialEpisode]);
-      
+
       // Add updated version of same episode
       final updatedEpisode = ShowInfo(
         downloads: [],
@@ -103,21 +103,21 @@ void main() {
         timeLabel: '12:00',
         xdcc: 'updated',
       );
-      
+
       await cachedNotifier.cacheEpisodes([updatedEpisode]);
-      
+
       // Should only have 1 episode total
-      final cachedState = await container.read(cachedEpisodesNotifierProvider.future);
+      final cachedState = await container.read(cachedEpisodesProvider.future);
       expect(cachedState, hasLength(1));
-      
+
       // Should be the updated version
       expect(cachedState[0].timeLabel, '12:00');
       expect(cachedState[0].imageUrl, 'updated.jpg');
     });
 
     test('should handle duplicates across different shows correctly', () async {
-      final cachedNotifier = container.read(cachedEpisodesNotifierProvider.notifier);
-      
+      final cachedNotifier = container.read(cachedEpisodesProvider.notifier);
+
       // Episodes with same episode number but different shows (not duplicates)
       final episode1Show1 = ShowInfo(
         downloads: [],
@@ -129,7 +129,7 @@ void main() {
         timeLabel: '10:00',
         xdcc: 'test1',
       );
-      
+
       final episode1Show2 = ShowInfo(
         downloads: [],
         episode: '1', // Same episode number
@@ -140,13 +140,13 @@ void main() {
         timeLabel: '12:00',
         xdcc: 'test2',
       );
-      
+
       await cachedNotifier.cacheEpisodes([episode1Show1, episode1Show2]);
-      
+
       // Should have both episodes since they're from different shows
-      final cachedState = await container.read(cachedEpisodesNotifierProvider.future);
+      final cachedState = await container.read(cachedEpisodesProvider.future);
       expect(cachedState, hasLength(2));
-      
+
       final showNames = cachedState.map((e) => e.show).toSet();
       expect(showNames, containsAll(['Show A', 'Show B']));
     });

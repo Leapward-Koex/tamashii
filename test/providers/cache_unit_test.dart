@@ -39,14 +39,12 @@ void main() {
     }
 
     test('cache starts empty', () async {
-      final episodes = await container.read(
-        cachedEpisodesNotifierProvider.future,
-      );
+      final episodes = await container.read(cachedEpisodesProvider.future);
       expect(episodes, isEmpty);
     });
 
     test('can add episodes to cache', () async {
-      final notifier = container.read(cachedEpisodesNotifierProvider.notifier);
+      final notifier = container.read(cachedEpisodesProvider.notifier);
       final testEpisode = createTestEpisode(
         showName: 'Test Show',
         episode: '1',
@@ -56,15 +54,13 @@ void main() {
       await notifier.cacheEpisodes([testEpisode]);
 
       // Wait for the state to update
-      final episodes = await container.read(
-        cachedEpisodesNotifierProvider.future,
-      );
+      final episodes = await container.read(cachedEpisodesProvider.future);
       expect(episodes, hasLength(1));
       expect(episodes[0].show, equals('Test Show'));
     });
 
     test('episodes are sorted by release date', () async {
-      final notifier = container.read(cachedEpisodesNotifierProvider.notifier);
+      final notifier = container.read(cachedEpisodesProvider.notifier);
       final episodes = [
         createTestEpisode(
           showName: 'Show A',
@@ -80,16 +76,14 @@ void main() {
 
       await notifier.cacheEpisodes(episodes);
 
-      final cached = await container.read(
-        cachedEpisodesNotifierProvider.future,
-      );
+      final cached = await container.read(cachedEpisodesProvider.future);
       expect(cached, hasLength(2));
       expect(cached[0].show, equals('Show B')); // Newest first
       expect(cached[1].show, equals('Show A')); // Oldest last
     });
 
     test('can clear cache', () async {
-      final notifier = container.read(cachedEpisodesNotifierProvider.notifier);
+      final notifier = container.read(cachedEpisodesProvider.notifier);
 
       // Add an episode
       await notifier.cacheEpisodes([
@@ -101,23 +95,21 @@ void main() {
       ]);
 
       // Verify it's there
-      var episodes = await container.read(
-        cachedEpisodesNotifierProvider.future,
-      );
+      var episodes = await container.read(cachedEpisodesProvider.future);
       expect(episodes, hasLength(1));
 
       // Clear cache
       await notifier.clearCache();
 
       // Verify it's empty
-      episodes = await container.read(cachedEpisodesNotifierProvider.future);
+      episodes = await container.read(cachedEpisodesProvider.future);
       expect(episodes, isEmpty);
     });
 
     test('bookmarked series filtering works', () async {
       // Set up bookmarks
       final bookmarkNotifier = container.read(
-        bookmarkedSeriesNotifierProvider.notifier,
+        bookmarkedSeriesProvider.notifier,
       );
       await bookmarkNotifier.add(
         BookmarkedShowInfo(
@@ -128,14 +120,10 @@ void main() {
       );
 
       // Wait for bookmarks to be ready
-      final bookmarks = await container.read(
-        bookmarkedSeriesNotifierProvider.future,
-      );
+      final bookmarks = await container.read(bookmarkedSeriesProvider.future);
       expect(bookmarks.map((b) => b.showName), contains('Bookmarked Show'));
 
-      final cachedNotifier = container.read(
-        cachedEpisodesNotifierProvider.notifier,
-      );
+      final cachedNotifier = container.read(cachedEpisodesProvider.notifier);
 
       final episodes = [
         createTestEpisode(
@@ -152,9 +140,7 @@ void main() {
 
       await cachedNotifier.cacheNewBookmarkedEpisodes(episodes);
 
-      final cached = await container.read(
-        cachedEpisodesNotifierProvider.future,
-      );
+      final cached = await container.read(cachedEpisodesProvider.future);
       expect(cached, hasLength(1));
       expect(cached[0].show, equals('Bookmarked Show'));
     });
@@ -162,7 +148,7 @@ void main() {
     test('prevents duplicate episodes', () async {
       // Set up bookmarks
       final bookmarkNotifier = container.read(
-        bookmarkedSeriesNotifierProvider.notifier,
+        bookmarkedSeriesProvider.notifier,
       );
       await bookmarkNotifier.add(
         BookmarkedShowInfo(
@@ -172,9 +158,7 @@ void main() {
         ),
       );
 
-      final cachedNotifier = container.read(
-        cachedEpisodesNotifierProvider.notifier,
-      );
+      final cachedNotifier = container.read(cachedEpisodesProvider.notifier);
 
       // Add initial episode
       final episode = createTestEpisode(
@@ -188,14 +172,12 @@ void main() {
       // Try to add the same episode again
       await cachedNotifier.cacheNewBookmarkedEpisodes([episode]);
 
-      final cached = await container.read(
-        cachedEpisodesNotifierProvider.future,
-      );
+      final cached = await container.read(cachedEpisodesProvider.future);
       expect(cached, hasLength(1)); // Should not duplicate
     });
 
     test('storage operations work', () async {
-      final notifier = container.read(cachedEpisodesNotifierProvider.notifier);
+      final notifier = container.read(cachedEpisodesProvider.notifier);
       final episode = createTestEpisode(
         showName: 'Storage Test',
         episode: '1',
@@ -207,7 +189,7 @@ void main() {
       // Instead of checking SharedPreferences directly (which doesn't work in mock),
       // verify that the episode was cached by reading it back from the provider
       final cachedEpisodes = await container.read(
-        cachedEpisodesNotifierProvider.future,
+        cachedEpisodesProvider.future,
       );
       expect(cachedEpisodes, hasLength(1));
       expect(cachedEpisodes[0].show, equals('Storage Test'));
@@ -221,11 +203,11 @@ void main() {
 
       // These should not throw
       expect(
-        () => container.read(cachedEpisodesNotifierProvider),
+        () => container.read(cachedEpisodesProvider),
         isNot(throwsException),
       );
       expect(
-        () => container.read(bookmarkedSeriesNotifierProvider),
+        () => container.read(bookmarkedSeriesProvider),
         isNot(throwsException),
       );
 

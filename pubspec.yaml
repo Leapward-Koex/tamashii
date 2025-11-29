@@ -30,12 +30,12 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  hooks_riverpod: ^2.0.0
-  riverpod_annotation: ^2.0.0
-  flutter_hooks: ^0.18.0
-  http: ^1.4.0
-  html: ^0.15.0
-  intl: ^0.18.0
+  hooks_riverpod: ^3.0.3
+  riverpod_annotation: ^3.0.3
+  flutter_hooks: ^0.21.3+1
+  http: ^1.6.0
+  html: ^0.15.6
+  intl: ^0.20.2
   path: ^1.9.1
   shared_preferences: ^2.5.3
   simple_torrent:
@@ -44,8 +44,8 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
-  cached_network_image: ^3.3.1
-  file_picker: ^10.1.9
+  cached_network_image: ^3.4.1
+  file_picker: ^10.3.7
   flutter_foreground_task: ^9.1.0
   flutter_local_notifications: ^19.4.0
   permission_handler: ^12.0.1
@@ -62,7 +62,7 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
   build_runner: ^2.0.0
-  riverpod_generator: ^2.0.0
+  riverpod_generator: ^3.0.3
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

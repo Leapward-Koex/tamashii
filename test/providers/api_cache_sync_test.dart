@@ -47,7 +47,7 @@ void main() {
     test('should sync bookmarked episodes to cache', () async {
       // Set up bookmarks
       final bookmarkNotifier = container.read(
-        bookmarkedSeriesNotifierProvider.notifier,
+        bookmarkedSeriesProvider.notifier,
       );
       await bookmarkNotifier.add(
         BookmarkedShowInfo(
@@ -64,9 +64,7 @@ void main() {
         ),
       );
 
-      final cachedNotifier = container.read(
-        cachedEpisodesNotifierProvider.notifier,
-      );
+      final cachedNotifier = container.read(cachedEpisodesProvider.notifier);
 
       // Simulate API episodes
       final apiEpisodes = [
@@ -91,7 +89,7 @@ void main() {
       await cachedNotifier.cacheNewBookmarkedEpisodes(apiEpisodes);
 
       final cachedEpisodes = await container.read(
-        cachedEpisodesNotifierProvider.future,
+        cachedEpisodesProvider.future,
       );
 
       expect(cachedEpisodes, hasLength(2)); // Only bookmarked series
@@ -113,7 +111,7 @@ void main() {
 
       // Verify cache is still accessible
       final cachedEpisodes = await container.read(
-        cachedEpisodesNotifierProvider.future,
+        cachedEpisodesProvider.future,
       );
       expect(cachedEpisodes, isNotNull);
     });

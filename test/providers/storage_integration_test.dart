@@ -59,7 +59,7 @@ void main() {
 
     test('cache provider properly handles JSON serialization', () async {
       final container = ProviderContainer();
-      final notifier = container.read(cachedEpisodesNotifierProvider.notifier);
+      final notifier = container.read(cachedEpisodesProvider.notifier);
 
       final episodes = [
         createTestEpisode(
@@ -77,9 +77,7 @@ void main() {
       await notifier.cacheEpisodes(episodes);
 
       // Verify the episodes are cached correctly
-      final cached = await container.read(
-        cachedEpisodesNotifierProvider.future,
-      );
+      final cached = await container.read(cachedEpisodesProvider.future);
       expect(cached, hasLength(2));
 
       // Verify they maintain their properties
@@ -112,9 +110,7 @@ void main() {
       SharedPreferences.setMockInitialValues(initialData);
 
       final container = ProviderContainer();
-      final episodes = await container.read(
-        cachedEpisodesNotifierProvider.future,
-      );
+      final episodes = await container.read(cachedEpisodesProvider.future);
 
       expect(episodes, hasLength(1));
       expect(episodes[0].show, equals('Test Show'));
@@ -134,9 +130,7 @@ void main() {
       final container = ProviderContainer();
 
       // This should not throw and should return empty list
-      final episodes = await container.read(
-        cachedEpisodesNotifierProvider.future,
-      );
+      final episodes = await container.read(cachedEpisodesProvider.future);
       expect(episodes, isEmpty);
 
       container.dispose();
@@ -144,7 +138,7 @@ void main() {
 
     test('cache operations work correctly', () async {
       final container = ProviderContainer();
-      final notifier = container.read(cachedEpisodesNotifierProvider.notifier);
+      final notifier = container.read(cachedEpisodesProvider.notifier);
 
       final episode1 = createTestEpisode(
         showName: 'Show 1',
@@ -154,13 +148,13 @@ void main() {
 
       // Add first episode
       await notifier.cacheEpisodes([episode1]);
-      var cached = await container.read(cachedEpisodesNotifierProvider.future);
+      var cached = await container.read(cachedEpisodesProvider.future);
       expect(cached, hasLength(1));
       expect(cached[0].show, equals('Show 1'));
 
       // Test clearing cache
       await notifier.clearCache();
-      cached = await container.read(cachedEpisodesNotifierProvider.future);
+      cached = await container.read(cachedEpisodesProvider.future);
       expect(cached, isEmpty);
 
       container.dispose();

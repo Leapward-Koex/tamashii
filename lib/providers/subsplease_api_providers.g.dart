@@ -6,422 +6,304 @@ part of 'subsplease_api_providers.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$subsPleaseApiHash() => r'5e916012b526cb15eae6eb53e409dfacc05ba54b';
+// GENERATED CODE - DO NOT MODIFY BY HAND
+// ignore_for_file: type=lint, type=warning
 
-/// See also [subsPleaseApi].
 @ProviderFor(subsPleaseApi)
-final subsPleaseApiProvider = AutoDisposeProvider<SubsPleaseApi>.internal(
-  subsPleaseApi,
-  name: r'subsPleaseApiProvider',
-  debugGetCreateSourceHash:
-      const bool.fromEnvironment('dart.vm.product')
-          ? null
-          : _$subsPleaseApiHash,
-  dependencies: null,
-  allTransitiveDependencies: null,
-);
+const subsPleaseApiProvider = SubsPleaseApiProvider._();
 
-@Deprecated('Will be removed in 3.0. Use Ref instead')
-// ignore: unused_element
-typedef SubsPleaseApiRef = AutoDisposeProviderRef<SubsPleaseApi>;
-String _$latestShowsHash() => r'55bbb87dbf9a7fcb5cee4e819c3dc4c25c16d8aa';
-
-/// See also [latestShows].
-@ProviderFor(latestShows)
-final latestShowsProvider = AutoDisposeFutureProvider<List<ShowInfo>>.internal(
-  latestShows,
-  name: r'latestShowsProvider',
-  debugGetCreateSourceHash:
-      const bool.fromEnvironment('dart.vm.product') ? null : _$latestShowsHash,
-  dependencies: null,
-  allTransitiveDependencies: null,
-);
-
-@Deprecated('Will be removed in 3.0. Use Ref instead')
-// ignore: unused_element
-typedef LatestShowsRef = AutoDisposeFutureProviderRef<List<ShowInfo>>;
-String _$searchShowsHash() => r'7eb8ebb488f21c1d3c09dbd809a7fcebc8cc2ea3';
-
-/// Copied from Dart SDK
-class _SystemHash {
-  _SystemHash._();
-
-  static int combine(int hash, int value) {
-    // ignore: parameter_assignments
-    hash = 0x1fffffff & (hash + value);
-    // ignore: parameter_assignments
-    hash = 0x1fffffff & (hash + ((0x0007ffff & hash) << 10));
-    return hash ^ (hash >> 6);
-  }
-
-  static int finish(int hash) {
-    // ignore: parameter_assignments
-    hash = 0x1fffffff & (hash + ((0x03ffffff & hash) << 3));
-    // ignore: parameter_assignments
-    hash = hash ^ (hash >> 11);
-    return 0x1fffffff & (hash + ((0x00003fff & hash) << 15));
-  }
-}
-
-/// See also [searchShows].
-@ProviderFor(searchShows)
-const searchShowsProvider = SearchShowsFamily();
-
-/// See also [searchShows].
-class SearchShowsFamily extends Family<AsyncValue<List<ShowInfo>>> {
-  /// See also [searchShows].
-  const SearchShowsFamily();
-
-  /// See also [searchShows].
-  SearchShowsProvider call(String searchTerm) {
-    return SearchShowsProvider(searchTerm);
-  }
-
-  @override
-  SearchShowsProvider getProviderOverride(
-    covariant SearchShowsProvider provider,
-  ) {
-    return call(provider.searchTerm);
-  }
-
-  static const Iterable<ProviderOrFamily>? _dependencies = null;
-
-  @override
-  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
-
-  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
-
-  @override
-  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
-      _allTransitiveDependencies;
-
-  @override
-  String? get name => r'searchShowsProvider';
-}
-
-/// See also [searchShows].
-class SearchShowsProvider extends AutoDisposeFutureProvider<List<ShowInfo>> {
-  /// See also [searchShows].
-  SearchShowsProvider(String searchTerm)
-    : this._internal(
-        (ref) => searchShows(ref as SearchShowsRef, searchTerm),
-        from: searchShowsProvider,
-        name: r'searchShowsProvider',
-        debugGetCreateSourceHash:
-            const bool.fromEnvironment('dart.vm.product')
-                ? null
-                : _$searchShowsHash,
-        dependencies: SearchShowsFamily._dependencies,
-        allTransitiveDependencies: SearchShowsFamily._allTransitiveDependencies,
-        searchTerm: searchTerm,
+final class SubsPleaseApiProvider
+    extends $FunctionalProvider<SubsPleaseApi, SubsPleaseApi, SubsPleaseApi>
+    with $Provider<SubsPleaseApi> {
+  const SubsPleaseApiProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'subsPleaseApiProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
       );
 
-  SearchShowsProvider._internal(
-    super._createNotifier, {
-    required super.name,
-    required super.dependencies,
-    required super.allTransitiveDependencies,
-    required super.debugGetCreateSourceHash,
-    required super.from,
-    required this.searchTerm,
-  }) : super.internal();
+  @override
+  String debugGetCreateSourceHash() => _$subsPleaseApiHash();
 
-  final String searchTerm;
+  @$internal
+  @override
+  $ProviderElement<SubsPleaseApi> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
 
   @override
-  Override overrideWith(
-    FutureOr<List<ShowInfo>> Function(SearchShowsRef provider) create,
-  ) {
-    return ProviderOverride(
-      origin: this,
-      override: SearchShowsProvider._internal(
-        (ref) => create(ref as SearchShowsRef),
-        from: from,
-        name: null,
-        dependencies: null,
-        allTransitiveDependencies: null,
-        debugGetCreateSourceHash: null,
-        searchTerm: searchTerm,
-      ),
-    );
+  SubsPleaseApi create(Ref ref) {
+    return subsPleaseApi(ref);
   }
 
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(SubsPleaseApi value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<SubsPleaseApi>(value),
+    );
+  }
+}
+
+String _$subsPleaseApiHash() => r'5e916012b526cb15eae6eb53e409dfacc05ba54b';
+
+@ProviderFor(latestShows)
+const latestShowsProvider = LatestShowsProvider._();
+
+final class LatestShowsProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<List<ShowInfo>>,
+          List<ShowInfo>,
+          FutureOr<List<ShowInfo>>
+        >
+    with $FutureModifier<List<ShowInfo>>, $FutureProvider<List<ShowInfo>> {
+  const LatestShowsProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'latestShowsProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
   @override
-  AutoDisposeFutureProviderElement<List<ShowInfo>> createElement() {
-    return _SearchShowsProviderElement(this);
+  String debugGetCreateSourceHash() => _$latestShowsHash();
+
+  @$internal
+  @override
+  $FutureProviderElement<List<ShowInfo>> $createElement(
+    $ProviderPointer pointer,
+  ) => $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<List<ShowInfo>> create(Ref ref) {
+    return latestShows(ref);
+  }
+}
+
+String _$latestShowsHash() => r'55bbb87dbf9a7fcb5cee4e819c3dc4c25c16d8aa';
+
+@ProviderFor(searchShows)
+const searchShowsProvider = SearchShowsFamily._();
+
+final class SearchShowsProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<List<ShowInfo>>,
+          List<ShowInfo>,
+          FutureOr<List<ShowInfo>>
+        >
+    with $FutureModifier<List<ShowInfo>>, $FutureProvider<List<ShowInfo>> {
+  const SearchShowsProvider._({
+    required SearchShowsFamily super.from,
+    required String super.argument,
+  }) : super(
+         retry: null,
+         name: r'searchShowsProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$searchShowsHash();
+
+  @override
+  String toString() {
+    return r'searchShowsProvider'
+        ''
+        '($argument)';
+  }
+
+  @$internal
+  @override
+  $FutureProviderElement<List<ShowInfo>> $createElement(
+    $ProviderPointer pointer,
+  ) => $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<List<ShowInfo>> create(Ref ref) {
+    final argument = this.argument as String;
+    return searchShows(ref, argument);
   }
 
   @override
   bool operator ==(Object other) {
-    return other is SearchShowsProvider && other.searchTerm == searchTerm;
+    return other is SearchShowsProvider && other.argument == argument;
   }
 
   @override
   int get hashCode {
-    var hash = _SystemHash.combine(0, runtimeType.hashCode);
-    hash = _SystemHash.combine(hash, searchTerm.hashCode);
-
-    return _SystemHash.finish(hash);
+    return argument.hashCode;
   }
 }
 
-@Deprecated('Will be removed in 3.0. Use Ref instead')
-// ignore: unused_element
-mixin SearchShowsRef on AutoDisposeFutureProviderRef<List<ShowInfo>> {
-  /// The parameter `searchTerm` of this provider.
-  String get searchTerm;
-}
+String _$searchShowsHash() => r'7eb8ebb488f21c1d3c09dbd809a7fcebc8cc2ea3';
 
-class _SearchShowsProviderElement
-    extends AutoDisposeFutureProviderElement<List<ShowInfo>>
-    with SearchShowsRef {
-  _SearchShowsProviderElement(super.provider);
+final class SearchShowsFamily extends $Family
+    with $FunctionalFamilyOverride<FutureOr<List<ShowInfo>>, String> {
+  const SearchShowsFamily._()
+    : super(
+        retry: null,
+        name: r'searchShowsProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  SearchShowsProvider call(String searchTerm) =>
+      SearchShowsProvider._(argument: searchTerm, from: this);
 
   @override
-  String get searchTerm => (origin as SearchShowsProvider).searchTerm;
+  String toString() => r'searchShowsProvider';
+}
+
+@ProviderFor(filteredShows)
+const filteredShowsProvider = FilteredShowsFamily._();
+
+final class FilteredShowsProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<List<ShowInfo>>,
+          List<ShowInfo>,
+          FutureOr<List<ShowInfo>>
+        >
+    with $FutureModifier<List<ShowInfo>>, $FutureProvider<List<ShowInfo>> {
+  const FilteredShowsProvider._({
+    required FilteredShowsFamily super.from,
+    required String super.argument,
+  }) : super(
+         retry: null,
+         name: r'filteredShowsProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$filteredShowsHash();
+
+  @override
+  String toString() {
+    return r'filteredShowsProvider'
+        ''
+        '($argument)';
+  }
+
+  @$internal
+  @override
+  $FutureProviderElement<List<ShowInfo>> $createElement(
+    $ProviderPointer pointer,
+  ) => $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<List<ShowInfo>> create(Ref ref) {
+    final argument = this.argument as String;
+    return filteredShows(ref, argument);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is FilteredShowsProvider && other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
 }
 
 String _$filteredShowsHash() => r'7bed9373efd283c4f71db6e38eb71ca2d95370a1';
 
-/// See also [filteredShows].
-@ProviderFor(filteredShows)
-const filteredShowsProvider = FilteredShowsFamily();
-
-/// See also [filteredShows].
-class FilteredShowsFamily extends Family<AsyncValue<List<ShowInfo>>> {
-  /// See also [filteredShows].
-  const FilteredShowsFamily();
-
-  /// See also [filteredShows].
-  FilteredShowsProvider call(String searchTerm) {
-    return FilteredShowsProvider(searchTerm);
-  }
-
-  @override
-  FilteredShowsProvider getProviderOverride(
-    covariant FilteredShowsProvider provider,
-  ) {
-    return call(provider.searchTerm);
-  }
-
-  static const Iterable<ProviderOrFamily>? _dependencies = null;
-
-  @override
-  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
-
-  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
-
-  @override
-  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
-      _allTransitiveDependencies;
-
-  @override
-  String? get name => r'filteredShowsProvider';
-}
-
-/// See also [filteredShows].
-class FilteredShowsProvider extends AutoDisposeFutureProvider<List<ShowInfo>> {
-  /// See also [filteredShows].
-  FilteredShowsProvider(String searchTerm)
-    : this._internal(
-        (ref) => filteredShows(ref as FilteredShowsRef, searchTerm),
-        from: filteredShowsProvider,
+final class FilteredShowsFamily extends $Family
+    with $FunctionalFamilyOverride<FutureOr<List<ShowInfo>>, String> {
+  const FilteredShowsFamily._()
+    : super(
+        retry: null,
         name: r'filteredShowsProvider',
-        debugGetCreateSourceHash:
-            const bool.fromEnvironment('dart.vm.product')
-                ? null
-                : _$filteredShowsHash,
-        dependencies: FilteredShowsFamily._dependencies,
-        allTransitiveDependencies:
-            FilteredShowsFamily._allTransitiveDependencies,
-        searchTerm: searchTerm,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
       );
 
-  FilteredShowsProvider._internal(
-    super._createNotifier, {
-    required super.name,
-    required super.dependencies,
-    required super.allTransitiveDependencies,
-    required super.debugGetCreateSourceHash,
-    required super.from,
-    required this.searchTerm,
-  }) : super.internal();
-
-  final String searchTerm;
+  FilteredShowsProvider call(String searchTerm) =>
+      FilteredShowsProvider._(argument: searchTerm, from: this);
 
   @override
-  Override overrideWith(
-    FutureOr<List<ShowInfo>> Function(FilteredShowsRef provider) create,
-  ) {
-    return ProviderOverride(
-      origin: this,
-      override: FilteredShowsProvider._internal(
-        (ref) => create(ref as FilteredShowsRef),
-        from: from,
-        name: null,
-        dependencies: null,
-        allTransitiveDependencies: null,
-        debugGetCreateSourceHash: null,
-        searchTerm: searchTerm,
-      ),
-    );
+  String toString() => r'filteredShowsProvider';
+}
+
+@ProviderFor(showSynopsis)
+const showSynopsisProvider = ShowSynopsisFamily._();
+
+final class ShowSynopsisProvider
+    extends $FunctionalProvider<AsyncValue<String?>, String?, FutureOr<String?>>
+    with $FutureModifier<String?>, $FutureProvider<String?> {
+  const ShowSynopsisProvider._({
+    required ShowSynopsisFamily super.from,
+    required String super.argument,
+  }) : super(
+         retry: null,
+         name: r'showSynopsisProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$showSynopsisHash();
+
+  @override
+  String toString() {
+    return r'showSynopsisProvider'
+        ''
+        '($argument)';
   }
 
+  @$internal
   @override
-  AutoDisposeFutureProviderElement<List<ShowInfo>> createElement() {
-    return _FilteredShowsProviderElement(this);
+  $FutureProviderElement<String?> $createElement($ProviderPointer pointer) =>
+      $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<String?> create(Ref ref) {
+    final argument = this.argument as String;
+    return showSynopsis(ref, argument);
   }
 
   @override
   bool operator ==(Object other) {
-    return other is FilteredShowsProvider && other.searchTerm == searchTerm;
+    return other is ShowSynopsisProvider && other.argument == argument;
   }
 
   @override
   int get hashCode {
-    var hash = _SystemHash.combine(0, runtimeType.hashCode);
-    hash = _SystemHash.combine(hash, searchTerm.hashCode);
-
-    return _SystemHash.finish(hash);
+    return argument.hashCode;
   }
-}
-
-@Deprecated('Will be removed in 3.0. Use Ref instead')
-// ignore: unused_element
-mixin FilteredShowsRef on AutoDisposeFutureProviderRef<List<ShowInfo>> {
-  /// The parameter `searchTerm` of this provider.
-  String get searchTerm;
-}
-
-class _FilteredShowsProviderElement
-    extends AutoDisposeFutureProviderElement<List<ShowInfo>>
-    with FilteredShowsRef {
-  _FilteredShowsProviderElement(super.provider);
-
-  @override
-  String get searchTerm => (origin as FilteredShowsProvider).searchTerm;
 }
 
 String _$showSynopsisHash() => r'628c445a90cbee14311e9e9efd9e2061d45ffe19';
 
-/// See also [showSynopsis].
-@ProviderFor(showSynopsis)
-const showSynopsisProvider = ShowSynopsisFamily();
-
-/// See also [showSynopsis].
-class ShowSynopsisFamily extends Family<AsyncValue<String?>> {
-  /// See also [showSynopsis].
-  const ShowSynopsisFamily();
-
-  /// See also [showSynopsis].
-  ShowSynopsisProvider call(String showPage) {
-    return ShowSynopsisProvider(showPage);
-  }
-
-  @override
-  ShowSynopsisProvider getProviderOverride(
-    covariant ShowSynopsisProvider provider,
-  ) {
-    return call(provider.showPage);
-  }
-
-  static const Iterable<ProviderOrFamily>? _dependencies = null;
-
-  @override
-  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
-
-  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
-
-  @override
-  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
-      _allTransitiveDependencies;
-
-  @override
-  String? get name => r'showSynopsisProvider';
-}
-
-/// See also [showSynopsis].
-class ShowSynopsisProvider extends AutoDisposeFutureProvider<String?> {
-  /// See also [showSynopsis].
-  ShowSynopsisProvider(String showPage)
-    : this._internal(
-        (ref) => showSynopsis(ref as ShowSynopsisRef, showPage),
-        from: showSynopsisProvider,
+final class ShowSynopsisFamily extends $Family
+    with $FunctionalFamilyOverride<FutureOr<String?>, String> {
+  const ShowSynopsisFamily._()
+    : super(
+        retry: null,
         name: r'showSynopsisProvider',
-        debugGetCreateSourceHash:
-            const bool.fromEnvironment('dart.vm.product')
-                ? null
-                : _$showSynopsisHash,
-        dependencies: ShowSynopsisFamily._dependencies,
-        allTransitiveDependencies:
-            ShowSynopsisFamily._allTransitiveDependencies,
-        showPage: showPage,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
       );
 
-  ShowSynopsisProvider._internal(
-    super._createNotifier, {
-    required super.name,
-    required super.dependencies,
-    required super.allTransitiveDependencies,
-    required super.debugGetCreateSourceHash,
-    required super.from,
-    required this.showPage,
-  }) : super.internal();
-
-  final String showPage;
+  ShowSynopsisProvider call(String showPage) =>
+      ShowSynopsisProvider._(argument: showPage, from: this);
 
   @override
-  Override overrideWith(
-    FutureOr<String?> Function(ShowSynopsisRef provider) create,
-  ) {
-    return ProviderOverride(
-      origin: this,
-      override: ShowSynopsisProvider._internal(
-        (ref) => create(ref as ShowSynopsisRef),
-        from: from,
-        name: null,
-        dependencies: null,
-        allTransitiveDependencies: null,
-        debugGetCreateSourceHash: null,
-        showPage: showPage,
-      ),
-    );
-  }
-
-  @override
-  AutoDisposeFutureProviderElement<String?> createElement() {
-    return _ShowSynopsisProviderElement(this);
-  }
-
-  @override
-  bool operator ==(Object other) {
-    return other is ShowSynopsisProvider && other.showPage == showPage;
-  }
-
-  @override
-  int get hashCode {
-    var hash = _SystemHash.combine(0, runtimeType.hashCode);
-    hash = _SystemHash.combine(hash, showPage.hashCode);
-
-    return _SystemHash.finish(hash);
-  }
+  String toString() => r'showSynopsisProvider';
 }
-
-@Deprecated('Will be removed in 3.0. Use Ref instead')
-// ignore: unused_element
-mixin ShowSynopsisRef on AutoDisposeFutureProviderRef<String?> {
-  /// The parameter `showPage` of this provider.
-  String get showPage;
-}
-
-class _ShowSynopsisProviderElement
-    extends AutoDisposeFutureProviderElement<String?>
-    with ShowSynopsisRef {
-  _ShowSynopsisProviderElement(super.provider);
-
-  @override
-  String get showPage => (origin as ShowSynopsisProvider).showPage;
-}
-
-// ignore_for_file: type=lint
-// ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package

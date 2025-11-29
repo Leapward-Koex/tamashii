@@ -5,6 +5,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tamashii/models/show_models.dart';
 import 'package:tamashii/providers/cached_episodes_provider.dart';
+
 void main() {
   group('Cache Isolated Tests', () {
     late ProviderContainer container;
@@ -25,18 +26,22 @@ void main() {
         episode: '1',
         imageUrl: 'test.jpg',
         page: 'test-page',
-        releaseDate: DateTime(2025, 7, 26), // This will be serialized as "07/26/25"
+        releaseDate: DateTime(
+          2025,
+          7,
+          26,
+        ), // This will be serialized as "07/26/25"
         show: 'Test Show',
         timeLabel: '12:00',
         xdcc: 'test',
       );
 
       // Cache the episode manually
-      final cachedNotifier = container.read(cachedEpisodesNotifierProvider.notifier);
+      final cachedNotifier = container.read(cachedEpisodesProvider.notifier);
       await cachedNotifier.cacheEpisodes([episode]);
-      
+
       // Check that it was cached correctly
-      final cachedState = container.read(cachedEpisodesNotifierProvider);
+      final cachedState = container.read(cachedEpisodesProvider);
       expect(cachedState.hasValue, isTrue);
       expect(cachedState.value, hasLength(1));
       expect(cachedState.value![0].show, equals('Test Show'));
@@ -58,17 +63,17 @@ void main() {
       );
 
       // Cache the episode
-      final cachedNotifier = container.read(cachedEpisodesNotifierProvider.notifier);
+      final cachedNotifier = container.read(cachedEpisodesProvider.notifier);
       await cachedNotifier.cacheEpisodes([episode]);
-      
+
       // Dispose the container to simulate app restart
       container.dispose();
-      
+
       // Create a new container (simulating app restart)
       container = ProviderContainer();
-      
+
       // Check that the episode is still cached after "restart"
-      final cachedState = await container.read(cachedEpisodesNotifierProvider.future);
+      final cachedState = await container.read(cachedEpisodesProvider.future);
       expect(cachedState, hasLength(1));
       expect(cachedState[0].show, equals('Test Show'));
       expect(cachedState[0].releaseDate.year, equals(2025));

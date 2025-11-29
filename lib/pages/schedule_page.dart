@@ -14,8 +14,7 @@ class SchedulePage extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final bookmarked =
-        ref.watch(bookmarkedSeriesNotifierProvider).valueOrNull ??
-        <BookmarkedShowInfo>[];
+        ref.watch(bookmarkedSeriesProvider).value ?? <BookmarkedShowInfo>[];
 
     // Controller for continuous horizontal scrolling
     final initialPage = useMemoized(() => DateTime.now().weekday - 1);

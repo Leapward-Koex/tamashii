@@ -39,15 +39,13 @@ void main() {
     }
 
     test('should start with empty cache', () async {
-      final episodes = await container.read(
-        cachedEpisodesNotifierProvider.future,
-      );
+      final episodes = await container.read(cachedEpisodesProvider.future);
 
       expect(episodes, isEmpty);
     });
 
     test('should cache episodes to storage', () async {
-      final notifier = container.read(cachedEpisodesNotifierProvider.notifier);
+      final notifier = container.read(cachedEpisodesProvider.notifier);
       final testEpisodes = [
         createTestEpisode(
           showName: 'Attack on Titan',
@@ -63,7 +61,7 @@ void main() {
 
       await notifier.cacheEpisodes(testEpisodes);
       final cachedEpisodes = await container.read(
-        cachedEpisodesNotifierProvider.future,
+        cachedEpisodesProvider.future,
       );
 
       expect(cachedEpisodes, hasLength(2));
@@ -80,7 +78,7 @@ void main() {
     });
 
     test('should sort episodes by release date (newest first)', () async {
-      final notifier = container.read(cachedEpisodesNotifierProvider.notifier);
+      final notifier = container.read(cachedEpisodesProvider.notifier);
       final testEpisodes = [
         createTestEpisode(
           showName: 'Show A',
@@ -101,7 +99,7 @@ void main() {
 
       await notifier.cacheEpisodes(testEpisodes);
       final cachedEpisodes = await container.read(
-        cachedEpisodesNotifierProvider.future,
+        cachedEpisodesProvider.future,
       );
 
       expect(cachedEpisodes[0].show, equals('Show B')); // Newest first
@@ -110,7 +108,7 @@ void main() {
     });
 
     test('should remove series from cache', () async {
-      final notifier = container.read(cachedEpisodesNotifierProvider.notifier);
+      final notifier = container.read(cachedEpisodesProvider.notifier);
       final testEpisodes = [
         createTestEpisode(
           showName: 'Attack on Titan',
@@ -133,7 +131,7 @@ void main() {
       await notifier.removeSeriesFromCache('Attack on Titan');
 
       final cachedEpisodes = await container.read(
-        cachedEpisodesNotifierProvider.future,
+        cachedEpisodesProvider.future,
       );
 
       expect(cachedEpisodes, hasLength(1));
@@ -143,7 +141,7 @@ void main() {
     test('should cache only new bookmarked episodes', () async {
       // Set up bookmarks
       final bookmarkNotifier = container.read(
-        bookmarkedSeriesNotifierProvider.notifier,
+        bookmarkedSeriesProvider.notifier,
       );
       await bookmarkNotifier.add(
         BookmarkedShowInfo(
@@ -160,9 +158,7 @@ void main() {
         ),
       );
 
-      final cachedNotifier = container.read(
-        cachedEpisodesNotifierProvider.notifier,
-      );
+      final cachedNotifier = container.read(cachedEpisodesProvider.notifier);
 
       // Add initial episode
       final initialEpisode = createTestEpisode(
@@ -198,7 +194,7 @@ void main() {
 
       await cachedNotifier.cacheNewBookmarkedEpisodes(apiEpisodes);
       final cachedEpisodes = await container.read(
-        cachedEpisodesNotifierProvider.future,
+        cachedEpisodesProvider.future,
       );
 
       expect(
@@ -216,7 +212,7 @@ void main() {
     });
 
     test('should clean up old episodes (keep only 100 per series)', () async {
-      final notifier = container.read(cachedEpisodesNotifierProvider.notifier);
+      final notifier = container.read(cachedEpisodesProvider.notifier);
 
       // Create 150 episodes for one series
       final episodes = List.generate(
@@ -232,7 +228,7 @@ void main() {
       await notifier.cleanupOldEpisodes();
 
       final cachedEpisodes = await container.read(
-        cachedEpisodesNotifierProvider.future,
+        cachedEpisodesProvider.future,
       );
 
       expect(cachedEpisodes, hasLength(100));
@@ -242,7 +238,7 @@ void main() {
     });
 
     test('should clear all cached episodes', () async {
-      final notifier = container.read(cachedEpisodesNotifierProvider.notifier);
+      final notifier = container.read(cachedEpisodesProvider.notifier);
       final testEpisodes = [
         createTestEpisode(
           showName: 'Test Show',
@@ -252,14 +248,11 @@ void main() {
       ];
 
       await notifier.cacheEpisodes(testEpisodes);
-      expect(
-        await container.read(cachedEpisodesNotifierProvider.future),
-        hasLength(1),
-      );
+      expect(await container.read(cachedEpisodesProvider.future), hasLength(1));
 
       await notifier.clearCache();
       final cachedEpisodes = await container.read(
-        cachedEpisodesNotifierProvider.future,
+        cachedEpisodesProvider.future,
       );
 
       expect(cachedEpisodes, isEmpty);
@@ -279,9 +272,7 @@ void main() {
       ]);
 
       // This should clear the corrupted cache and return empty list
-      final episodes = await container.read(
-        cachedEpisodesNotifierProvider.future,
-      );
+      final episodes = await container.read(cachedEpisodesProvider.future);
 
       expect(episodes, isEmpty);
 
@@ -291,7 +282,7 @@ void main() {
     });
 
     test('should persist episodes across provider rebuilds', () async {
-      final notifier = container.read(cachedEpisodesNotifierProvider.notifier);
+      final notifier = container.read(cachedEpisodesProvider.notifier);
       final testEpisode = createTestEpisode(
         showName: 'Persistent Show',
         episode: '1',
@@ -305,7 +296,7 @@ void main() {
       container = ProviderContainer();
 
       final persistedEpisodes = await container.read(
-        cachedEpisodesNotifierProvider.future,
+        cachedEpisodesProvider.future,
       );
 
       expect(persistedEpisodes, hasLength(1));
@@ -329,9 +320,7 @@ void main() {
       // This test would require mocking the API providers
       // For now, we'll test the logic with manual data
 
-      final cachedNotifier = container.read(
-        cachedEpisodesNotifierProvider.notifier,
-      );
+      final cachedNotifier = container.read(cachedEpisodesProvider.notifier);
 
       // Add some cached episodes
       final cachedEpisodes = [

@@ -6,325 +6,226 @@ part of 'cached_episodes_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$combinedEpisodesHash() => r'994c06ff8dc7e7db74492dba0f507a07a29541d7';
+// GENERATED CODE - DO NOT MODIFY BY HAND
+// ignore_for_file: type=lint, type=warning
+/// Manages cached episodes from bookmarked series
 
-/// Copied from Dart SDK
-class _SystemHash {
-  _SystemHash._();
+@ProviderFor(CachedEpisodesNotifier)
+const cachedEpisodesProvider = CachedEpisodesNotifierProvider._();
 
-  static int combine(int hash, int value) {
-    // ignore: parameter_assignments
-    hash = 0x1fffffff & (hash + value);
-    // ignore: parameter_assignments
-    hash = 0x1fffffff & (hash + ((0x0007ffff & hash) << 10));
-    return hash ^ (hash >> 6);
-  }
-
-  static int finish(int hash) {
-    // ignore: parameter_assignments
-    hash = 0x1fffffff & (hash + ((0x03ffffff & hash) << 3));
-    // ignore: parameter_assignments
-    hash = hash ^ (hash >> 11);
-    return 0x1fffffff & (hash + ((0x00003fff & hash) << 15));
-  }
-}
-
-/// Combined provider that merges API data with cached episodes
-///
-/// Copied from [combinedEpisodes].
-@ProviderFor(combinedEpisodes)
-const combinedEpisodesProvider = CombinedEpisodesFamily();
-
-/// Combined provider that merges API data with cached episodes
-///
-/// Copied from [combinedEpisodes].
-class CombinedEpisodesFamily extends Family<AsyncValue<List<ShowInfo>>> {
-  /// Combined provider that merges API data with cached episodes
-  ///
-  /// Copied from [combinedEpisodes].
-  const CombinedEpisodesFamily();
-
-  /// Combined provider that merges API data with cached episodes
-  ///
-  /// Copied from [combinedEpisodes].
-  CombinedEpisodesProvider call(String searchTerm) {
-    return CombinedEpisodesProvider(searchTerm);
-  }
-
-  @override
-  CombinedEpisodesProvider getProviderOverride(
-    covariant CombinedEpisodesProvider provider,
-  ) {
-    return call(provider.searchTerm);
-  }
-
-  static const Iterable<ProviderOrFamily>? _dependencies = null;
-
-  @override
-  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
-
-  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
-
-  @override
-  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
-      _allTransitiveDependencies;
-
-  @override
-  String? get name => r'combinedEpisodesProvider';
-}
-
-/// Combined provider that merges API data with cached episodes
-///
-/// Copied from [combinedEpisodes].
-class CombinedEpisodesProvider
-    extends AutoDisposeFutureProvider<List<ShowInfo>> {
-  /// Combined provider that merges API data with cached episodes
-  ///
-  /// Copied from [combinedEpisodes].
-  CombinedEpisodesProvider(String searchTerm)
-    : this._internal(
-        (ref) => combinedEpisodes(ref as CombinedEpisodesRef, searchTerm),
-        from: combinedEpisodesProvider,
-        name: r'combinedEpisodesProvider',
-        debugGetCreateSourceHash:
-            const bool.fromEnvironment('dart.vm.product')
-                ? null
-                : _$combinedEpisodesHash,
-        dependencies: CombinedEpisodesFamily._dependencies,
-        allTransitiveDependencies:
-            CombinedEpisodesFamily._allTransitiveDependencies,
-        searchTerm: searchTerm,
+/// Manages cached episodes from bookmarked series
+final class CachedEpisodesNotifierProvider
+    extends $AsyncNotifierProvider<CachedEpisodesNotifier, List<ShowInfo>> {
+  /// Manages cached episodes from bookmarked series
+  const CachedEpisodesNotifierProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'cachedEpisodesProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
       );
 
-  CombinedEpisodesProvider._internal(
-    super._createNotifier, {
-    required super.name,
-    required super.dependencies,
-    required super.allTransitiveDependencies,
-    required super.debugGetCreateSourceHash,
-    required super.from,
-    required this.searchTerm,
-  }) : super.internal();
+  @override
+  String debugGetCreateSourceHash() => _$cachedEpisodesNotifierHash();
 
-  final String searchTerm;
+  @$internal
+  @override
+  CachedEpisodesNotifier create() => CachedEpisodesNotifier();
+}
+
+String _$cachedEpisodesNotifierHash() =>
+    r'8d410d20ba674c2b8a4922c2fc28cce84edab4d9';
+
+/// Manages cached episodes from bookmarked series
+
+abstract class _$CachedEpisodesNotifier extends $AsyncNotifier<List<ShowInfo>> {
+  FutureOr<List<ShowInfo>> build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final created = build();
+    final ref = this.ref as $Ref<AsyncValue<List<ShowInfo>>, List<ShowInfo>>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<AsyncValue<List<ShowInfo>>, List<ShowInfo>>,
+              AsyncValue<List<ShowInfo>>,
+              Object?,
+              Object?
+            >;
+    element.handleValue(ref, created);
+  }
+}
+
+/// Combined provider that merges API data with cached episodes
+
+@ProviderFor(combinedEpisodes)
+const combinedEpisodesProvider = CombinedEpisodesFamily._();
+
+/// Combined provider that merges API data with cached episodes
+
+final class CombinedEpisodesProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<List<ShowInfo>>,
+          List<ShowInfo>,
+          FutureOr<List<ShowInfo>>
+        >
+    with $FutureModifier<List<ShowInfo>>, $FutureProvider<List<ShowInfo>> {
+  /// Combined provider that merges API data with cached episodes
+  const CombinedEpisodesProvider._({
+    required CombinedEpisodesFamily super.from,
+    required String super.argument,
+  }) : super(
+         retry: null,
+         name: r'combinedEpisodesProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
 
   @override
-  Override overrideWith(
-    FutureOr<List<ShowInfo>> Function(CombinedEpisodesRef provider) create,
-  ) {
-    return ProviderOverride(
-      origin: this,
-      override: CombinedEpisodesProvider._internal(
-        (ref) => create(ref as CombinedEpisodesRef),
-        from: from,
-        name: null,
-        dependencies: null,
-        allTransitiveDependencies: null,
-        debugGetCreateSourceHash: null,
-        searchTerm: searchTerm,
-      ),
-    );
+  String debugGetCreateSourceHash() => _$combinedEpisodesHash();
+
+  @override
+  String toString() {
+    return r'combinedEpisodesProvider'
+        ''
+        '($argument)';
   }
 
+  @$internal
   @override
-  AutoDisposeFutureProviderElement<List<ShowInfo>> createElement() {
-    return _CombinedEpisodesProviderElement(this);
+  $FutureProviderElement<List<ShowInfo>> $createElement(
+    $ProviderPointer pointer,
+  ) => $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<List<ShowInfo>> create(Ref ref) {
+    final argument = this.argument as String;
+    return combinedEpisodes(ref, argument);
   }
 
   @override
   bool operator ==(Object other) {
-    return other is CombinedEpisodesProvider && other.searchTerm == searchTerm;
+    return other is CombinedEpisodesProvider && other.argument == argument;
   }
 
   @override
   int get hashCode {
-    var hash = _SystemHash.combine(0, runtimeType.hashCode);
-    hash = _SystemHash.combine(hash, searchTerm.hashCode);
-
-    return _SystemHash.finish(hash);
+    return argument.hashCode;
   }
 }
 
-@Deprecated('Will be removed in 3.0. Use Ref instead')
-// ignore: unused_element
-mixin CombinedEpisodesRef on AutoDisposeFutureProviderRef<List<ShowInfo>> {
-  /// The parameter `searchTerm` of this provider.
-  String get searchTerm;
-}
+String _$combinedEpisodesHash() => r'b3afc4340ae526296fa0bc9f9fb201897f197e19';
 
-class _CombinedEpisodesProviderElement
-    extends AutoDisposeFutureProviderElement<List<ShowInfo>>
-    with CombinedEpisodesRef {
-  _CombinedEpisodesProviderElement(super.provider);
+/// Combined provider that merges API data with cached episodes
 
-  @override
-  String get searchTerm => (origin as CombinedEpisodesProvider).searchTerm;
-}
-
-String _$filteredCombinedEpisodesHash() =>
-    r'6368fb2e4759819ed5b65643dc4aef4032348e35';
-
-/// Filtered combined episodes provider (replaces the existing filteredShows)
-///
-/// Copied from [filteredCombinedEpisodes].
-@ProviderFor(filteredCombinedEpisodes)
-const filteredCombinedEpisodesProvider = FilteredCombinedEpisodesFamily();
-
-/// Filtered combined episodes provider (replaces the existing filteredShows)
-///
-/// Copied from [filteredCombinedEpisodes].
-class FilteredCombinedEpisodesFamily
-    extends Family<AsyncValue<List<ShowInfo>>> {
-  /// Filtered combined episodes provider (replaces the existing filteredShows)
-  ///
-  /// Copied from [filteredCombinedEpisodes].
-  const FilteredCombinedEpisodesFamily();
-
-  /// Filtered combined episodes provider (replaces the existing filteredShows)
-  ///
-  /// Copied from [filteredCombinedEpisodes].
-  FilteredCombinedEpisodesProvider call(String searchTerm) {
-    return FilteredCombinedEpisodesProvider(searchTerm);
-  }
-
-  @override
-  FilteredCombinedEpisodesProvider getProviderOverride(
-    covariant FilteredCombinedEpisodesProvider provider,
-  ) {
-    return call(provider.searchTerm);
-  }
-
-  static const Iterable<ProviderOrFamily>? _dependencies = null;
-
-  @override
-  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
-
-  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
-
-  @override
-  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
-      _allTransitiveDependencies;
-
-  @override
-  String? get name => r'filteredCombinedEpisodesProvider';
-}
-
-/// Filtered combined episodes provider (replaces the existing filteredShows)
-///
-/// Copied from [filteredCombinedEpisodes].
-class FilteredCombinedEpisodesProvider
-    extends AutoDisposeFutureProvider<List<ShowInfo>> {
-  /// Filtered combined episodes provider (replaces the existing filteredShows)
-  ///
-  /// Copied from [filteredCombinedEpisodes].
-  FilteredCombinedEpisodesProvider(String searchTerm)
-    : this._internal(
-        (ref) => filteredCombinedEpisodes(
-          ref as FilteredCombinedEpisodesRef,
-          searchTerm,
-        ),
-        from: filteredCombinedEpisodesProvider,
-        name: r'filteredCombinedEpisodesProvider',
-        debugGetCreateSourceHash:
-            const bool.fromEnvironment('dart.vm.product')
-                ? null
-                : _$filteredCombinedEpisodesHash,
-        dependencies: FilteredCombinedEpisodesFamily._dependencies,
-        allTransitiveDependencies:
-            FilteredCombinedEpisodesFamily._allTransitiveDependencies,
-        searchTerm: searchTerm,
+final class CombinedEpisodesFamily extends $Family
+    with $FunctionalFamilyOverride<FutureOr<List<ShowInfo>>, String> {
+  const CombinedEpisodesFamily._()
+    : super(
+        retry: null,
+        name: r'combinedEpisodesProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
       );
 
-  FilteredCombinedEpisodesProvider._internal(
-    super._createNotifier, {
-    required super.name,
-    required super.dependencies,
-    required super.allTransitiveDependencies,
-    required super.debugGetCreateSourceHash,
-    required super.from,
-    required this.searchTerm,
-  }) : super.internal();
+  /// Combined provider that merges API data with cached episodes
 
-  final String searchTerm;
+  CombinedEpisodesProvider call(String searchTerm) =>
+      CombinedEpisodesProvider._(argument: searchTerm, from: this);
 
   @override
-  Override overrideWith(
-    FutureOr<List<ShowInfo>> Function(FilteredCombinedEpisodesRef provider)
-    create,
-  ) {
-    return ProviderOverride(
-      origin: this,
-      override: FilteredCombinedEpisodesProvider._internal(
-        (ref) => create(ref as FilteredCombinedEpisodesRef),
-        from: from,
-        name: null,
-        dependencies: null,
-        allTransitiveDependencies: null,
-        debugGetCreateSourceHash: null,
-        searchTerm: searchTerm,
-      ),
-    );
+  String toString() => r'combinedEpisodesProvider';
+}
+
+/// Filtered combined episodes provider (replaces the existing filteredShows)
+
+@ProviderFor(filteredCombinedEpisodes)
+const filteredCombinedEpisodesProvider = FilteredCombinedEpisodesFamily._();
+
+/// Filtered combined episodes provider (replaces the existing filteredShows)
+
+final class FilteredCombinedEpisodesProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<List<ShowInfo>>,
+          List<ShowInfo>,
+          FutureOr<List<ShowInfo>>
+        >
+    with $FutureModifier<List<ShowInfo>>, $FutureProvider<List<ShowInfo>> {
+  /// Filtered combined episodes provider (replaces the existing filteredShows)
+  const FilteredCombinedEpisodesProvider._({
+    required FilteredCombinedEpisodesFamily super.from,
+    required String super.argument,
+  }) : super(
+         retry: null,
+         name: r'filteredCombinedEpisodesProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$filteredCombinedEpisodesHash();
+
+  @override
+  String toString() {
+    return r'filteredCombinedEpisodesProvider'
+        ''
+        '($argument)';
   }
 
+  @$internal
   @override
-  AutoDisposeFutureProviderElement<List<ShowInfo>> createElement() {
-    return _FilteredCombinedEpisodesProviderElement(this);
+  $FutureProviderElement<List<ShowInfo>> $createElement(
+    $ProviderPointer pointer,
+  ) => $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<List<ShowInfo>> create(Ref ref) {
+    final argument = this.argument as String;
+    return filteredCombinedEpisodes(ref, argument);
   }
 
   @override
   bool operator ==(Object other) {
     return other is FilteredCombinedEpisodesProvider &&
-        other.searchTerm == searchTerm;
+        other.argument == argument;
   }
 
   @override
   int get hashCode {
-    var hash = _SystemHash.combine(0, runtimeType.hashCode);
-    hash = _SystemHash.combine(hash, searchTerm.hashCode);
-
-    return _SystemHash.finish(hash);
+    return argument.hashCode;
   }
 }
 
-@Deprecated('Will be removed in 3.0. Use Ref instead')
-// ignore: unused_element
-mixin FilteredCombinedEpisodesRef
-    on AutoDisposeFutureProviderRef<List<ShowInfo>> {
-  /// The parameter `searchTerm` of this provider.
-  String get searchTerm;
-}
+String _$filteredCombinedEpisodesHash() =>
+    r'baf678233abfe3e1644dd65b77efbfe5b9e93b1c';
 
-class _FilteredCombinedEpisodesProviderElement
-    extends AutoDisposeFutureProviderElement<List<ShowInfo>>
-    with FilteredCombinedEpisodesRef {
-  _FilteredCombinedEpisodesProviderElement(super.provider);
+/// Filtered combined episodes provider (replaces the existing filteredShows)
+
+final class FilteredCombinedEpisodesFamily extends $Family
+    with $FunctionalFamilyOverride<FutureOr<List<ShowInfo>>, String> {
+  const FilteredCombinedEpisodesFamily._()
+    : super(
+        retry: null,
+        name: r'filteredCombinedEpisodesProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  /// Filtered combined episodes provider (replaces the existing filteredShows)
+
+  FilteredCombinedEpisodesProvider call(String searchTerm) =>
+      FilteredCombinedEpisodesProvider._(argument: searchTerm, from: this);
 
   @override
-  String get searchTerm =>
-      (origin as FilteredCombinedEpisodesProvider).searchTerm;
+  String toString() => r'filteredCombinedEpisodesProvider';
 }
-
-String _$cachedEpisodesNotifierHash() =>
-    r'c803506cbe069c97c32801acd0d66c4d18fbb795';
-
-/// Manages cached episodes from bookmarked series
-///
-/// Copied from [CachedEpisodesNotifier].
-@ProviderFor(CachedEpisodesNotifier)
-final cachedEpisodesNotifierProvider = AutoDisposeAsyncNotifierProvider<
-  CachedEpisodesNotifier,
-  List<ShowInfo>
->.internal(
-  CachedEpisodesNotifier.new,
-  name: r'cachedEpisodesNotifierProvider',
-  debugGetCreateSourceHash:
-      const bool.fromEnvironment('dart.vm.product')
-          ? null
-          : _$cachedEpisodesNotifierHash,
-  dependencies: null,
-  allTransitiveDependencies: null,
-);
-
-typedef _$CachedEpisodesNotifier = AutoDisposeAsyncNotifier<List<ShowInfo>>;
-// ignore_for_file: type=lint
-// ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package

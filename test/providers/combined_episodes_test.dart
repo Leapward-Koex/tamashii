@@ -40,9 +40,7 @@ void main() {
     }
 
     test('should handle duplicate episodes correctly', () async {
-      final cachedNotifier = container.read(
-        cachedEpisodesNotifierProvider.notifier,
-      );
+      final cachedNotifier = container.read(cachedEpisodesProvider.notifier);
 
       // Add episodes with same show and episode but different data
       final cachedEpisode = createTestEpisode(
@@ -63,15 +61,13 @@ void main() {
       await cachedNotifier.cacheNewBookmarkedEpisodes([duplicateEpisode]);
 
       final cachedEpisodes = await container.read(
-        cachedEpisodesNotifierProvider.future,
+        cachedEpisodesProvider.future,
       );
       expect(cachedEpisodes, hasLength(1));
     });
 
     test('should sort episodes by release date', () async {
-      final cachedNotifier = container.read(
-        cachedEpisodesNotifierProvider.notifier,
-      );
+      final cachedNotifier = container.read(cachedEpisodesProvider.notifier);
 
       final episodes = [
         createTestEpisode(
@@ -93,7 +89,7 @@ void main() {
 
       await cachedNotifier.cacheEpisodes(episodes);
       final cachedEpisodes = await container.read(
-        cachedEpisodesNotifierProvider.future,
+        cachedEpisodesProvider.future,
       );
 
       // Should be sorted newest first
@@ -105,7 +101,7 @@ void main() {
     test('should handle filter state correctly', () async {
       // Set up bookmarks
       final bookmarkNotifier = container.read(
-        bookmarkedSeriesNotifierProvider.notifier,
+        bookmarkedSeriesProvider.notifier,
       );
       await bookmarkNotifier.add(
         BookmarkedShowInfo(
@@ -116,9 +112,7 @@ void main() {
       );
 
       // Set up cached episodes
-      final cachedNotifier = container.read(
-        cachedEpisodesNotifierProvider.notifier,
-      );
+      final cachedNotifier = container.read(cachedEpisodesProvider.notifier);
       final episodes = [
         createTestEpisode(
           showName: 'Bookmarked Show',
@@ -135,16 +129,12 @@ void main() {
       await cachedNotifier.cacheEpisodes(episodes);
 
       // Test with "saved" filter
-      final filterNotifier = container.read(
-        showFilterNotifierProvider.notifier,
-      );
+      final filterNotifier = container.read(showFilterProvider.notifier);
       await filterNotifier.setFilter(ShowFilter.saved);
 
       // The filteredCombinedEpisodes provider would filter by bookmarks
       // This test verifies the logic exists
-      final bookmarks = await container.read(
-        bookmarkedSeriesNotifierProvider.future,
-      );
+      final bookmarks = await container.read(bookmarkedSeriesProvider.future);
       expect(bookmarks.map((b) => b.showName), contains('Bookmarked Show'));
       expect(
         bookmarks.map((b) => b.showName),
@@ -153,9 +143,7 @@ void main() {
     });
 
     test('should handle empty bookmarks gracefully', () async {
-      final cachedNotifier = container.read(
-        cachedEpisodesNotifierProvider.notifier,
-      );
+      final cachedNotifier = container.read(cachedEpisodesProvider.notifier);
 
       // Add episodes but no bookmarks
       final episodes = [
@@ -170,18 +158,16 @@ void main() {
 
       // Should not cache anything since no bookmarks exist
       final cachedEpisodes = await container.read(
-        cachedEpisodesNotifierProvider.future,
+        cachedEpisodesProvider.future,
       );
       expect(cachedEpisodes, isEmpty);
     });
 
     test('should maintain cache across multiple operations', () async {
       final bookmarkNotifier = container.read(
-        bookmarkedSeriesNotifierProvider.notifier,
+        bookmarkedSeriesProvider.notifier,
       );
-      final cachedNotifier = container.read(
-        cachedEpisodesNotifierProvider.notifier,
-      );
+      final cachedNotifier = container.read(cachedEpisodesProvider.notifier);
 
       // Set up bookmark
       await bookmarkNotifier.add(
@@ -203,7 +189,7 @@ void main() {
       }
 
       final cachedEpisodes = await container.read(
-        cachedEpisodesNotifierProvider.future,
+        cachedEpisodesProvider.future,
       );
       expect(cachedEpisodes, hasLength(5));
 
@@ -213,9 +199,7 @@ void main() {
     });
 
     test('should handle cache cleanup correctly', () async {
-      final cachedNotifier = container.read(
-        cachedEpisodesNotifierProvider.notifier,
-      );
+      final cachedNotifier = container.read(cachedEpisodesProvider.notifier);
 
       // Create many episodes for cleanup test
       final episodes = List.generate(
@@ -230,18 +214,14 @@ void main() {
       await cachedNotifier.cacheEpisodes(episodes);
 
       // Verify all episodes are cached
-      var cachedEpisodes = await container.read(
-        cachedEpisodesNotifierProvider.future,
-      );
+      var cachedEpisodes = await container.read(cachedEpisodesProvider.future);
       expect(cachedEpisodes, hasLength(150));
 
       // Trigger cleanup
       await cachedNotifier.cleanupOldEpisodes();
 
       // Should now have only 100 episodes
-      cachedEpisodes = await container.read(
-        cachedEpisodesNotifierProvider.future,
-      );
+      cachedEpisodes = await container.read(cachedEpisodesProvider.future);
       expect(cachedEpisodes, hasLength(100));
 
       // Should keep the newest episodes

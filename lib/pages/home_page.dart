@@ -45,7 +45,7 @@ class HomePage extends HookConsumerWidget {
     final String currentQuery = debouncedQuery.value;
 
     // Watch the current filter
-    final filterAsync = ref.watch(showFilterNotifierProvider);
+    final filterAsync = ref.watch(showFilterProvider);
     final currentFilter = filterAsync.value ?? ShowFilter.all;
 
     // Use filtered shows instead of raw shows
@@ -68,7 +68,7 @@ class HomePage extends HookConsumerWidget {
             child: Builder(
               builder: (context) {
                 final List<ShowInfo> shows =
-                    itemsValue.valueOrNull ?? const <ShowInfo>[];
+                    itemsValue.value ?? const <ShowInfo>[];
 
                 // First load: show spinner when we have no data yet and loading
                 if (shows.isEmpty && itemsValue.isLoading) {
@@ -196,7 +196,7 @@ class HomePage extends HookConsumerWidget {
                     tooltip: currentFilter.displayName,
                     onPressed: () async {
                       await ref
-                          .read(showFilterNotifierProvider.notifier)
+                          .read(showFilterProvider.notifier)
                           .toggleFilter();
                     },
                   ),

@@ -6,164 +6,141 @@ part of 'torrent_download_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$torrentForShowHash() => r'a52b771af4ba67a95a1c7d63f01a827259c77c44';
+// GENERATED CODE - DO NOT MODIFY BY HAND
+// ignore_for_file: type=lint, type=warning
 
-/// Copied from Dart SDK
-class _SystemHash {
-  _SystemHash._();
+@ProviderFor(TorrentManager)
+const torrentManagerProvider = TorrentManagerProvider._();
 
-  static int combine(int hash, int value) {
-    // ignore: parameter_assignments
-    hash = 0x1fffffff & (hash + value);
-    // ignore: parameter_assignments
-    hash = 0x1fffffff & (hash + ((0x0007ffff & hash) << 10));
-    return hash ^ (hash >> 6);
-  }
-
-  static int finish(int hash) {
-    // ignore: parameter_assignments
-    hash = 0x1fffffff & (hash + ((0x03ffffff & hash) << 3));
-    // ignore: parameter_assignments
-    hash = hash ^ (hash >> 11);
-    return 0x1fffffff & (hash + ((0x00003fff & hash) << 15));
-  }
-}
-
-/// See also [torrentForShow].
-@ProviderFor(torrentForShow)
-const torrentForShowProvider = TorrentForShowFamily();
-
-/// See also [torrentForShow].
-class TorrentForShowFamily extends Family<TorrentDownloadState> {
-  /// See also [torrentForShow].
-  const TorrentForShowFamily();
-
-  /// See also [torrentForShow].
-  TorrentForShowProvider call(String showId) {
-    return TorrentForShowProvider(showId);
-  }
-
-  @override
-  TorrentForShowProvider getProviderOverride(
-    covariant TorrentForShowProvider provider,
-  ) {
-    return call(provider.showId);
-  }
-
-  static const Iterable<ProviderOrFamily>? _dependencies = null;
-
-  @override
-  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
-
-  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
-
-  @override
-  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
-      _allTransitiveDependencies;
-
-  @override
-  String? get name => r'torrentForShowProvider';
-}
-
-/// See also [torrentForShow].
-class TorrentForShowProvider extends AutoDisposeProvider<TorrentDownloadState> {
-  /// See also [torrentForShow].
-  TorrentForShowProvider(String showId)
-    : this._internal(
-        (ref) => torrentForShow(ref as TorrentForShowRef, showId),
-        from: torrentForShowProvider,
-        name: r'torrentForShowProvider',
-        debugGetCreateSourceHash:
-            const bool.fromEnvironment('dart.vm.product')
-                ? null
-                : _$torrentForShowHash,
-        dependencies: TorrentForShowFamily._dependencies,
-        allTransitiveDependencies:
-            TorrentForShowFamily._allTransitiveDependencies,
-        showId: showId,
+final class TorrentManagerProvider
+    extends $NotifierProvider<TorrentManager, TorrentManagerState> {
+  const TorrentManagerProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'torrentManagerProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
       );
 
-  TorrentForShowProvider._internal(
-    super._createNotifier, {
-    required super.name,
-    required super.dependencies,
-    required super.allTransitiveDependencies,
-    required super.debugGetCreateSourceHash,
-    required super.from,
-    required this.showId,
-  }) : super.internal();
-
-  final String showId;
-
   @override
-  Override overrideWith(
-    TorrentDownloadState Function(TorrentForShowRef provider) create,
-  ) {
-    return ProviderOverride(
+  String debugGetCreateSourceHash() => _$torrentManagerHash();
+
+  @$internal
+  @override
+  TorrentManager create() => TorrentManager();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(TorrentManagerState value) {
+    return $ProviderOverride(
       origin: this,
-      override: TorrentForShowProvider._internal(
-        (ref) => create(ref as TorrentForShowRef),
-        from: from,
-        name: null,
-        dependencies: null,
-        allTransitiveDependencies: null,
-        debugGetCreateSourceHash: null,
-        showId: showId,
-      ),
+      providerOverride: $SyncValueProvider<TorrentManagerState>(value),
     );
   }
-
-  @override
-  AutoDisposeProviderElement<TorrentDownloadState> createElement() {
-    return _TorrentForShowProviderElement(this);
-  }
-
-  @override
-  bool operator ==(Object other) {
-    return other is TorrentForShowProvider && other.showId == showId;
-  }
-
-  @override
-  int get hashCode {
-    var hash = _SystemHash.combine(0, runtimeType.hashCode);
-    hash = _SystemHash.combine(hash, showId.hashCode);
-
-    return _SystemHash.finish(hash);
-  }
-}
-
-@Deprecated('Will be removed in 3.0. Use Ref instead')
-// ignore: unused_element
-mixin TorrentForShowRef on AutoDisposeProviderRef<TorrentDownloadState> {
-  /// The parameter `showId` of this provider.
-  String get showId;
-}
-
-class _TorrentForShowProviderElement
-    extends AutoDisposeProviderElement<TorrentDownloadState>
-    with TorrentForShowRef {
-  _TorrentForShowProviderElement(super.provider);
-
-  @override
-  String get showId => (origin as TorrentForShowProvider).showId;
 }
 
 String _$torrentManagerHash() => r'93f4317b4263bb8398612be3960293e1f30f1e20';
 
-/// See also [TorrentManager].
-@ProviderFor(TorrentManager)
-final torrentManagerProvider =
-    NotifierProvider<TorrentManager, TorrentManagerState>.internal(
-      TorrentManager.new,
-      name: r'torrentManagerProvider',
-      debugGetCreateSourceHash:
-          const bool.fromEnvironment('dart.vm.product')
-              ? null
-              : _$torrentManagerHash,
-      dependencies: null,
-      allTransitiveDependencies: null,
-    );
+abstract class _$TorrentManager extends $Notifier<TorrentManagerState> {
+  TorrentManagerState build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final created = build();
+    final ref = this.ref as $Ref<TorrentManagerState, TorrentManagerState>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<TorrentManagerState, TorrentManagerState>,
+              TorrentManagerState,
+              Object?,
+              Object?
+            >;
+    element.handleValue(ref, created);
+  }
+}
 
-typedef _$TorrentManager = Notifier<TorrentManagerState>;
-// ignore_for_file: type=lint
-// ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package
+@ProviderFor(torrentForShow)
+const torrentForShowProvider = TorrentForShowFamily._();
+
+final class TorrentForShowProvider
+    extends
+        $FunctionalProvider<
+          TorrentDownloadState,
+          TorrentDownloadState,
+          TorrentDownloadState
+        >
+    with $Provider<TorrentDownloadState> {
+  const TorrentForShowProvider._({
+    required TorrentForShowFamily super.from,
+    required String super.argument,
+  }) : super(
+         retry: null,
+         name: r'torrentForShowProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$torrentForShowHash();
+
+  @override
+  String toString() {
+    return r'torrentForShowProvider'
+        ''
+        '($argument)';
+  }
+
+  @$internal
+  @override
+  $ProviderElement<TorrentDownloadState> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  TorrentDownloadState create(Ref ref) {
+    final argument = this.argument as String;
+    return torrentForShow(ref, argument);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(TorrentDownloadState value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<TorrentDownloadState>(value),
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is TorrentForShowProvider && other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$torrentForShowHash() => r'a52b771af4ba67a95a1c7d63f01a827259c77c44';
+
+final class TorrentForShowFamily extends $Family
+    with $FunctionalFamilyOverride<TorrentDownloadState, String> {
+  const TorrentForShowFamily._()
+    : super(
+        retry: null,
+        name: r'torrentForShowProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  TorrentForShowProvider call(String showId) =>
+      TorrentForShowProvider._(argument: showId, from: this);
+
+  @override
+  String toString() => r'torrentForShowProvider';
+}

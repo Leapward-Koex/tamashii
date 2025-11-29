@@ -99,12 +99,9 @@ class ShowCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final List<BookmarkedShowInfo> bookmarks =
-        ref.watch(bookmarkedSeriesNotifierProvider).valueOrNull ??
-        <BookmarkedShowInfo>[];
+        ref.watch(bookmarkedSeriesProvider).value ?? <BookmarkedShowInfo>[];
     final bool isBookmarked = bookmarks.any((b) => b.showName == show.show);
-    final bookmarkedNotifier = ref.read(
-      bookmarkedSeriesNotifierProvider.notifier,
-    );
+    final bookmarkedNotifier = ref.read(bookmarkedSeriesProvider.notifier);
     final seriesMappingSettings = ref.watch(seriesFolderMappingProvider);
     final autoGenSettings = ref.watch(autoGenerateFoldersProvider);
     final basePathSettings = ref.watch(downloadBasePathProvider);
@@ -343,15 +340,12 @@ class ShowCard extends ConsumerWidget {
                                             ref: ref,
                                             showInfo: show,
                                             currentMappings:
-                                                seriesMappingSettings
-                                                    .valueOrNull ??
+                                                seriesMappingSettings.value ??
                                                 <String, String>{},
                                             isAutoGenEnabled:
-                                                autoGenSettings.valueOrNull ??
-                                                true,
+                                                autoGenSettings.value ?? true,
                                             currentBasePath:
-                                                basePathSettings.valueOrNull ??
-                                                '',
+                                                basePathSettings.value ?? '',
                                             seriesMappingNotifier:
                                                 seriesMappingNotifier,
                                           );
@@ -388,15 +382,13 @@ class ShowCard extends ConsumerWidget {
                                           ref: ref,
                                           showInfo: show,
                                           currentMappings:
-                                              seriesMappingSettings
-                                                  .valueOrNull ??
+                                              seriesMappingSettings.value ??
                                               <String, String>{},
                                           isAutoGenEnabled:
-                                              autoGenSettings.valueOrNull ??
+                                              autoGenSettings.value ??
                                               true, // Default to true
                                           currentBasePath:
-                                              basePathSettings.valueOrNull ??
-                                              '',
+                                              basePathSettings.value ?? '',
                                           seriesMappingNotifier:
                                               seriesMappingNotifier,
                                         );
