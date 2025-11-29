@@ -39,7 +39,9 @@ void main() {
     }
 
     test('should start with empty cache', () async {
-      final episodes = await container.read(cachedEpisodesNotifierProvider.future);
+      final episodes = await container.read(
+        cachedEpisodesNotifierProvider.future,
+      );
       expect(episodes, isEmpty);
     });
 
@@ -49,12 +51,12 @@ void main() {
         createTestEpisode(
           showName: 'Attack on Titan',
           episode: '1',
-          releaseDate: DateTime(2024, 1, 1),
+          releaseDate: DateTime(2024),
         ),
       ];
 
       await notifier.cacheEpisodes(testEpisodes);
-      
+
       // Check in-memory state
       final state = container.read(cachedEpisodesNotifierProvider);
       expect(state.value, hasLength(1));
@@ -67,7 +69,7 @@ void main() {
         createTestEpisode(
           showName: 'Show A',
           episode: '1',
-          releaseDate: DateTime(2024, 1, 1), // Older
+          releaseDate: DateTime(2024), // Older
         ),
         createTestEpisode(
           showName: 'Show B',
@@ -91,18 +93,34 @@ void main() {
 
     test('should filter new episodes by bookmarks', () async {
       // Set up bookmarks first
-      final bookmarkNotifier = container.read(bookmarkedSeriesNotifierProvider.notifier);
-      await bookmarkNotifier.add('Attack on Titan');
-      await bookmarkNotifier.add('One Piece');
+      final bookmarkNotifier = container.read(
+        bookmarkedSeriesNotifierProvider.notifier,
+      );
+      await bookmarkNotifier.add(
+        BookmarkedShowInfo(
+          showName: 'Attack on Titan',
+          imageUrl: '',
+          releaseDayOfWeek: 1,
+        ),
+      );
+      await bookmarkNotifier.add(
+        BookmarkedShowInfo(
+          showName: 'One Piece',
+          imageUrl: '',
+          releaseDayOfWeek: 1,
+        ),
+      );
 
-      final cachedNotifier = container.read(cachedEpisodesNotifierProvider.notifier);
-      
+      final cachedNotifier = container.read(
+        cachedEpisodesNotifierProvider.notifier,
+      );
+
       // API episodes (mix of bookmarked and non-bookmarked)
       final apiEpisodes = [
         createTestEpisode(
           showName: 'Attack on Titan',
           episode: '1',
-          releaseDate: DateTime(2024, 1, 1),
+          releaseDate: DateTime(2024),
         ),
         createTestEpisode(
           showName: 'One Piece',
@@ -120,24 +138,38 @@ void main() {
       final state = container.read(cachedEpisodesNotifierProvider);
 
       expect(state.value, hasLength(2)); // Only bookmarked series
-      expect(state.value!.map((e) => e.show), 
-             containsAll(['Attack on Titan', 'One Piece']));
-      expect(state.value!.map((e) => e.show), 
-             isNot(contains('Non-Bookmarked Show')));
+      expect(
+        state.value!.map((e) => e.show),
+        containsAll(['Attack on Titan', 'One Piece']),
+      );
+      expect(
+        state.value!.map((e) => e.show),
+        isNot(contains('Non-Bookmarked Show')),
+      );
     });
 
     test('should prevent duplicate episodes', () async {
       // Set up bookmarks
-      final bookmarkNotifier = container.read(bookmarkedSeriesNotifierProvider.notifier);
-      await bookmarkNotifier.add('Attack on Titan');
+      final bookmarkNotifier = container.read(
+        bookmarkedSeriesNotifierProvider.notifier,
+      );
+      await bookmarkNotifier.add(
+        BookmarkedShowInfo(
+          showName: 'Attack on Titan',
+          imageUrl: '',
+          releaseDayOfWeek: 1,
+        ),
+      );
 
-      final cachedNotifier = container.read(cachedEpisodesNotifierProvider.notifier);
-      
+      final cachedNotifier = container.read(
+        cachedEpisodesNotifierProvider.notifier,
+      );
+
       // Add initial episode
       final initialEpisode = createTestEpisode(
         showName: 'Attack on Titan',
         episode: '1',
-        releaseDate: DateTime(2024, 1, 1),
+        releaseDate: DateTime(2024),
       );
       await cachedNotifier.cacheEpisodes([initialEpisode]);
 
@@ -145,7 +177,7 @@ void main() {
       final duplicateEpisode = createTestEpisode(
         showName: 'Attack on Titan',
         episode: '1', // Same episode
-        releaseDate: DateTime(2024, 1, 1),
+        releaseDate: DateTime(2024),
       );
 
       await cachedNotifier.cacheNewBookmarkedEpisodes([duplicateEpisode]);
@@ -156,17 +188,17 @@ void main() {
 
     test('should clear cache', () async {
       final notifier = container.read(cachedEpisodesNotifierProvider.notifier);
-      
+
       // Add some episodes first
       final testEpisodes = [
         createTestEpisode(
           showName: 'Test Show',
           episode: '1',
-          releaseDate: DateTime(2024, 1, 1),
+          releaseDate: DateTime(2024),
         ),
       ];
       await notifier.cacheEpisodes(testEpisodes);
-      
+
       // Verify they're there
       var state = container.read(cachedEpisodesNotifierProvider);
       expect(state.value, hasLength(1));
@@ -174,24 +206,25 @@ void main() {
       // Clear cache
       await notifier.clearCache();
       state = container.read(cachedEpisodesNotifierProvider);
-      
+
       expect(state.value, isEmpty);
     });
 
     test('should handle cleanup of old episodes', () async {
       final notifier = container.read(cachedEpisodesNotifierProvider.notifier);
-      
+
       // Create many episodes for one series
-      final episodes = List.generate(150, (index) => 
-        createTestEpisode(
+      final episodes = List.generate(
+        150,
+        (index) => createTestEpisode(
           showName: 'Long Running Show',
           episode: '${index + 1}',
-          releaseDate: DateTime(2024, 1, 1).add(Duration(days: index)),
+          releaseDate: DateTime(2024).add(Duration(days: index)),
         ),
       );
 
       await notifier.cacheEpisodes(episodes);
-      
+
       // Verify all episodes are there
       var state = container.read(cachedEpisodesNotifierProvider);
       expect(state.value, hasLength(150));
@@ -199,7 +232,7 @@ void main() {
       // Trigger cleanup
       await notifier.cleanupOldEpisodes();
       state = container.read(cachedEpisodesNotifierProvider);
-      
+
       // Should keep only 100 episodes
       expect(state.value, hasLength(100));
       // Should keep the latest episodes (51-150)
@@ -213,7 +246,7 @@ void main() {
         createTestEpisode(
           showName: 'Attack on Titan',
           episode: '1',
-          releaseDate: DateTime(2024, 1, 1),
+          releaseDate: DateTime(2024),
         ),
         createTestEpisode(
           showName: 'Attack on Titan',
@@ -228,10 +261,10 @@ void main() {
       ];
 
       await notifier.cacheEpisodes(testEpisodes);
-      
+
       // Remove one series
       await notifier.removeSeriesFromCache('Attack on Titan');
-      
+
       final state = container.read(cachedEpisodesNotifierProvider);
       expect(state.value, hasLength(1));
       expect(state.value![0].show, equals('One Piece'));
@@ -251,30 +284,65 @@ void main() {
     });
 
     test('should work with bookmarked series provider', () async {
-      final bookmarkNotifier = container.read(bookmarkedSeriesNotifierProvider.notifier);
-      
+      final bookmarkNotifier = container.read(
+        bookmarkedSeriesNotifierProvider.notifier,
+      );
+
       // Add bookmarks
-      await bookmarkNotifier.add('Attack on Titan');
-      await bookmarkNotifier.add('One Piece');
-      
+      await bookmarkNotifier.add(
+        BookmarkedShowInfo(
+          showName: 'Attack on Titan',
+          imageUrl: '',
+          releaseDayOfWeek: 1,
+        ),
+      );
+      await bookmarkNotifier.add(
+        BookmarkedShowInfo(
+          showName: 'One Piece',
+          imageUrl: '',
+          releaseDayOfWeek: 1,
+        ),
+      );
+
       // Verify bookmarks
-      final bookmarks = await container.read(bookmarkedSeriesNotifierProvider.future);
-      expect(bookmarks, containsAll(['Attack on Titan', 'One Piece']));
+      final bookmarks = await container.read(
+        bookmarkedSeriesNotifierProvider.future,
+      );
+      expect(
+        bookmarks.map((b) => b.showName),
+        containsAll(['Attack on Titan', 'One Piece']),
+      );
     });
 
     test('should cache only bookmarked series episodes', () async {
-      final bookmarkNotifier = container.read(bookmarkedSeriesNotifierProvider.notifier);
-      await bookmarkNotifier.add('Bookmarked Show');
+      final bookmarkNotifier = container.read(
+        bookmarkedSeriesNotifierProvider.notifier,
+      );
+      await bookmarkNotifier.add(
+        BookmarkedShowInfo(
+          showName: 'Bookmarked Show',
+          imageUrl: '',
+          releaseDayOfWeek: 1,
+        ),
+      );
 
-      final cachedNotifier = container.read(cachedEpisodesNotifierProvider.notifier);
-      
+      // Verify bookmarks are set
+      final bookmarks = await container.read(
+        bookmarkedSeriesNotifierProvider.future,
+      );
+      expect(bookmarks.map((b) => b.showName), contains('Bookmarked Show'));
+
+      final cachedNotifier = container.read(
+        cachedEpisodesNotifierProvider.notifier,
+      );
+
       final episodes = [
         ShowInfo(
           downloads: [],
           episode: '1',
           imageUrl: 'test.jpg',
           page: 'bookmarked-show',
-          releaseDate: DateTime(2024, 1, 1),
+          releaseDate: DateTime(2024),
           show: 'Bookmarked Show',
           timeLabel: '12:00',
           xdcc: 'test',
@@ -292,7 +360,7 @@ void main() {
       ];
 
       await cachedNotifier.cacheNewBookmarkedEpisodes(episodes);
-      
+
       final cached = container.read(cachedEpisodesNotifierProvider);
       expect(cached.value, hasLength(1));
       expect(cached.value![0].show, equals('Bookmarked Show'));

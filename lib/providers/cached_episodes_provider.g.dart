@@ -6,7 +6,7 @@ part of 'cached_episodes_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$combinedEpisodesHash() => r'cd4461523c686dcf7f0390a45737163f3a5c5d53';
+String _$combinedEpisodesHash() => r'994c06ff8dc7e7db74492dba0f507a07a29541d7';
 
 /// Copied from Dart SDK
 class _SystemHash {
@@ -162,7 +162,7 @@ class _CombinedEpisodesProviderElement
 }
 
 String _$filteredCombinedEpisodesHash() =>
-    r'e787e819360702b234972a95a63abcfec694eebb';
+    r'6368fb2e4759819ed5b65643dc4aef4032348e35';
 
 /// Filtered combined episodes provider (replaces the existing filteredShows)
 ///
@@ -305,7 +305,7 @@ class _FilteredCombinedEpisodesProviderElement
 }
 
 String _$cachedEpisodesNotifierHash() =>
-    r'eb024c8805e2b0aa003a1214aec1410554a6cee3';
+    r'c803506cbe069c97c32801acd0d66c4d18fbb795';
 
 /// Manages cached episodes from bookmarked series
 ///

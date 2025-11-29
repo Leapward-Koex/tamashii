@@ -38,7 +38,7 @@ void main() {
         episode: '1',
         imageUrl: 'test.jpg',
         page: 'test-show',
-        releaseDate: DateTime(2024, 1, 1),
+        releaseDate: DateTime(2024),
         show: 'Test Show',
         timeLabel: '12:00',
         xdcc: 'test',

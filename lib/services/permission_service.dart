@@ -35,7 +35,7 @@ class PermissionService {
     }
 
     // Check if all permissions are granted
-    bool allGranted = permissions.values.every(
+    final bool allGranted = permissions.values.every(
       (status) =>
           status == PermissionStatus.granted ||
           status == PermissionStatus.limited,

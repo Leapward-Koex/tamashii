@@ -46,18 +46,34 @@ void main() {
 
     test('should sync bookmarked episodes to cache', () async {
       // Set up bookmarks
-      final bookmarkNotifier = container.read(bookmarkedSeriesNotifierProvider.notifier);
-      await bookmarkNotifier.add('Attack on Titan');
-      await bookmarkNotifier.add('One Piece');
+      final bookmarkNotifier = container.read(
+        bookmarkedSeriesNotifierProvider.notifier,
+      );
+      await bookmarkNotifier.add(
+        BookmarkedShowInfo(
+          showName: 'Attack on Titan',
+          imageUrl: '',
+          releaseDayOfWeek: 1,
+        ),
+      );
+      await bookmarkNotifier.add(
+        BookmarkedShowInfo(
+          showName: 'One Piece',
+          imageUrl: '',
+          releaseDayOfWeek: 1,
+        ),
+      );
 
-      final cachedNotifier = container.read(cachedEpisodesNotifierProvider.notifier);
+      final cachedNotifier = container.read(
+        cachedEpisodesNotifierProvider.notifier,
+      );
 
       // Simulate API episodes
       final apiEpisodes = [
         createTestEpisode(
           showName: 'Attack on Titan',
           episode: '1',
-          releaseDate: DateTime(2024, 1, 1),
+          releaseDate: DateTime(2024),
         ),
         createTestEpisode(
           showName: 'One Piece',
@@ -74,32 +90,40 @@ void main() {
       // Manually trigger sync (simulating what would happen when API updates)
       await cachedNotifier.cacheNewBookmarkedEpisodes(apiEpisodes);
 
-      final cachedEpisodes = await container.read(cachedEpisodesNotifierProvider.future);
-      
+      final cachedEpisodes = await container.read(
+        cachedEpisodesNotifierProvider.future,
+      );
+
       expect(cachedEpisodes, hasLength(2)); // Only bookmarked series
-      expect(cachedEpisodes.map((e) => e.show), 
-             containsAll(['Attack on Titan', 'One Piece']));
-      expect(cachedEpisodes.map((e) => e.show), 
-             isNot(contains('Non-Bookmarked Show')));
+      expect(
+        cachedEpisodes.map((e) => e.show),
+        containsAll(['Attack on Titan', 'One Piece']),
+      );
+      expect(
+        cachedEpisodes.map((e) => e.show),
+        isNot(contains('Non-Bookmarked Show')),
+      );
     });
 
     test('should handle manual sync trigger', () async {
       final syncService = container.read(apiCacheSyncProvider);
-      
+
       // This should not throw
       await syncService.syncNow();
-      
+
       // Verify cache is still accessible
-      final cachedEpisodes = await container.read(cachedEpisodesNotifierProvider.future);
+      final cachedEpisodes = await container.read(
+        cachedEpisodesNotifierProvider.future,
+      );
       expect(cachedEpisodes, isNotNull);
     });
 
     test('should initialize without errors', () {
       final syncService = container.read(apiCacheSyncProvider);
-      
+
       // This should not throw
       syncService.initialize();
-      
+
       // Should be able to call initialize multiple times safely
       syncService.initialize();
       syncService.initialize();

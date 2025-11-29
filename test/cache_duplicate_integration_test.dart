@@ -28,7 +28,7 @@ void main() {
         episode: '1',
         imageUrl: 'version1.jpg',
         page: 'page-version1',
-        releaseDate: DateTime(2025, 7, 26, 10, 0),
+        releaseDate: DateTime(2025, 7, 26, 10),
         show: 'Attack on Titan',
         timeLabel: '10:00',
         xdcc: 'version1',
@@ -47,7 +47,7 @@ void main() {
         episode: '1', // Same episode
         imageUrl: 'version2.jpg', // Updated content
         page: 'page-version2',
-        releaseDate: DateTime(2025, 7, 26, 12, 0),
+        releaseDate: DateTime(2025, 7, 26, 12),
         show: 'Attack on Titan', // Same show
         timeLabel: '12:00',
         xdcc: 'version2',
@@ -70,7 +70,7 @@ void main() {
         episode: '1',
         imageUrl: 'showA-ep1.jpg',
         page: 'show-a-page',
-        releaseDate: DateTime(2025, 7, 26, 10, 0),
+        releaseDate: DateTime(2025, 7, 26, 10),
         show: 'Attack on Titan',
         timeLabel: '10:00',
         xdcc: 'showA-ep1',
@@ -81,7 +81,7 @@ void main() {
         episode: '1', // Same episode number
         imageUrl: 'showB-ep1.jpg',
         page: 'show-b-page',
-        releaseDate: DateTime(2025, 7, 26, 11, 0),
+        releaseDate: DateTime(2025, 7, 26, 11),
         show: 'One Piece', // Different show
         timeLabel: '11:00',
         xdcc: 'showB-ep1',
@@ -106,7 +106,7 @@ void main() {
           episode: '1',
           imageUrl: 'ep1v1.jpg',
           page: 'page1v1',
-          releaseDate: DateTime(2025, 7, 26, 10, 0),
+          releaseDate: DateTime(2025, 7, 26, 10),
           show: 'Test Show',
           timeLabel: '10:00',
           xdcc: 'ep1v1',
@@ -116,7 +116,7 @@ void main() {
           episode: '1', // Duplicate
           imageUrl: 'ep1v2.jpg',
           page: 'page1v2',
-          releaseDate: DateTime(2025, 7, 26, 12, 0),
+          releaseDate: DateTime(2025, 7, 26, 12),
           show: 'Test Show',
           timeLabel: '12:00',
           xdcc: 'ep1v2',
@@ -126,7 +126,7 @@ void main() {
           episode: '2',
           imageUrl: 'ep2.jpg',
           page: 'page2',
-          releaseDate: DateTime(2025, 7, 26, 14, 0),
+          releaseDate: DateTime(2025, 7, 26, 14),
           show: 'Test Show',
           timeLabel: '14:00',
           xdcc: 'ep2',

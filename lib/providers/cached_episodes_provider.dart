@@ -4,10 +4,10 @@ import 'dart:convert';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/show_models.dart';
-import 'bookmarked_series_provider.dart';
-import 'subsplease_api_providers.dart';
-import 'filter_provider.dart';
+import 'package:tamashii/models/show_models.dart';
+import 'package:tamashii/providers/bookmarked_series_provider.dart';
+import 'package:tamashii/providers/subsplease_api_providers.dart';
+import 'package:tamashii/providers/filter_provider.dart';
 
 part 'cached_episodes_provider.g.dart';
 
@@ -56,6 +56,7 @@ class CachedEpisodesNotifier extends _$CachedEpisodesNotifier {
     final bookmarkedSeries = await ref.read(
       bookmarkedSeriesNotifierProvider.future,
     );
+    final bookmarkedNames = bookmarkedSeries.map((b) => b.showName).toSet();
 
     // Get current cached episodes, defaulting to empty list if null
     final stateValue = state.value;
@@ -66,7 +67,7 @@ class CachedEpisodesNotifier extends _$CachedEpisodesNotifier {
         apiEpisodes
             .where(
               (episode) =>
-                  bookmarkedSeries.contains(episode.show) &&
+                  bookmarkedNames.contains(episode.show) &&
                   !currentCached.any(
                     (cached) =>
                         cached.show == episode.show &&
@@ -84,7 +85,23 @@ class CachedEpisodesNotifier extends _$CachedEpisodesNotifier {
   Future<void> _addEpisodesToCache(List<ShowInfo> episodes) async {
     final stateValue = state.value;
     final currentCached = stateValue ?? <ShowInfo>[];
-    final updatedCache = [...currentCached, ...episodes];
+
+    // Create a map to handle deduplication, preferring the new episodes
+    final Map<String, ShowInfo> episodeMap = {};
+
+    // Add existing cached episodes
+    for (final episode in currentCached) {
+      final key = '${episode.show}-${episode.episode}';
+      episodeMap[key] = episode;
+    }
+
+    // Add new episodes (overwriting existing ones)
+    for (final episode in episodes) {
+      final key = '${episode.show}-${episode.episode}';
+      episodeMap[key] = episode;
+    }
+
+    final updatedCache = episodeMap.values.toList();
 
     // Sort by release date (newest first)
     updatedCache.sort((a, b) => b.releaseDate.compareTo(a.releaseDate));
@@ -221,19 +238,22 @@ Future<List<ShowInfo>> filteredCombinedEpisodes(
     }
 
     // Get bookmarked series
-    final bookmarkedSeries = bookmarkedSeriesAsync.value ?? <String>[];
+    final bookmarkedSeries =
+        bookmarkedSeriesAsync.value ?? <BookmarkedShowInfo>[];
 
     // If no bookmarks, return empty list
     if (bookmarkedSeries.isEmpty) {
       return <ShowInfo>[];
     }
 
+    final bookmarkedNames = bookmarkedSeries.map((b) => b.showName).toSet();
+
     // Get combined episodes and filter by bookmarked series
     final combinedEpisodes = await ref.watch(
       combinedEpisodesProvider(searchTerm).future,
     );
     return combinedEpisodes
-        .where((episode) => bookmarkedSeries.contains(episode.show))
+        .where((episode) => bookmarkedNames.contains(episode.show))
         .toList();
   }
 

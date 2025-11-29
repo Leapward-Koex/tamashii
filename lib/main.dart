@@ -4,11 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:simple_torrent/simple_torrent.dart';
 
-import 'pages/home_page.dart';
-import 'providers/api_cache_sync_provider.dart';
-import 'providers/foreground_torrent_provider.dart';
-import 'services/notification_service.dart';
-import 'services/permission_service.dart';
+import 'package:tamashii/pages/home_page.dart';
+import 'package:tamashii/providers/api_cache_sync_provider.dart';
+import 'package:tamashii/providers/foreground_torrent_provider.dart';
+import 'package:tamashii/services/notification_service.dart';
+import 'package:tamashii/services/permission_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,10 +17,8 @@ Future<void> main() async {
   try {
     await SimpleTorrent.init(
       config: const TorrentConfig(
-        maxTorrents: 10, // Allow up to 10 concurrent downloads
-        maxDownloadRate: 0, // No download limit by default
+        maxTorrents: 30, // Allow up to 30 concurrent downloads
         maxUploadRate: 1024, // 1 MB/s upload limit to be a good citizen
-        enableDHT: true, // Enable DHT for better peer discovery
         userAgent: 'Tamashii/1.0', // Custom user agent
       ),
     );

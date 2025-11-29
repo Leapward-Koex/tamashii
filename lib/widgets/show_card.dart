@@ -1,6 +1,7 @@
 // lib/widgets/show_card.dart
 
 import 'dart:io';
+import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
 import 'package:file_picker/file_picker.dart'; // Ensure FilePicker is imported
 
@@ -11,8 +12,8 @@ import 'package:tamashii/providers/foreground_torrent_provider.dart'; // Foregro
 import 'package:tamashii/providers/downloaded_torrents_provider.dart';
 import 'package:simple_torrent/simple_torrent.dart'; // For TorrentState
 
-import '../models/show_models.dart';
-import '../providers/bookmarked_series_provider.dart';
+import 'package:tamashii/models/show_models.dart';
+import 'package:tamashii/providers/bookmarked_series_provider.dart';
 import 'package:tamashii/widgets/show_image.dart'; // use shared ShowImage
 
 /// A card widget displaying a show's poster, title, episode, torrent progress,
@@ -97,9 +98,10 @@ class ShowCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final List<String> bookmarks =
-        ref.watch(bookmarkedSeriesNotifierProvider).valueOrNull ?? <String>[];
-    final bool isBookmarked = bookmarks.contains(show.show);
+    final List<BookmarkedShowInfo> bookmarks =
+        ref.watch(bookmarkedSeriesNotifierProvider).valueOrNull ??
+        <BookmarkedShowInfo>[];
+    final bool isBookmarked = bookmarks.any((b) => b.showName == show.show);
     final bookmarkedNotifier = ref.read(
       bookmarkedSeriesNotifierProvider.notifier,
     );
@@ -111,7 +113,7 @@ class ShowCard extends ConsumerWidget {
     );
 
     // Construct a unique key for the torrent download based on show and episode
-    final String torrentKey = "${show.show}-${show.episode}";
+    final String torrentKey = '${show.show}-${show.episode}';
 
     // Watch the torrent download state for this specific show and episode
     final torrentDownloadState = ref.watch(
@@ -146,9 +148,7 @@ class ShowCard extends ConsumerWidget {
               height: 180,
               child: Stack(
                 children: [
-                  Positioned.fill(
-                    child: ShowImage(show: show, fit: BoxFit.cover),
-                  ),
+                  Positioned.fill(child: ShowImage(imageUrl: show.imageUrl)),
                   if (isDownloaded)
                     Positioned(
                       top: 4,
@@ -194,7 +194,7 @@ class ShowCard extends ConsumerWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Episode: ${show.episode}',
+                          'Episode: ${show.episode} • ${DateFormat.yMMMd().format(show.releaseDate)}',
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
                       ],
@@ -475,7 +475,13 @@ class ShowCard extends ConsumerWidget {
                               await bookmarkedNotifier.remove(show.show);
                             } else {
                               // Add to bookmarks
-                              await bookmarkedNotifier.add(show.show);
+                              await bookmarkedNotifier.add(
+                                BookmarkedShowInfo(
+                                  imageUrl: show.imageUrl,
+                                  releaseDayOfWeek: show.releaseDate.weekday,
+                                  showName: show.show,
+                                ),
+                              );
                             }
                           },
                         ),

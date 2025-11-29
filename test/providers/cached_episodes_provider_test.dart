@@ -39,8 +39,10 @@ void main() {
     }
 
     test('should start with empty cache', () async {
-      final episodes = await container.read(cachedEpisodesNotifierProvider.future);
-      
+      final episodes = await container.read(
+        cachedEpisodesNotifierProvider.future,
+      );
+
       expect(episodes, isEmpty);
     });
 
@@ -50,7 +52,7 @@ void main() {
         createTestEpisode(
           showName: 'Attack on Titan',
           episode: '1',
-          releaseDate: DateTime(2024, 1, 1),
+          releaseDate: DateTime(2024),
         ),
         createTestEpisode(
           showName: 'One Piece',
@@ -60,11 +62,16 @@ void main() {
       ];
 
       await notifier.cacheEpisodes(testEpisodes);
-      final cachedEpisodes = await container.read(cachedEpisodesNotifierProvider.future);
+      final cachedEpisodes = await container.read(
+        cachedEpisodesNotifierProvider.future,
+      );
 
       expect(cachedEpisodes, hasLength(2));
-      expect(cachedEpisodes.map((e) => e.show), containsAll(['Attack on Titan', 'One Piece']));
-      
+      expect(
+        cachedEpisodes.map((e) => e.show),
+        containsAll(['Attack on Titan', 'One Piece']),
+      );
+
       // Verify storage - using SharedPreferences.getInstance() directly
       final prefs = await SharedPreferences.getInstance();
       final storedData = prefs.getStringList('cached_episodes');
@@ -78,7 +85,7 @@ void main() {
         createTestEpisode(
           showName: 'Show A',
           episode: '1',
-          releaseDate: DateTime(2024, 1, 1), // Older
+          releaseDate: DateTime(2024), // Older
         ),
         createTestEpisode(
           showName: 'Show B',
@@ -93,7 +100,9 @@ void main() {
       ];
 
       await notifier.cacheEpisodes(testEpisodes);
-      final cachedEpisodes = await container.read(cachedEpisodesNotifierProvider.future);
+      final cachedEpisodes = await container.read(
+        cachedEpisodesNotifierProvider.future,
+      );
 
       expect(cachedEpisodes[0].show, equals('Show B')); // Newest first
       expect(cachedEpisodes[1].show, equals('Show C')); // Middle
@@ -106,7 +115,7 @@ void main() {
         createTestEpisode(
           showName: 'Attack on Titan',
           episode: '1',
-          releaseDate: DateTime(2024, 1, 1),
+          releaseDate: DateTime(2024),
         ),
         createTestEpisode(
           showName: 'Attack on Titan',
@@ -122,26 +131,44 @@ void main() {
 
       await notifier.cacheEpisodes(testEpisodes);
       await notifier.removeSeriesFromCache('Attack on Titan');
-      
-      final cachedEpisodes = await container.read(cachedEpisodesNotifierProvider.future);
-      
+
+      final cachedEpisodes = await container.read(
+        cachedEpisodesNotifierProvider.future,
+      );
+
       expect(cachedEpisodes, hasLength(1));
       expect(cachedEpisodes[0].show, equals('One Piece'));
     });
 
     test('should cache only new bookmarked episodes', () async {
       // Set up bookmarks
-      final bookmarkNotifier = container.read(bookmarkedSeriesNotifierProvider.notifier);
-      await bookmarkNotifier.add('Attack on Titan');
-      await bookmarkNotifier.add('One Piece');
+      final bookmarkNotifier = container.read(
+        bookmarkedSeriesNotifierProvider.notifier,
+      );
+      await bookmarkNotifier.add(
+        BookmarkedShowInfo(
+          showName: 'Attack on Titan',
+          imageUrl: '',
+          releaseDayOfWeek: 1,
+        ),
+      );
+      await bookmarkNotifier.add(
+        BookmarkedShowInfo(
+          showName: 'One Piece',
+          imageUrl: '',
+          releaseDayOfWeek: 1,
+        ),
+      );
 
-      final cachedNotifier = container.read(cachedEpisodesNotifierProvider.notifier);
-      
+      final cachedNotifier = container.read(
+        cachedEpisodesNotifierProvider.notifier,
+      );
+
       // Add initial episode
       final initialEpisode = createTestEpisode(
         showName: 'Attack on Titan',
         episode: '1',
-        releaseDate: DateTime(2024, 1, 1),
+        releaseDate: DateTime(2024),
       );
       await cachedNotifier.cacheEpisodes([initialEpisode]);
 
@@ -150,7 +177,7 @@ void main() {
         createTestEpisode(
           showName: 'Attack on Titan',
           episode: '1', // Duplicate, should not be added
-          releaseDate: DateTime(2024, 1, 1),
+          releaseDate: DateTime(2024),
         ),
         createTestEpisode(
           showName: 'Attack on Titan',
@@ -170,32 +197,44 @@ void main() {
       ];
 
       await cachedNotifier.cacheNewBookmarkedEpisodes(apiEpisodes);
-      final cachedEpisodes = await container.read(cachedEpisodesNotifierProvider.future);
+      final cachedEpisodes = await container.read(
+        cachedEpisodesNotifierProvider.future,
+      );
 
-      expect(cachedEpisodes, hasLength(3)); // Initial + 2 new bookmarked episodes
-      expect(cachedEpisodes.map((e) => e.show), 
-             containsAll(['Attack on Titan', 'One Piece']));
-      expect(cachedEpisodes.map((e) => e.show), 
-             isNot(contains('Non-Bookmarked Show')));
+      expect(
+        cachedEpisodes,
+        hasLength(3),
+      ); // Initial + 2 new bookmarked episodes
+      expect(
+        cachedEpisodes.map((e) => e.show),
+        containsAll(['Attack on Titan', 'One Piece']),
+      );
+      expect(
+        cachedEpisodes.map((e) => e.show),
+        isNot(contains('Non-Bookmarked Show')),
+      );
     });
 
     test('should clean up old episodes (keep only 100 per series)', () async {
       final notifier = container.read(cachedEpisodesNotifierProvider.notifier);
-      
+
       // Create 150 episodes for one series
-      final episodes = List.generate(150, (index) => 
-        createTestEpisode(
+      final episodes = List.generate(
+        150,
+        (index) => createTestEpisode(
           showName: 'Long Running Show',
           episode: '${index + 1}',
-          releaseDate: DateTime(2024, 1, 1).add(Duration(days: index)),
+          releaseDate: DateTime(2024).add(Duration(days: index)),
         ),
       );
 
       await notifier.cacheEpisodes(episodes);
       await notifier.cleanupOldEpisodes();
-      
-      final cachedEpisodes = await container.read(cachedEpisodesNotifierProvider.future);
-      
+
+      final cachedEpisodes = await container.read(
+        cachedEpisodesNotifierProvider.future,
+      );
+
       expect(cachedEpisodes, hasLength(100));
       // Should keep the latest 100 episodes (51-150)
       expect(cachedEpisodes.first.episode, equals('150'));
@@ -208,18 +247,23 @@ void main() {
         createTestEpisode(
           showName: 'Test Show',
           episode: '1',
-          releaseDate: DateTime(2024, 1, 1),
+          releaseDate: DateTime(2024),
         ),
       ];
 
       await notifier.cacheEpisodes(testEpisodes);
-      expect(await container.read(cachedEpisodesNotifierProvider.future), hasLength(1));
+      expect(
+        await container.read(cachedEpisodesNotifierProvider.future),
+        hasLength(1),
+      );
 
       await notifier.clearCache();
-      final cachedEpisodes = await container.read(cachedEpisodesNotifierProvider.future);
-      
+      final cachedEpisodes = await container.read(
+        cachedEpisodesNotifierProvider.future,
+      );
+
       expect(cachedEpisodes, isEmpty);
-      
+
       // Verify storage is cleared
       final prefs = await SharedPreferences.getInstance();
       final storedData = prefs.getStringList('cached_episodes');
@@ -229,13 +273,18 @@ void main() {
     test('should handle corrupted cache data gracefully', () async {
       // Manually corrupt the cache
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setStringList('cached_episodes', ['invalid json', 'another invalid']);
+      await prefs.setStringList('cached_episodes', [
+        'invalid json',
+        'another invalid',
+      ]);
 
       // This should clear the corrupted cache and return empty list
-      final episodes = await container.read(cachedEpisodesNotifierProvider.future);
-      
+      final episodes = await container.read(
+        cachedEpisodesNotifierProvider.future,
+      );
+
       expect(episodes, isEmpty);
-      
+
       // Verify corrupted data was cleared
       final clearedData = prefs.getStringList('cached_episodes');
       expect(clearedData, isNull);
@@ -246,17 +295,19 @@ void main() {
       final testEpisode = createTestEpisode(
         showName: 'Persistent Show',
         episode: '1',
-        releaseDate: DateTime(2024, 1, 1),
+        releaseDate: DateTime(2024),
       );
 
       await notifier.cacheEpisodes([testEpisode]);
-      
+
       // Create new container to simulate app restart
       container.dispose();
       container = ProviderContainer();
-      
-      final persistedEpisodes = await container.read(cachedEpisodesNotifierProvider.future);
-      
+
+      final persistedEpisodes = await container.read(
+        cachedEpisodesNotifierProvider.future,
+      );
+
       expect(persistedEpisodes, hasLength(1));
       expect(persistedEpisodes[0].show, equals('Persistent Show'));
     });
@@ -277,9 +328,11 @@ void main() {
     test('should combine API and cached episodes without duplicates', () async {
       // This test would require mocking the API providers
       // For now, we'll test the logic with manual data
-      
-      final cachedNotifier = container.read(cachedEpisodesNotifierProvider.notifier);
-      
+
+      final cachedNotifier = container.read(
+        cachedEpisodesNotifierProvider.notifier,
+      );
+
       // Add some cached episodes
       final cachedEpisodes = [
         ShowInfo(
@@ -287,7 +340,7 @@ void main() {
           episode: '1',
           imageUrl: 'cached.jpg',
           page: 'cached-show',
-          releaseDate: DateTime(2024, 1, 1),
+          releaseDate: DateTime(2024),
           show: 'Cached Show',
           timeLabel: '12:00',
           xdcc: 'cached',
@@ -303,9 +356,9 @@ void main() {
           xdcc: 'old',
         ),
       ];
-      
+
       await cachedNotifier.cacheEpisodes(cachedEpisodes);
-      
+
       // The actual combination logic is tested implicitly through the provider
       // More comprehensive testing would require mocking the API providers
     });

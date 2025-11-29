@@ -35,7 +35,7 @@ void main() {
       final episode = createTestEpisode(
         showName: 'Test Show',
         episode: '1',
-        releaseDate: DateTime(2024, 1, 1),
+        releaseDate: DateTime.utc(2024),
       );
 
       // Test serialization
@@ -49,10 +49,7 @@ void main() {
       // So let's test with the actual format that would be stored
       final jsonString = jsonEncode(json);
       final decodedJson = jsonDecode(jsonString) as Map<String, dynamic>;
-      
-      // Fix the date format for testing - convert to the expected RFC format
-      decodedJson['release_date'] = 'Mon, 01 Jan 2024 00:00:00 +0000';
-      
+
       final reconstructedEpisode = ShowInfo.fromJson(decodedJson);
 
       expect(reconstructedEpisode.show, equals(episode.show));
@@ -63,31 +60,35 @@ void main() {
     test('cache provider properly handles JSON serialization', () async {
       final container = ProviderContainer();
       final notifier = container.read(cachedEpisodesNotifierProvider.notifier);
-      
+
       final episodes = [
         createTestEpisode(
           showName: 'Attack on Titan',
           episode: '1',
-          releaseDate: DateTime(2024, 1, 1),
+          releaseDate: DateTime.utc(2024),
         ),
         createTestEpisode(
           showName: 'One Piece',
           episode: '1000',
-          releaseDate: DateTime(2024, 1, 2),
+          releaseDate: DateTime.utc(2024, 1, 2),
         ),
       ];
 
       await notifier.cacheEpisodes(episodes);
-      
+
       // Verify the episodes are cached correctly
-      final cached = await container.read(cachedEpisodesNotifierProvider.future);
+      final cached = await container.read(
+        cachedEpisodesNotifierProvider.future,
+      );
       expect(cached, hasLength(2));
-      
+
       // Verify they maintain their properties
-      final attackOnTitan = cached.firstWhere((e) => e.show == 'Attack on Titan');
+      final attackOnTitan = cached.firstWhere(
+        (e) => e.show == 'Attack on Titan',
+      );
       expect(attackOnTitan.episode, equals('1'));
-      expect(attackOnTitan.releaseDate, equals(DateTime(2024, 1, 1)));
-      
+      expect(attackOnTitan.releaseDate, equals(DateTime.utc(2024)));
+
       container.dispose();
     });
 
@@ -107,47 +108,48 @@ void main() {
           }),
         ],
       };
-      
+
       SharedPreferences.setMockInitialValues(initialData);
-      
+
       final container = ProviderContainer();
-      final episodes = await container.read(cachedEpisodesNotifierProvider.future);
-      
+      final episodes = await container.read(
+        cachedEpisodesNotifierProvider.future,
+      );
+
       expect(episodes, hasLength(1));
       expect(episodes[0].show, equals('Test Show'));
       expect(episodes[0].episode, equals('1'));
-      
+
       container.dispose();
     });
 
     test('corrupted cache data is handled gracefully', () async {
       // Set up corrupted data
       final corruptedData = {
-        'cached_episodes': [
-          'invalid json string',
-          '{"incomplete": "data"}',
-        ],
+        'cached_episodes': ['invalid json string', '{"incomplete": "data"}'],
       };
-      
+
       SharedPreferences.setMockInitialValues(corruptedData);
-      
+
       final container = ProviderContainer();
-      
+
       // This should not throw and should return empty list
-      final episodes = await container.read(cachedEpisodesNotifierProvider.future);
+      final episodes = await container.read(
+        cachedEpisodesNotifierProvider.future,
+      );
       expect(episodes, isEmpty);
-      
+
       container.dispose();
     });
 
     test('cache operations work correctly', () async {
       final container = ProviderContainer();
       final notifier = container.read(cachedEpisodesNotifierProvider.notifier);
-      
+
       final episode1 = createTestEpisode(
         showName: 'Show 1',
         episode: '1',
-        releaseDate: DateTime(2024, 1, 1),
+        releaseDate: DateTime(2024),
       );
 
       // Add first episode
@@ -160,7 +162,7 @@ void main() {
       await notifier.clearCache();
       cached = await container.read(cachedEpisodesNotifierProvider.future);
       expect(cached, isEmpty);
-      
+
       container.dispose();
     });
   });

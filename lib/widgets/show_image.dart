@@ -3,34 +3,32 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import '../models/show_models.dart';
-import '../providers/subsplease_api_providers.dart';
+import 'package:tamashii/models/show_models.dart';
+import 'package:tamashii/providers/subsplease_api_providers.dart';
 
 /// A widget that displays a show's image, resolving either full URLs or API-relative paths.
 class ShowImage extends ConsumerWidget {
-  final ShowInfo show;
+  final String imageUrl;
   final double? width;
   final double? height;
   final BoxFit fit;
 
   const ShowImage({
-    Key? key,
-    required this.show,
+    super.key,
+    required this.imageUrl,
     this.width,
     this.height,
     this.fit = BoxFit.cover,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final api = ref.watch(subsPleaseApiProvider);
-    final imageUrl =
-        show.imageUrl.startsWith('http')
-            ? show.imageUrl
-            : '${api.baseUrl}${show.imageUrl}';
+    final resolvedImageUrl =
+        imageUrl.startsWith('http') ? imageUrl : '${api.baseUrl}$imageUrl';
 
     return CachedNetworkImage(
-      imageUrl: imageUrl,
+      imageUrl: resolvedImageUrl,
       width: width,
       height: height,
       fit: fit,

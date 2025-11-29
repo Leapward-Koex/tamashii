@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart'; // for debugPrint
 import 'package:http/http.dart' as http;
 import 'package:html/parser.dart' show parse;
 
-import '../models/show_models.dart'; // your ShowInfo, ShowDownloadInfo, etc.
+import 'package:tamashii/models/show_models.dart'; // your ShowInfo, ShowDownloadInfo, etc.
 
 class SubsPleaseApi {
   static const String _baseUrl = 'https://subsplease.org';

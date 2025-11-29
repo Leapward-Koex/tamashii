@@ -101,7 +101,7 @@ class TorrentTaskHandler extends TaskHandler {
       final downloadSpeed = _formatBytes(totalDownloadRate);
       final uploadSpeed = _formatBytes(totalUploadRate);
 
-      String title = 'Tamashii - ${avgProgress.toStringAsFixed(1)}% Complete';
+      final String title = 'Tamashii - ${avgProgress.toStringAsFixed(1)}% Complete';
       String text;
 
       if (downloadingCount > 0) {
@@ -423,7 +423,7 @@ class TorrentTaskHandler extends TaskHandler {
       final int torrentId = entry.value;
 
       try {
-        final TorrentInfo? info = await SimpleTorrent.getTorrentInfo(torrentId);
+        final TorrentInfo info = await SimpleTorrent.getTorrentInfo(torrentId);
 
         allStates[torrentKey] = {
           'torrentId': torrentId,
@@ -502,8 +502,9 @@ class TorrentTaskHandler extends TaskHandler {
   String _formatBytes(int bytes) {
     if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    if (bytes < 1024 * 1024 * 1024)
+    if (bytes < 1024 * 1024 * 1024) {
       return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
 }

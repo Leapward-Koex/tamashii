@@ -6,11 +6,11 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:simple_torrent/simple_torrent.dart';
-import '../services/torrent_foreground_task.dart';
-import '../services/notification_service.dart';
-import '../services/permission_service.dart';
-import '../providers/torrent_download_provider.dart';
-import 'downloaded_torrents_provider.dart';
+import 'package:tamashii/services/torrent_foreground_task.dart';
+import 'package:tamashii/services/notification_service.dart';
+import 'package:tamashii/services/permission_service.dart';
+import 'package:tamashii/providers/torrent_download_provider.dart';
+import 'package:tamashii/providers/downloaded_torrents_provider.dart';
 
 part 'foreground_torrent_provider.g.dart';
 
@@ -72,7 +72,6 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
         serviceId: 256,
         notificationTitle: 'Tamashii - Starting Downloads',
         notificationText: 'Initializing torrent downloads...',
-        notificationIcon: null,
         notificationButtons: [
           const NotificationButton(id: 'pause_all', text: 'Pause All'),
           const NotificationButton(id: 'resume_all', text: 'Resume All'),
@@ -107,20 +106,14 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
         channelName: 'Tamashii Torrent Service',
         channelDescription: 'Manages torrent downloads in the background',
         onlyAlertOnce: true,
-        channelImportance: NotificationChannelImportance.LOW,
-        priority: NotificationPriority.LOW,
       ),
       iosNotificationOptions: const IOSNotificationOptions(
         showNotification: false,
-        playSound: false,
       ),
       foregroundTaskOptions: ForegroundTaskOptions(
         eventAction: ForegroundTaskEventAction.repeat(
           5000,
         ), // Update every 5 seconds
-        autoRunOnBoot: false, // Don't auto-start on boot
-        autoRunOnMyPackageReplaced: false, // Don't auto-restart
-        allowWakeLock: true,
         allowWifiLock: true,
       ),
     );
@@ -402,7 +395,7 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
 
       // Log the stats for debugging
       print(
-        '📊 Stats update for $torrentKey: ${(stats.progress * 100).toStringAsFixed(1)}% (${_formatBytes(stats.downloadRate)}/s) - State: ${stats.state?.name ?? 'unknown'}',
+        '📊 Stats update for $torrentKey: ${(stats.progress * 100).toStringAsFixed(1)}% (${_formatBytes(stats.downloadRate)}/s) - State: ${stats.state.name ?? 'unknown'}',
       );
     } catch (e) {
       print('❌ Failed to recreate TorrentStats from serialized data: $e');

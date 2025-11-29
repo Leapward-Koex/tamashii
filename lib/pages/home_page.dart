@@ -65,29 +65,44 @@ class HomePage extends HookConsumerWidget {
         children: [
           // Scrollable content behind search bar
           Positioned.fill(
-            child: itemsValue.when(
-              data: (List<ShowInfo> shows) {
-                if (shows.isEmpty && currentFilter == ShowFilter.saved) {
-                  return const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.bookmark_border,
-                          size: 64,
-                          color: Colors.grey,
-                        ),
-                        SizedBox(height: 16),
-                        Text('No saved series found'),
-                        SizedBox(height: 8),
-                        Text(
-                          'Bookmark some series to see them here',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      ],
-                    ),
-                  );
+            child: Builder(
+              builder: (context) {
+                final List<ShowInfo> shows =
+                    itemsValue.valueOrNull ?? const <ShowInfo>[];
+
+                // First load: show spinner when we have no data yet and loading
+                if (shows.isEmpty && itemsValue.isLoading) {
+                  return const Center(child: CircularProgressIndicator());
                 }
+
+                // Empty states (only when not loading and no data to show)
+                if (shows.isEmpty) {
+                  if (currentFilter == ShowFilter.saved) {
+                    return const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.bookmark_border,
+                            size: 64,
+                            color: Colors.grey,
+                          ),
+                          SizedBox(height: 16),
+                          Text('No saved series found'),
+                          SizedBox(height: 8),
+                          Text(
+                            'Bookmark some series to see them here',
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                  // Generic empty (e.g., no search results)
+                  return const Center(child: Text('No series found'));
+                }
+
+                // Show existing items while loading or on error; user still can pull-to-refresh
                 return RefreshIndicator(
                   key: refreshKey,
                   onRefresh: refresh,
@@ -113,8 +128,6 @@ class HomePage extends HookConsumerWidget {
                   ),
                 );
               },
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, _) => Center(child: Text('Error: $error')),
             ),
           ),
           // Frosted glass search bar overlay
@@ -131,14 +144,26 @@ class HomePage extends HookConsumerWidget {
                   child: BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                     child: Container(
-                      color: Theme.of(context).canvasColor.withOpacity(0.5),
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).canvasColor.withOpacity(0.7),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Theme.of(
+                            context,
+                          ).dividerColor.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
                       height: 48,
                       alignment: Alignment.center,
                       child: TextField(
+                        style: const TextStyle(
+                          fontSize: 20,
+                          color: Colors.black,
+                        ),
                         controller: searchController,
                         decoration: const InputDecoration(
-                          hintText: 'Search',
+                          hintText: 'Search for shows...',
                           border: InputBorder.none,
                           suffixIcon: Icon(Icons.search),
                         ),

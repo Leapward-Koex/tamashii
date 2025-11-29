@@ -4,7 +4,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:tamashii/api/api_client.dart';
 import 'package:tamashii/providers/cached_episodes_provider.dart';
-import '../models/show_models.dart';
+import 'package:tamashii/models/show_models.dart';
 
 part 'subsplease_api_providers.g.dart';
 

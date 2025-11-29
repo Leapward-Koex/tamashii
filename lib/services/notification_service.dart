@@ -15,9 +15,7 @@ class NotificationService {
 
     const DarwinInitializationSettings initializationSettingsIOS =
         DarwinInitializationSettings(
-          requestAlertPermission: true,
-          requestBadgePermission: true,
-          requestSoundPermission: true,
+          
         );
 
     const WindowsInitializationSettings initializationSettingsWindows =
@@ -56,7 +54,6 @@ class NotificationService {
               'Notifications when individual torrents complete downloading',
           importance: Importance.high,
           priority: Priority.high,
-          playSound: true,
           icon: '@mipmap/ic_launcher',
         );
 

@@ -13,7 +13,7 @@ void main() {
         episode: '1',
         imageUrl: 'test1v1.jpg',
         page: 'test-page-1v1',
-        releaseDate: DateTime(2025, 7, 26, 10, 0),
+        releaseDate: DateTime(2025, 7, 26, 10),
         show: 'Test Show',
         timeLabel: '10:00',
         xdcc: 'test1v1',
@@ -24,7 +24,7 @@ void main() {
         episode: '1', // Same episode
         imageUrl: 'test1v2.jpg',
         page: 'test-page-1v2',
-        releaseDate: DateTime(2025, 7, 26, 12, 0),
+        releaseDate: DateTime(2025, 7, 26, 12),
         show: 'Test Show', // Same show
         timeLabel: '12:00',
         xdcc: 'test1v2',
@@ -35,7 +35,7 @@ void main() {
         episode: '2', // Different episode
         imageUrl: 'test2.jpg',
         page: 'test-page-2',
-        releaseDate: DateTime(2025, 7, 26, 14, 0),
+        releaseDate: DateTime(2025, 7, 26, 14),
         show: 'Test Show',
         timeLabel: '14:00',
         xdcc: 'test2',
@@ -66,7 +66,7 @@ void main() {
         episode: '1',
         imageUrl: 'showA.jpg',
         page: 'show-a-page',
-        releaseDate: DateTime(2025, 7, 26, 10, 0),
+        releaseDate: DateTime(2025, 7, 26, 10),
         show: 'Show A',
         timeLabel: '10:00',
         xdcc: 'showA',
@@ -77,7 +77,7 @@ void main() {
         episode: '1', // Same episode number
         imageUrl: 'showB.jpg',
         page: 'show-b-page',
-        releaseDate: DateTime(2025, 7, 26, 12, 0),
+        releaseDate: DateTime(2025, 7, 26, 12),
         show: 'Show B', // Different show
         timeLabel: '12:00',
         xdcc: 'showB',
@@ -103,7 +103,7 @@ void main() {
         episode: '1',
         imageUrl: 'test1.jpg',
         page: 'test-page-1',
-        releaseDate: DateTime(2025, 7, 26, 10, 0),
+        releaseDate: DateTime(2025, 7, 26, 10),
         show: 'Test Show',
         timeLabel: '10:00',
         xdcc: 'test1',
@@ -114,7 +114,7 @@ void main() {
         episode: '1', // Duplicate
         imageUrl: 'test2.jpg',
         page: 'test-page-2',
-        releaseDate: DateTime(2025, 7, 26, 12, 0),
+        releaseDate: DateTime(2025, 7, 26, 12),
         show: 'Test Show',
         timeLabel: '12:00',
         xdcc: 'test2',

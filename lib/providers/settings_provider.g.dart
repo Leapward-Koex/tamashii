@@ -46,7 +46,7 @@ final downloadBasePathProvider =
 
 typedef _$DownloadBasePath = AutoDisposeAsyncNotifier<String>;
 String _$seriesFolderMappingHash() =>
-    r'084bc1a55efd24924ce585e31d21daa2782333ce';
+    r'29dd63d8103501606e17a1cb598673d6ff6e125d';
 
 /// Mapping of series → custom folder path for episodes.
 ///

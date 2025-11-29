@@ -28,7 +28,7 @@ void main() {
         episode: '1',
         imageUrl: 'test1.jpg',
         page: 'test-page-1',
-        releaseDate: DateTime(2025, 7, 26, 10, 0),
+        releaseDate: DateTime(2025, 7, 26, 10),
         show: 'Test Show',
         timeLabel: '10:00',
         xdcc: 'test1',
@@ -39,7 +39,7 @@ void main() {
         episode: '1', // Same episode number
         imageUrl: 'test2.jpg', // Different image
         page: 'test-page-2', // Different page
-        releaseDate: DateTime(2025, 7, 26, 12, 0), // Different time
+        releaseDate: DateTime(2025, 7, 26, 12), // Different time
         show: 'Test Show', // Same show
         timeLabel: '12:00',
         xdcc: 'test2',
@@ -50,7 +50,7 @@ void main() {
         episode: '2', // Different episode
         imageUrl: 'test3.jpg',
         page: 'test-page-3',
-        releaseDate: DateTime(2025, 7, 26, 14, 0),
+        releaseDate: DateTime(2025, 7, 26, 14),
         show: 'Test Show', // Same show
         timeLabel: '14:00',
         xdcc: 'test3',
@@ -84,7 +84,7 @@ void main() {
         episode: '1',
         imageUrl: 'initial.jpg',
         page: 'initial-page',
-        releaseDate: DateTime(2025, 7, 26, 10, 0),
+        releaseDate: DateTime(2025, 7, 26, 10),
         show: 'Test Show',
         timeLabel: '10:00',
         xdcc: 'initial',
@@ -98,7 +98,7 @@ void main() {
         episode: '1', // Same episode
         imageUrl: 'updated.jpg',
         page: 'updated-page',
-        releaseDate: DateTime(2025, 7, 26, 12, 0),
+        releaseDate: DateTime(2025, 7, 26, 12),
         show: 'Test Show', // Same show
         timeLabel: '12:00',
         xdcc: 'updated',
@@ -124,7 +124,7 @@ void main() {
         episode: '1',
         imageUrl: 'test1.jpg',
         page: 'test-page-1',
-        releaseDate: DateTime(2025, 7, 26, 10, 0),
+        releaseDate: DateTime(2025, 7, 26, 10),
         show: 'Show A',
         timeLabel: '10:00',
         xdcc: 'test1',
@@ -135,7 +135,7 @@ void main() {
         episode: '1', // Same episode number
         imageUrl: 'test2.jpg',
         page: 'test-page-2',
-        releaseDate: DateTime(2025, 7, 26, 12, 0),
+        releaseDate: DateTime(2025, 7, 26, 12),
         show: 'Show B', // Different show
         timeLabel: '12:00',
         xdcc: 'test2',

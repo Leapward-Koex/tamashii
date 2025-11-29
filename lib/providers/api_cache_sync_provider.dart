@@ -1,10 +1,10 @@
 // lib/providers/api_cache_sync_provider.dart
 
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import '../models/show_models.dart';
-import 'bookmarked_series_provider.dart';
-import 'subsplease_api_providers.dart';
-import 'cached_episodes_provider.dart';
+import 'package:tamashii/models/show_models.dart';
+import 'package:tamashii/providers/bookmarked_series_provider.dart';
+import 'package:tamashii/providers/subsplease_api_providers.dart';
+import 'package:tamashii/providers/cached_episodes_provider.dart';
 
 /// Provider that listens to API updates and automatically caches bookmarked episodes
 final apiCacheSyncProvider = Provider<ApiCacheSyncService>((ref) {
@@ -42,7 +42,7 @@ class ApiCacheSyncService {
         for (final removedSeries in removedBookmarks) {
           _ref
               .read(cachedEpisodesNotifierProvider.notifier)
-              .removeSeriesFromCache(removedSeries);
+              .removeSeriesFromCache(removedSeries.showName);
         }
       }
     });
@@ -64,11 +64,12 @@ class ApiCacheSyncService {
         bookmarkedSeriesNotifierProvider.future,
       );
       if (bookmarkedSeries.isEmpty) return;
+      final bookmarkedNames = bookmarkedSeries.map((b) => b.showName).toSet();
 
       final latestEpisodes = await _ref.read(latestShowsProvider.future);
       final bookmarkedEpisodes =
           latestEpisodes
-              .where((episode) => bookmarkedSeries.contains(episode.show))
+              .where((episode) => bookmarkedNames.contains(episode.show))
               .toList();
 
       if (bookmarkedEpisodes.isNotEmpty) {

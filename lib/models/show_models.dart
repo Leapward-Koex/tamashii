@@ -45,7 +45,10 @@ class ShowDownloadInfo {
   ShowDownloadInfo({required this.resolution, required this.magnet});
 
   factory ShowDownloadInfo.fromJson(Map<String, dynamic> json) {
-    return ShowDownloadInfo(resolution: ShowResolutionJson.fromJson(json['res'] as String), magnet: json['magnet'] as String);
+    return ShowDownloadInfo(
+      resolution: ShowResolutionJson.fromJson(json['res'] as String),
+      magnet: json['magnet'] as String,
+    );
   }
 
   Map<String, dynamic> toJson() {
@@ -81,7 +84,10 @@ class ShowInfo {
     late DateTime parsedDate;
     try {
       // Try RFC format first (from API): EEE, dd MMM yyyy HH:mm:ss Z
-      parsedDate = DateFormat('EEE, dd MMM yyyy HH:mm:ss Z', 'en_US').parseUTC(rawDate);
+      parsedDate = DateFormat(
+        'EEE, dd MMM yyyy HH:mm:ss Z',
+        'en_US',
+      ).parseUTC(rawDate);
     } catch (error) {
       try {
         // Try short format (from cache): MM/dd/yy
@@ -92,7 +98,13 @@ class ShowInfo {
     }
 
     return ShowInfo(
-      downloads: (json['downloads'] as List<dynamic>).map((dynamic e) => ShowDownloadInfo.fromJson(e as Map<String, dynamic>)).toList(),
+      downloads:
+          (json['downloads'] as List<dynamic>)
+              .map(
+                (dynamic e) =>
+                    ShowDownloadInfo.fromJson(e as Map<String, dynamic>),
+              )
+              .toList(),
       episode: json['episode'] as String,
       imageUrl: json['image_url'] as String,
       page: json['page'] as String,
@@ -104,21 +116,61 @@ class ShowInfo {
   }
 
   Map<String, dynamic> toJson() {
-    final String twoDigitYear = (releaseDate.year % 100).toString().padLeft(2, '0');
-    final String monthPart = releaseDate.month.toString().padLeft(2, '0');
-    final String dayPart = releaseDate.day.toString().padLeft(2, '0');
+    // Use the full format to preserve time information
+    final String formattedDate = DateFormat(
+      'EEE, dd MMM yyyy HH:mm:ss Z',
+      'en_US',
+    ).format(releaseDate);
 
     return <String, dynamic>{
       'downloads': downloads.map((e) => e.toJson()).toList(),
       'episode': episode,
       'image_url': imageUrl,
       'page': page,
-      'release_date': '$monthPart/$dayPart/$twoDigitYear',
+      'release_date': formattedDate,
       'show': show,
       'time': timeLabel,
       'xdcc': xdcc,
     };
   }
+}
+
+class BookmarkedShowInfo {
+  final String imageUrl;
+  final int releaseDayOfWeek;
+  final String showName;
+
+  BookmarkedShowInfo({
+    required this.imageUrl,
+    required this.releaseDayOfWeek,
+    required this.showName,
+  });
+
+  factory BookmarkedShowInfo.fromJson(Map<String, dynamic> json) {
+    return BookmarkedShowInfo(
+      imageUrl: json['imageUrl'] as String,
+      releaseDayOfWeek: json['releaseDayOfWeek'] as int,
+      showName: json['showName'] as String,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'imageUrl': imageUrl,
+      'releaseDayOfWeek': releaseDayOfWeek,
+      'showName': showName,
+    };
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is BookmarkedShowInfo &&
+          runtimeType == other.runtimeType &&
+          showName == other.showName;
+
+  @override
+  int get hashCode => showName.hashCode;
 }
 
 /// The raw API result is a map from episode-key → [ShowInfo].

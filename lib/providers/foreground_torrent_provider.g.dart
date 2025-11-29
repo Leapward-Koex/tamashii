@@ -7,7 +7,7 @@ part of 'foreground_torrent_provider.dart';
 // **************************************************************************
 
 String _$foregroundTorrentForShowHash() =>
-    r'3bd548cd6a6582a7825ec236214cf971d840fc1c';
+    r'a2d636afdfd807e38dcee61a798f3ee1bf3420d4';
 
 /// Copied from Dart SDK
 class _SystemHash {
@@ -155,7 +155,7 @@ class _ForegroundTorrentForShowProviderElement
 }
 
 String _$foregroundTorrentManagerHash() =>
-    r'30ea1bf62363430ca1423a3551524327414ef327';
+    r'84af31f86425fb885a884ae9d86e926abad5a578';
 
 /// See also [ForegroundTorrentManager].
 @ProviderFor(ForegroundTorrentManager)

@@ -3,8 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:simple_torrent/simple_torrent.dart';
-import '../services/permission_service.dart';
-import 'downloaded_torrents_provider.dart';
+import 'package:tamashii/services/permission_service.dart';
+import 'package:tamashii/providers/downloaded_torrents_provider.dart';
 
 part 'torrent_download_provider.g.dart';
 
