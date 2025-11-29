@@ -2,7 +2,6 @@
 
 import 'dart:async';
 import 'dart:io';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:simple_torrent/simple_torrent.dart';

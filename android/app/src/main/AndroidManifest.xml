@@ -24,7 +24,7 @@
     <application
         android:label="tamashii"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@mipmap/launcher_icon"
         android:requestLegacyExternalStorage="true"
         android:preserveLegacyExternalStorage="true">
         <activity

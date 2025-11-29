@@ -3,7 +3,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:tamashii/models/show_models.dart';
 import 'package:tamashii/providers/subsplease_api_providers.dart';
 
 /// A widget that displays a show's image, resolving either full URLs or API-relative paths.
