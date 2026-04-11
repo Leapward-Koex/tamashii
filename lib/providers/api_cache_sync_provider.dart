@@ -1,5 +1,7 @@
 // lib/providers/api_cache_sync_provider.dart
 
+import 'dart:async';
+
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:tamashii/models/show_models.dart';
 import 'package:tamashii/providers/bookmarked_series_provider.dart';
@@ -34,15 +36,22 @@ class ApiCacheSyncService {
       if (previous?.hasValue == true && next.hasValue) {
         final previousBookmarks = previous!.value!.toSet();
         final currentBookmarks = next.value!.toSet();
+        final addedBookmarks = currentBookmarks.difference(previousBookmarks);
 
         // Find removed bookmarks
         final removedBookmarks = previousBookmarks.difference(currentBookmarks);
 
+        if (addedBookmarks.isNotEmpty) {
+          unawaited(_backfillBookmarkedEpisodes(addedBookmarks));
+        }
+
         // Remove cached episodes for unbookmarked series
         for (final removedSeries in removedBookmarks) {
-          _ref
-              .read(cachedEpisodesProvider.notifier)
-              .removeSeriesFromCache(removedSeries.showName);
+          unawaited(
+            _ref
+                .read(cachedEpisodesProvider.notifier)
+                .removeSeriesFromCache(removedSeries.showName),
+          );
         }
       }
     });
@@ -75,9 +84,52 @@ class ApiCacheSyncService {
             .read(cachedEpisodesProvider.notifier)
             .cacheEpisodes(bookmarkedEpisodes);
       }
+
+      final cachedEpisodes = await _ref.read(cachedEpisodesProvider.future);
+      final cachedShows = cachedEpisodes.map((episode) => episode.show).toSet();
+      final missingBookmarks =
+          bookmarkedSeries
+              .where((bookmark) => !cachedShows.contains(bookmark.showName))
+              .toSet();
+
+      if (missingBookmarks.isNotEmpty) {
+        await _backfillBookmarkedEpisodes(missingBookmarks);
+      }
     } catch (e) {
       // Ignore initial sync errors
     }
+  }
+
+  Future<void> _backfillBookmarkedEpisodes(
+    Iterable<BookmarkedShowInfo> seriesList,
+  ) async {
+    for (final series in seriesList) {
+      try {
+        final searchResults = await _ref.read(
+          searchShowsProvider(series.showName).future,
+        );
+        final matchingEpisodes =
+            searchResults
+                .where(
+                  (episode) => _sameShowName(episode.show, series.showName),
+                )
+                .toList();
+
+        if (matchingEpisodes.isEmpty) {
+          continue;
+        }
+
+        await _ref
+            .read(cachedEpisodesProvider.notifier)
+            .cacheEpisodes(matchingEpisodes);
+      } catch (_) {
+        // Ignore per-series backfill errors so one bad request does not block the rest.
+      }
+    }
+  }
+
+  bool _sameShowName(String lhs, String rhs) {
+    return lhs.trim().toLowerCase() == rhs.trim().toLowerCase();
   }
 
   /// Manually trigger a sync

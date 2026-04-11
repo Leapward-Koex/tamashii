@@ -226,7 +226,7 @@ Future<List<ShowInfo>> filteredCombinedEpisodes(
   final filter = filterAsync.value ?? ShowFilter.all;
 
   // For saved filter, use only bookmarked series
-  if (filter == ShowFilter.saved && searchTerm.isEmpty) {
+  if (filter == ShowFilter.saved) {
     final bookmarkedSeriesAsync = ref.watch(bookmarkedSeriesProvider);
 
     // If bookmarks are still loading, return empty list
