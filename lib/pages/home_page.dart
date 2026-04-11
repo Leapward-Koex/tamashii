@@ -15,6 +15,12 @@ class HomePage extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    const double searchBarHeight = 48;
+    const double searchBarOuterPadding = 16;
+    const double homeListTopInset =
+        searchBarHeight + (searchBarOuterPadding * 2);
+    const double refreshIndicatorDisplacement = homeListTopInset + 24;
+
     final TextEditingController searchController = useTextEditingController();
     final debounceTimerRef = useRef<Timer?>(null);
     final debouncedQuery = useState<String>('');
@@ -106,6 +112,8 @@ class HomePage extends HookConsumerWidget {
                 return RefreshIndicator(
                   key: refreshKey,
                   onRefresh: refresh,
+                  edgeOffset: homeListTopInset,
+                  displacement: refreshIndicatorDisplacement,
                   child: ScrollConfiguration(
                     behavior: const MaterialScrollBehavior().copyWith(
                       // Allow pull-to-refresh with mouse/trackpad on desktop
@@ -118,7 +126,7 @@ class HomePage extends HookConsumerWidget {
                     child: ListView.builder(
                       // Allow pull even when list doesn't overflow
                       physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.only(top: 80),
+                      padding: const EdgeInsets.only(top: homeListTopInset),
                       itemCount: shows.length,
                       itemBuilder: (context, index) {
                         final show = shows[index];
@@ -145,7 +153,9 @@ class HomePage extends HookConsumerWidget {
                     filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: Theme.of(context).canvasColor.withOpacity(0.7),
+                        color: Theme.of(
+                          context,
+                        ).canvasColor.withValues(alpha: 0.7),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: Theme.of(
