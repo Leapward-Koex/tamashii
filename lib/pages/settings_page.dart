@@ -5,6 +5,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:open_file/open_file.dart';
 import 'dart:io';
+import 'package:tamashii/pages/gemini_nano_page.dart';
 import 'package:tamashii/providers/settings_provider.dart';
 import 'package:tamashii/providers/downloaded_torrents_provider.dart';
 
@@ -70,6 +71,21 @@ class SettingsPage extends HookConsumerWidget {
                 title: const Text('Auto-generate Series Folders'),
                 subtitle: Text('Error: $e'),
               ),
+        ),
+        const Divider(),
+
+        ListTile(
+          leading: const Icon(Icons.smart_toy_outlined),
+          title: const Text('Gemini Nano Demo'),
+          subtitle: const Text(
+            'Ask on-device AI what season a title belongs to',
+          ),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const GeminiNanoPage()),
+            );
+          },
         ),
         const Divider(),
 
