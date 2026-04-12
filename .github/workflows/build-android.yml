@@ -1,7 +1,11 @@
 name: Build Android APK
 
+permissions:
+  contents: write
+
 env:
   DEFAULT_FLUTTER_VERSION: '3.38.3'
+  ANDROID_VERSION_CODE_BASE_EPOCH: '1704067200'
 
 on:
   push:
@@ -52,13 +56,76 @@ jobs:
     # - name: Run tests
     #   run: flutter test
 
-    - name: Build APK
+    - name: Validate Android signing secrets
+      if: github.event_name != 'pull_request'
+      shell: bash
+      env:
+        ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      run: |
+        for secret_name in \
+          ANDROID_KEYSTORE_BASE64 \
+          ANDROID_KEYSTORE_PASSWORD \
+          ANDROID_KEY_ALIAS \
+          ANDROID_KEY_PASSWORD; do
+          if [ -z "${!secret_name}" ]; then
+            echo "::error::$secret_name is not set"
+            exit 1
+          fi
+        done
+
+    - name: Compute Android version code
+      id: version
+      if: github.event_name != 'pull_request'
+      shell: bash
+      run: |
+        now_utc_seconds=$(date -u +%s)
+        build_number=$((now_utc_seconds - ANDROID_VERSION_CODE_BASE_EPOCH))
+        echo "build_number=$build_number" >> "$GITHUB_OUTPUT"
+        echo "Using Android versionCode=$build_number"
+
+    - name: Restore Android release keystore
+      if: github.event_name != 'pull_request'
+      shell: bash
+      env:
+        ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      run: |
+        printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/upload-keystore.jks
+        cat > android/key.properties <<EOF
+        storePassword=${ANDROID_KEYSTORE_PASSWORD}
+        keyPassword=${ANDROID_KEY_PASSWORD}
+        keyAlias=${ANDROID_KEY_ALIAS}
+        storeFile=upload-keystore.jks
+        EOF
+
+    - name: Build APK (debug)
+      if: github.event_name == 'pull_request'
+      run: flutter build apk --debug
+
+    - name: Build APK (signed release)
+      if: github.event_name != 'pull_request'
+      env:
+        ANDROID_VERSION_CODE: ${{ steps.version.outputs.build_number }}
       run: flutter build apk --release
 
-    - name: Upload APK artifact
+    - name: Upload debug APK artifact
+      if: github.event_name == 'pull_request'
       uses: actions/upload-artifact@v4
       with:
-        name: android-apk
+        name: android-apk-debug
+        path: build/app/outputs/flutter-apk/app-debug.apk
+        retention-days: 30
+
+    - name: Upload release APK artifact
+      if: github.event_name != 'pull_request'
+      uses: actions/upload-artifact@v4
+      with:
+        name: android-apk-release-${{ steps.version.outputs.build_number }}
         path: build/app/outputs/flutter-apk/app-release.apk
         retention-days: 30
 
