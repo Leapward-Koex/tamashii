@@ -1,25 +1,5 @@
 import 'dart:convert';
 
-String buildSeasonInferencePrompt(String title) {
-  return '''
-You are extracting season information from an anime or TV show title.
-
-Determine what season the title belongs to.
-Examples:
-- "Show Name S4" -> "Season 04"
-- "Show Name Season 4" -> "Season 04"
-- "Show Name Season 04" -> "Season 04"
-- "Show Name part 4" -> "Season 04"
-- "Show Name" -> "Season 01"
-
-Respond with exactly two lines:
-Season: Season NN or Unknown
-Reason: one short sentence
-
-Title: $title
-'''.trim();
-}
-
 String buildSeriesFolderPrompt({
   required String showTitle,
   required List<String> existingSeriesFolders,

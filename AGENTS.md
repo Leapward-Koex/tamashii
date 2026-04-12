@@ -8,3 +8,4 @@
 - Changed code must be testable. If the current design makes testing difficult, refactor it first so dependencies can be injected and behavior can be exercised by tests.
 - When changing behavior, add or update tests in the same change.
 - When adding or changing codegen-backed providers or Freezed models, update the generated files as part of the change.
+- Always run a full test suite before finishing a task to ensure there are no regressions.

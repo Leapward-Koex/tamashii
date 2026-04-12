@@ -16,14 +16,38 @@ import 'package:simple_torrent/simple_torrent.dart'; // For TorrentState
 
 import 'package:tamashii/models/show_models.dart';
 import 'package:tamashii/providers/bookmarked_series_provider.dart';
+import 'package:tamashii/widgets/download_preparation_dialog.dart';
 import 'package:tamashii/widgets/series_folder_confirmation_dialog.dart';
 import 'package:tamashii/widgets/show_image.dart'; // use shared ShowImage
 
 /// A card widget displaying a show's poster, title, episode, torrent progress,
 /// upload / download stats, and action buttons (download + bookmark).
+typedef SeriesFolderPlanBuilder =
+    Future<SeriesFolderResolutionPlan> Function({
+      required ShowInfo showInfo,
+      required String basePath,
+      required OnDeviceTextGenerator textGenerator,
+    });
+
 class ShowCard extends ConsumerWidget {
   final ShowInfo show;
-  const ShowCard({super.key, required this.show});
+  final SeriesFolderPlanBuilder seriesFolderPlanBuilder;
+
+  const ShowCard({
+    super.key,
+    required this.show,
+    this.seriesFolderPlanBuilder = _defaultSeriesFolderPlanBuilder,
+  });
+
+  static Future<SeriesFolderResolutionPlan> _defaultSeriesFolderPlanBuilder({
+    required ShowInfo showInfo,
+    required String basePath,
+    required OnDeviceTextGenerator textGenerator,
+  }) {
+    return SeriesFolderResolutionService(
+      textGenerator: textGenerator,
+    ).plan(showTitle: showInfo.show, basePath: basePath);
+  }
 
   String _formatBytes(int bytes) {
     if (bytes < 1024) {
@@ -43,7 +67,6 @@ class ShowCard extends ConsumerWidget {
 
   Future<String?> _determineDownloadPath({
     required BuildContext context,
-    required WidgetRef ref,
     required ShowInfo showInfo,
     required Map<String, String> currentMappings,
     required bool isAutoGenEnabled,
@@ -69,9 +92,15 @@ class ShowCard extends ConsumerWidget {
         return null;
       }
 
-      final plan = await SeriesFolderResolutionService(
-        textGenerator: textGenerator,
-      ).plan(showTitle: showInfo.show, basePath: currentBasePath);
+      final plan = await runWithDownloadPreparationDialog(
+        context: context,
+        action:
+            () => seriesFolderPlanBuilder(
+              showInfo: showInfo,
+              basePath: currentBasePath,
+              textGenerator: textGenerator,
+            ),
+      );
 
       if (!context.mounted) {
         return null;
@@ -367,7 +396,6 @@ class ShowCard extends ConsumerWidget {
                                       final String? seriesDownloadPath =
                                           await _determineDownloadPath(
                                             context: context,
-                                            ref: ref,
                                             showInfo: show,
                                             currentMappings:
                                                 seriesMappingSettings.value ??
@@ -410,7 +438,6 @@ class ShowCard extends ConsumerWidget {
                                     final String? seriesDownloadPath =
                                         await _determineDownloadPath(
                                           context: context,
-                                          ref: ref,
                                           showInfo: show,
                                           currentMappings:
                                               seriesMappingSettings.value ??

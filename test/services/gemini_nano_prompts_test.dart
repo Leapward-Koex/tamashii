@@ -2,14 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tamashii/services/gemini_nano_prompts.dart';
 
 void main() {
-  group('Gemini Nano prompts', () {
-    test('season inference prompt includes the raw title', () {
-      final prompt = buildSeasonInferencePrompt('Show Name Season 4');
-
-      expect(prompt, contains('Title: Show Name Season 4'));
-      expect(prompt, contains('Season: Season NN or Unknown'));
-    });
-
+  group('Series folder prompts', () {
     test('series folder prompt includes existing folder context', () {
       final prompt = buildSeriesFolderPrompt(
         showTitle: 'Show Name part 4',
