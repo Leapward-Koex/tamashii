@@ -52,6 +52,8 @@ class JikanApiController {
   static const Duration _jikanRequestSpacing = Duration(milliseconds: 1200);
   static const Duration _jikanRateLimitCooldown = Duration(seconds: 20);
   static const Duration _aiFailureCooldown = Duration(minutes: 10);
+  static const String _jikanSuccessLogPrefix = '[JIKAN_OK]';
+  static const String _aiSuccessLogPrefix = '[AI_OK]';
 
   final OnDeviceTextGenerator _textGenerator;
   final http.Client _httpClient;
@@ -104,11 +106,18 @@ class JikanApiController {
       return const <JikanAnimeSearchHit>[];
     }
 
-    return data
-        .whereType<Map<String, dynamic>>()
-        .map(JikanAnimeSearchHit.fromJson)
-        .where((entry) => entry.malId > 0)
-        .toList();
+    final results =
+        data
+            .whereType<Map<String, dynamic>>()
+            .map(JikanAnimeSearchHit.fromJson)
+            .where((entry) => entry.malId > 0)
+            .toList();
+
+    debugPrint(
+      '$_jikanSuccessLogPrefix[search] query="$trimmedQuery" results=${results.length}',
+    );
+
+    return results;
   }
 
   Future<JikanAnimeDetails?> getAnimeById(int malId) async {
@@ -128,7 +137,11 @@ class JikanApiController {
       return null;
     }
 
-    return JikanAnimeDetails.fromJson(data);
+    final details = JikanAnimeDetails.fromJson(data);
+    debugPrint(
+      '$_jikanSuccessLogPrefix[details] malId=$malId title="${details.displayTitle}"',
+    );
+    return details;
   }
 
   Future<JikanHotness?> getHotnessForSeries(String localShowTitle) async {
@@ -262,6 +275,10 @@ class JikanApiController {
       reason: lookupContext.reason,
     );
 
+    debugPrint(
+      '$_jikanSuccessLogPrefix[mapping] local="$localShowTitle" search="${mapping.searchTitle}" season="${mapping.seasonHint}" malId=${mapping.malId} matched="${mapping.matchedTitle}"',
+    );
+
     _mappingCache[localShowTitle] = mapping;
     await _persistMappingCache();
     return mapping;
@@ -327,11 +344,15 @@ class JikanApiController {
         prompt: buildJikanLookupPreparationPrompt(localShowTitle),
       );
 
-      return parseJikanLookupContextResponse(
+      final lookupContext = parseJikanLookupContextResponse(
         response.text,
         fallbackSearchTitle: fallback.searchTitle,
         fallbackSeasonHint: fallback.seasonHint,
       );
+      debugPrint(
+        '$_aiSuccessLogPrefix[normalize] title="$localShowTitle" model=${response.modelUsed ?? 'unknown'} search="${lookupContext.searchTitle}" season="${lookupContext.seasonHint}"',
+      );
+      return lookupContext;
     } catch (error) {
       _recordAiFailure(error);
       debugPrint(
@@ -371,6 +392,9 @@ class JikanApiController {
       );
 
       final selection = parseJikanCandidateSelectionResponse(response.text);
+      debugPrint(
+        '$_aiSuccessLogPrefix[select] title="$localShowTitle" model=${response.modelUsed ?? 'unknown'} malId=${selection?.malId?.toString() ?? 'null'}',
+      );
       if (selection == null) {
         return fallback;
       }
