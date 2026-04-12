@@ -2,18 +2,21 @@
 
 import 'dart:io';
 import 'package:intl/intl.dart';
-import 'package:path/path.dart' as p;
 import 'package:file_picker/file_picker.dart'; // Ensure FilePicker is imported
 
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:tamashii/providers/on_device_ai_provider.dart';
 import 'package:tamashii/providers/settings_provider.dart';
 import 'package:tamashii/providers/foreground_torrent_provider.dart'; // Foreground / background service
 import 'package:tamashii/providers/downloaded_torrents_provider.dart';
+import 'package:tamashii/services/gemini_nano_service.dart';
+import 'package:tamashii/services/series_folder_resolution_service.dart';
 import 'package:simple_torrent/simple_torrent.dart'; // For TorrentState
 
 import 'package:tamashii/models/show_models.dart';
 import 'package:tamashii/providers/bookmarked_series_provider.dart';
+import 'package:tamashii/widgets/series_folder_confirmation_dialog.dart';
 import 'package:tamashii/widgets/show_image.dart'; // use shared ShowImage
 
 /// A card widget displaying a show's poster, title, episode, torrent progress,
@@ -46,6 +49,7 @@ class ShowCard extends ConsumerWidget {
     required bool isAutoGenEnabled,
     required String currentBasePath,
     required SeriesFolderMapping seriesMappingNotifier,
+    required OnDeviceTextGenerator textGenerator,
   }) async {
     final seriesSpecificPath = currentMappings[showInfo.show];
 
@@ -64,15 +68,37 @@ class ShowCard extends ConsumerWidget {
         );
         return null;
       }
-      final path = p.join(
-        currentBasePath,
-        showInfo.show.replaceAll(RegExp(r'[^\w\s-]+'), '_'),
-      ); // Sanitize folder name
+
+      final plan = await SeriesFolderResolutionService(
+        textGenerator: textGenerator,
+      ).plan(showTitle: showInfo.show, basePath: currentBasePath);
+
+      if (!context.mounted) {
+        return null;
+      }
+
+      String? path = plan.suggestedPath;
+      if (plan.usedAi) {
+        path = await showSeriesFolderConfirmationDialog(
+          context: context,
+          showTitle: showInfo.show,
+          basePath: currentBasePath,
+          plan: plan,
+        );
+      }
+
+      if (path == null || path.isEmpty) {
+        return null;
+      }
+
       try {
         await Directory(path).create(recursive: true);
         await seriesMappingNotifier.setFolder(showInfo.show, path);
         return path;
       } catch (e) {
+        if (!context.mounted) {
+          return null;
+        }
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Error creating folder: $e')));
@@ -86,6 +112,9 @@ class ShowCard extends ConsumerWidget {
         await seriesMappingNotifier.setFolder(showInfo.show, selectedDirectory);
         return selectedDirectory;
       } else {
+        if (!context.mounted) {
+          return null;
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('No folder selected. Download cancelled.'),
@@ -108,6 +137,7 @@ class ShowCard extends ConsumerWidget {
     final seriesMappingNotifier = ref.read(
       seriesFolderMappingProvider.notifier,
     );
+    final textGenerator = ref.read(onDeviceTextGeneratorProvider);
 
     // Construct a unique key for the torrent download based on show and episode
     final String torrentKey = '${show.show}-${show.episode}';
@@ -348,6 +378,7 @@ class ShowCard extends ConsumerWidget {
                                                 basePathSettings.value ?? '',
                                             seriesMappingNotifier:
                                                 seriesMappingNotifier,
+                                            textGenerator: textGenerator,
                                           );
                                       if (seriesDownloadPath != null &&
                                           seriesDownloadPath.isNotEmpty) {
@@ -391,6 +422,7 @@ class ShowCard extends ConsumerWidget {
                                               basePathSettings.value ?? '',
                                           seriesMappingNotifier:
                                               seriesMappingNotifier,
+                                          textGenerator: textGenerator,
                                         );
 
                                     if (seriesDownloadPath == null ||
@@ -399,6 +431,9 @@ class ShowCard extends ConsumerWidget {
                                     }
 
                                     if (show.downloads.isEmpty) {
+                                      if (!context.mounted) {
+                                        return;
+                                      }
                                       ScaffoldMessenger.of(
                                         context,
                                       ).showSnackBar(
@@ -430,6 +465,9 @@ class ShowCard extends ConsumerWidget {
                                           best.magnet,
                                           seriesDownloadPath,
                                         );
+                                    if (!context.mounted) {
+                                      return;
+                                    }
                                     if (torrentDownloadState.errorMessage !=
                                         null) {
                                       ScaffoldMessenger.of(

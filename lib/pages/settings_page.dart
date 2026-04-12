@@ -1,15 +1,16 @@
 // lib/pages/settings_page.dart
 
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:open_file/open_file.dart';
-import 'dart:io';
 import 'package:tamashii/pages/gemini_nano_page.dart';
+import 'package:tamashii/providers/on_device_ai_provider.dart';
 import 'package:tamashii/providers/settings_provider.dart';
 import 'package:tamashii/providers/downloaded_torrents_provider.dart';
 
-class SettingsPage extends HookConsumerWidget {
+class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
 
   @override
@@ -17,6 +18,8 @@ class SettingsPage extends HookConsumerWidget {
     final autoGen = ref.watch(autoGenerateFoldersProvider);
     final basePath = ref.watch(downloadBasePathProvider);
     final mapping = ref.watch(seriesFolderMappingProvider);
+    final modelCatalog = ref.watch(onDeviceModelCatalogProvider);
+    final autoGenValue = autoGen.asData?.value;
 
     return ListView(
       children: <Widget>[
@@ -73,6 +76,31 @@ class SettingsPage extends HookConsumerWidget {
               ),
         ),
         const Divider(),
+
+        if (autoGenValue == true) ...[
+          modelCatalog.when(
+            data:
+                (catalog) => ListTile(
+                  title: const Text('On-device AI'),
+                  subtitle: Text(
+                    catalog.availableModels.isEmpty
+                        ? 'Unavailable. Folder generation will fall back to plain series names.'
+                        : 'Detected model: ${catalog.activeModel ?? catalog.availableModels.first}',
+                  ),
+                ),
+            loading:
+                () => const ListTile(
+                  title: Text('On-device AI'),
+                  subtitle: Text('Checking model availability...'),
+                ),
+            error:
+                (error, _) => ListTile(
+                  title: const Text('On-device AI'),
+                  subtitle: Text('Error: $error'),
+                ),
+          ),
+          const Divider(),
+        ],
 
         ListTile(
           leading: const Icon(Icons.smart_toy_outlined),
