@@ -23,8 +23,15 @@ class ShowImage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final api = ref.watch(subsPleaseApiProvider);
-    final resolvedImageUrl =
-        imageUrl.startsWith('http') ? imageUrl : '${api.baseUrl}$imageUrl';
+    final resolvedImageUrl = _resolveImageUrl(api.baseUrl, imageUrl);
+
+    if (resolvedImageUrl == null) {
+      return SizedBox(
+        width: width,
+        height: height,
+        child: const Center(child: Icon(Icons.broken_image, size: 40)),
+      );
+    }
 
     return CachedNetworkImage(
       imageUrl: resolvedImageUrl,
@@ -37,5 +44,32 @@ class ShowImage extends ConsumerWidget {
           (context, url, error) =>
               const Center(child: Icon(Icons.broken_image, size: 40)),
     );
+  }
+
+  String? _resolveImageUrl(String baseUrl, String rawImageUrl) {
+    final trimmed = rawImageUrl.trim();
+    if (trimmed.isEmpty) {
+      return null;
+    }
+
+    final directUri = Uri.tryParse(trimmed);
+    if (directUri != null && directUri.hasScheme) {
+      if (!directUri.hasAuthority) {
+        return null;
+      }
+      return directUri.toString();
+    }
+
+    final baseUri = Uri.tryParse(baseUrl);
+    if (baseUri == null) {
+      return null;
+    }
+
+    final normalizedPath = trimmed.startsWith('/') ? trimmed : '/$trimmed';
+    final resolvedUri = baseUri.resolve(normalizedPath);
+    if (!resolvedUri.hasAuthority) {
+      return null;
+    }
+    return resolvedUri.toString();
   }
 }

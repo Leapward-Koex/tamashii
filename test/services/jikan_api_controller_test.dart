@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -48,6 +49,33 @@ class FakeOnDeviceTextGenerator implements OnDeviceTextGenerator {
   }
 }
 
+class ThrowingOnDeviceTextGenerator implements OnDeviceTextGenerator {
+  int catalogCount = 0;
+  int generateCount = 0;
+
+  @override
+  Future<OnDeviceModelCatalog> getModelCatalog() async {
+    catalogCount += 1;
+    return const OnDeviceModelCatalog(
+      activeModel: 'gemini-nano',
+      availableModels: <String>['gemini-nano'],
+      featureStatus: 3,
+    );
+  }
+
+  @override
+  Future<OnDeviceGenerationResponse> generateText({
+    required String prompt,
+  }) async {
+    generateCount += 1;
+    throw PlatformException(
+      code: 'inference_error',
+      message:
+          'Gemini Nano inference failed: [ErrorCode 9] Request cannot be processed.',
+    );
+  }
+}
+
 void main() {
   group('Jikan API controller helpers', () {
     test('parses lookup context JSON wrapped in markdown fences', () {
@@ -81,7 +109,7 @@ void main() {
         type: 'TV',
         status: 'Currently Airing',
         airing: true,
-        airedFrom: DateTime(2026, 1, 1),
+        airedFrom: DateTime(2026),
         score: 8.8,
         scoredBy: 600000,
         rank: 120,
@@ -101,7 +129,7 @@ void main() {
         type: 'TV Special',
         status: 'Finished Airing',
         airing: false,
-        airedFrom: DateTime(2015, 1, 1),
+        airedFrom: DateTime(2015),
         score: 6.1,
         scoredBy: 3000,
         rank: 9000,
@@ -238,8 +266,8 @@ void main() {
       expect(results[0]!.value, results[1]!.value);
       expect(searchCalls, 1);
       expect(fullCalls, 1);
-      expect(generator.catalogCount, 1);
-      expect(generator.generateCount, 2);
+      expect(generator.catalogCount, 0);
+      expect(generator.generateCount, 0);
 
       final cached = await controller.getHotnessForSeries(
         'Solo Leveling Season 2',
@@ -249,7 +277,100 @@ void main() {
       expect(cached!.malId, 58567);
       expect(searchCalls, 1);
       expect(fullCalls, 1);
-      expect(generator.generateCount, 2);
+      expect(generator.generateCount, 0);
+    });
+
+    test('disables AI-assisted lookup after an inference failure', () async {
+      final prefs = await SharedPreferences.getInstance();
+      final generator = ThrowingOnDeviceTextGenerator();
+
+      final client = MockClient((request) async {
+        if (request.url.path == '/v4/anime') {
+          return http.Response(
+            json.encode(<String, dynamic>{'data': <Object>[]}),
+            200,
+            headers: <String, String>{
+              'content-type': 'application/json; charset=utf-8',
+            },
+          );
+        }
+
+        return http.Response('not found', 404);
+      });
+
+      final controller = JikanApiController(
+        textGenerator: generator,
+        httpClient: client,
+        preferences: prefs,
+        now: () => DateTime(2026, 4, 12, 10),
+      );
+
+      addTearDown(controller.dispose);
+
+      final first = await controller.getHotnessForSeries('Odd Title Season 2');
+      final second = await controller.getHotnessForSeries(
+        'Another Odd Title Season 3',
+      );
+
+      expect(first, isNull);
+      expect(second, isNull);
+      expect(generator.catalogCount, 1);
+      expect(generator.generateCount, 1);
+    });
+
+    test('backs off after a Jikan 429 response using retry-after', () async {
+      final prefs = await SharedPreferences.getInstance();
+      final generator = FakeOnDeviceTextGenerator();
+      final delayedDurations = <Duration>[];
+      var currentTime = DateTime(2026, 4, 12, 12);
+      var requestCount = 0;
+
+      final client = MockClient((request) async {
+        requestCount += 1;
+        if (requestCount == 1) {
+          return http.Response(
+            json.encode(<String, dynamic>{'data': <Object>[]}),
+            429,
+            headers: <String, String>{'retry-after': '3'},
+          );
+        }
+
+        return http.Response(
+          json.encode(<String, dynamic>{
+            'data': <Map<String, dynamic>>[
+              <String, dynamic>{
+                'mal_id': 1,
+                'title': 'Recovered Show',
+                'titles': const <Map<String, dynamic>>[],
+              },
+            ],
+          }),
+          200,
+          headers: <String, String>{
+            'content-type': 'application/json; charset=utf-8',
+          },
+        );
+      });
+
+      final controller = JikanApiController(
+        textGenerator: generator,
+        httpClient: client,
+        preferences: prefs,
+        now: () => currentTime,
+        delay: (duration) async {
+          delayedDurations.add(duration);
+          currentTime = currentTime.add(duration);
+        },
+      );
+
+      addTearDown(controller.dispose);
+
+      final first = await controller.searchAnime('First Query');
+      final second = await controller.searchAnime('Second Query');
+
+      expect(first, isEmpty);
+      expect(second, hasLength(1));
+      expect(delayedDurations, <Duration>[const Duration(seconds: 3)]);
     });
   });
 }

@@ -394,7 +394,7 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
 
       // Log the stats for debugging
       print(
-        '📊 Stats update for $torrentKey: ${(stats.progress * 100).toStringAsFixed(1)}% (${_formatBytes(stats.downloadRate)}/s) - State: ${stats.state.name ?? 'unknown'}',
+        '📊 Stats update for $torrentKey: ${(stats.progress * 100).toStringAsFixed(1)}% (${_formatBytes(stats.downloadRate)}/s) - State: ${stats.state.name}',
       );
     } catch (e) {
       print('❌ Failed to recreate TorrentStats from serialized data: $e');

@@ -13,7 +13,8 @@ class SubsPleaseApi {
 
   final http.Client _httpClient;
 
-  SubsPleaseApi({http.Client? httpClient}) : _httpClient = httpClient ?? http.Client();
+  SubsPleaseApi({http.Client? httpClient})
+    : _httpClient = httpClient ?? http.Client();
 
   /// GET https://subsplease.org/api/?f=latest&tz=Pacific/Auckland
   Future<List<ShowInfo>> getLatestShowList() async {
@@ -22,12 +23,21 @@ class SubsPleaseApi {
       final http.Response response = await _httpClient.get(url);
 
       if (response.statusCode == 200) {
-        final Map<String, dynamic> raw = json.decode(response.body) as Map<String, dynamic>;
-        final List<ShowInfo> shows = raw.values.map((dynamic entry) => ShowInfo.fromJson(entry as Map<String, dynamic>)).toList();
+        final Map<String, dynamic> raw =
+            json.decode(response.body) as Map<String, dynamic>;
+        final List<ShowInfo> shows =
+            raw.values
+                .map(
+                  (dynamic entry) =>
+                      ShowInfo.fromJson(entry as Map<String, dynamic>),
+                )
+                .toList();
         debugPrint('Retrieved subsplease shows (${shows.length})');
         return shows;
       } else {
-        debugPrint('Error fetching latest shows: ${response.statusCode} ${response.reasonPhrase}');
+        debugPrint(
+          'Error fetching latest shows: ${response.statusCode} ${response.reasonPhrase}',
+        );
         return <ShowInfo>[];
       }
     } catch (error) {
@@ -36,19 +46,30 @@ class SubsPleaseApi {
     }
   }
 
-  /// POST https://subsplease.org/api/?f=search&tz=Pacific/Auckland&s=<encoded>
+  /// POST `https://subsplease.org/api/?f=search&tz=Pacific/Auckland&s=<encoded>`
   Future<List<ShowInfo>> getShowsFromSearch(String searchTerm) async {
     final String encodedTerm = Uri.encodeComponent(searchTerm);
-    final Uri url = Uri.parse('$_baseUrl/api/?f=search&tz=Pacific/Auckland&s=$encodedTerm');
+    final Uri url = Uri.parse(
+      '$_baseUrl/api/?f=search&tz=Pacific/Auckland&s=$encodedTerm',
+    );
     try {
       final http.Response response = await _httpClient.post(url);
 
       if (response.statusCode == 200) {
-        final Map<String, dynamic> raw = json.decode(response.body) as Map<String, dynamic>;
-        final List<ShowInfo> shows = raw.values.map((dynamic entry) => ShowInfo.fromJson(entry as Map<String, dynamic>)).toList();
+        final Map<String, dynamic> raw =
+            json.decode(response.body) as Map<String, dynamic>;
+        final List<ShowInfo> shows =
+            raw.values
+                .map(
+                  (dynamic entry) =>
+                      ShowInfo.fromJson(entry as Map<String, dynamic>),
+                )
+                .toList();
         return shows;
       } else {
-        debugPrint('Error searching shows: ${response.statusCode} ${response.reasonPhrase}');
+        debugPrint(
+          'Error searching shows: ${response.statusCode} ${response.reasonPhrase}',
+        );
         return <ShowInfo>[];
       }
     } catch (error) {
@@ -68,7 +89,9 @@ class SubsPleaseApi {
         final synopsisElement = document.querySelector('.series-syn p');
         return synopsisElement?.text.trim();
       } else {
-        debugPrint('Error fetching synopsis: ${response.statusCode} ${response.reasonPhrase}');
+        debugPrint(
+          'Error fetching synopsis: ${response.statusCode} ${response.reasonPhrase}',
+        );
         return null;
       }
     } catch (error) {

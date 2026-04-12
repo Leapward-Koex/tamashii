@@ -95,7 +95,7 @@ class SchedulePage extends HookConsumerWidget {
                             : (isToday
                                 ? Theme.of(
                                   context,
-                                ).primaryColor.withOpacity(0.1)
+                                ).primaryColor.withValues(alpha: 0.1)
                                 : Colors.transparent),
                     borderRadius: BorderRadius.circular(16),
                     border:

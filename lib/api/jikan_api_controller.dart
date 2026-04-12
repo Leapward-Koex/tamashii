@@ -1,7 +1,9 @@
 import 'dart:convert';
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tamashii/models/jikan_models.dart';
@@ -35,22 +37,28 @@ class JikanApiController {
     http.Client? httpClient,
     SharedPreferences? preferences,
     DateTime Function()? now,
+    Future<void> Function(Duration duration)? delay,
   }) : _textGenerator = textGenerator,
        _httpClient = httpClient ?? http.Client(),
        _preferences = preferences,
        _ownsHttpClient = httpClient == null,
-       _now = now ?? DateTime.now;
+       _now = now ?? DateTime.now,
+       _delay = delay ?? Future<void>.delayed;
 
   static const String _baseHost = 'api.jikan.moe';
   static const String _mappingStorageKey = 'jikan_series_mapping_cache';
   static const String _hotnessStorageKey = 'jikan_hotness_cache';
   static const Duration _hotnessCacheTtl = Duration(days: 7);
+  static const Duration _jikanRequestSpacing = Duration(milliseconds: 1200);
+  static const Duration _jikanRateLimitCooldown = Duration(seconds: 20);
+  static const Duration _aiFailureCooldown = Duration(minutes: 10);
 
   final OnDeviceTextGenerator _textGenerator;
   final http.Client _httpClient;
   final SharedPreferences? _preferences;
   final bool _ownsHttpClient;
   final DateTime Function() _now;
+  final Future<void> Function(Duration duration) _delay;
 
   Future<SharedPreferences>? _preferencesFuture;
   Future<OnDeviceModelCatalog>? _modelCatalogFuture;
@@ -66,6 +74,10 @@ class JikanApiController {
       <String, Future<JikanHotness?>>{};
   final Map<int, Future<JikanHotness?>> _animeHotnessRequests =
       <int, Future<JikanHotness?>>{};
+  Future<void> _jikanRequestQueue = Future<void>.value();
+  DateTime _nextJikanRequestAt = DateTime.fromMillisecondsSinceEpoch(0);
+  DateTime? _jikanCooldownUntil;
+  DateTime? _aiDisabledUntil;
 
   Future<List<JikanAnimeSearchHit>> searchAnime(
     String query, {
@@ -179,18 +191,49 @@ class JikanApiController {
   }
 
   Future<JikanSeriesMapping?> _buildMapping(String localShowTitle) async {
-    final lookupContext = await _prepareLookupContext(localShowTitle);
+    final fallbackLookupContext = JikanLookupContext(
+      searchTitle: fallbackJikanSearchTitle(localShowTitle),
+      seasonHint: inferSeasonHintFromTitle(localShowTitle),
+    );
+    var lookupContext = fallbackLookupContext;
 
     List<JikanAnimeSearchHit> candidates = await searchAnime(
-      lookupContext.searchTitle,
+      fallbackLookupContext.searchTitle,
     );
 
     final normalizedRawTitle = _normalizeComparisonText(localShowTitle);
     final normalizedSearchTitle = _normalizeComparisonText(
-      lookupContext.searchTitle,
+      fallbackLookupContext.searchTitle,
     );
     if (candidates.isEmpty && normalizedRawTitle != normalizedSearchTitle) {
-      candidates = await searchAnime(localShowTitle);
+      final rawCandidates = await searchAnime(localShowTitle);
+      if (rawCandidates.isNotEmpty) {
+        lookupContext = JikanLookupContext(
+          searchTitle: localShowTitle,
+          seasonHint: fallbackLookupContext.seasonHint,
+        );
+        candidates = rawCandidates;
+      }
+    }
+
+    if (candidates.isEmpty) {
+      final aiLookupContext = await _prepareLookupContext(
+        localShowTitle,
+        fallback: fallbackLookupContext,
+      );
+      final normalizedAiSearchTitle = _normalizeComparisonText(
+        aiLookupContext.searchTitle,
+      );
+
+      if (aiLookupContext.usedAi &&
+          normalizedAiSearchTitle.isNotEmpty &&
+          normalizedAiSearchTitle != normalizedSearchTitle) {
+        final aiCandidates = await searchAnime(aiLookupContext.searchTitle);
+        if (aiCandidates.isNotEmpty) {
+          lookupContext = aiLookupContext;
+          candidates = aiCandidates;
+        }
+      }
     }
 
     if (candidates.isEmpty) {
@@ -272,13 +315,9 @@ class JikanApiController {
   }
 
   Future<JikanLookupContext> _prepareLookupContext(
-    String localShowTitle,
-  ) async {
-    final fallback = JikanLookupContext(
-      searchTitle: fallbackJikanSearchTitle(localShowTitle),
-      seasonHint: inferSeasonHintFromTitle(localShowTitle),
-    );
-
+    String localShowTitle, {
+    required JikanLookupContext fallback,
+  }) async {
     if (!await _hasUsableModel()) {
       return fallback;
     }
@@ -294,6 +333,7 @@ class JikanApiController {
         fallbackSeasonHint: fallback.seasonHint,
       );
     } catch (error) {
+      _recordAiFailure(error);
       debugPrint(
         'Jikan lookup normalization failed for "$localShowTitle": $error',
       );
@@ -312,9 +352,12 @@ class JikanApiController {
       seasonHint: lookupContext.seasonHint,
       candidates: candidates,
     );
+    if (fallback != null) {
+      return fallback;
+    }
 
     if (!await _hasUsableModel()) {
-      return fallback;
+      return null;
     }
 
     try {
@@ -344,34 +387,55 @@ class JikanApiController {
 
       return fallback;
     } catch (error) {
+      _recordAiFailure(error);
       debugPrint(
         'Jikan candidate selection failed for "$localShowTitle": $error',
       );
-      return fallback;
+      return null;
     }
   }
 
   Future<bool> _hasUsableModel() async {
+    final disabledUntil = _aiDisabledUntil;
+    if (disabledUntil != null) {
+      if (_now().isBefore(disabledUntil)) {
+        return false;
+      }
+      _aiDisabledUntil = null;
+    }
+
     final catalog =
         await (_modelCatalogFuture ??= _textGenerator.getModelCatalog());
     return catalog.hasUsableModel;
   }
 
   Future<http.Response?> _safeGet(Uri uri) async {
-    try {
-      final response = await _httpClient.get(uri);
-      if (response.statusCode == 200) {
-        return response;
-      }
+    return _enqueueJikanRequest<http.Response?>(() async {
+      try {
+        final response = await _httpClient.get(
+          uri,
+          headers: const <String, String>{
+            'accept': 'application/json',
+            'user-agent': 'Tamashii/1.0',
+          },
+        );
+        if (response.statusCode == 200) {
+          return response;
+        }
 
-      debugPrint(
-        'Jikan request failed (${response.statusCode}) for $uri: ${response.reasonPhrase}',
-      );
-      return null;
-    } catch (error) {
-      debugPrint('Jikan request failed for $uri: $error');
-      return null;
-    }
+        if (response.statusCode == 429) {
+          _recordJikanRateLimit(response);
+        }
+
+        debugPrint(
+          'Jikan request failed (${response.statusCode}) for $uri: ${response.reasonPhrase}',
+        );
+        return null;
+      } catch (error) {
+        debugPrint('Jikan request failed for $uri: $error');
+        return null;
+      }
+    });
   }
 
   Future<void> _ensureCacheLoaded() {
@@ -412,6 +476,69 @@ class JikanApiController {
 
   bool _isHotnessExpired(JikanHotness hotness) {
     return _now().difference(hotness.updatedAt) > _hotnessCacheTtl;
+  }
+
+  Future<T> _enqueueJikanRequest<T>(Future<T> Function() action) {
+    final completer = Completer<T>();
+
+    _jikanRequestQueue = _jikanRequestQueue
+        .then((_) async {
+          await _waitForJikanWindow();
+          final result = await action();
+          if (!completer.isCompleted) {
+            completer.complete(result);
+          }
+        })
+        .catchError((Object error, StackTrace stackTrace) {
+          if (!completer.isCompleted) {
+            completer.completeError(error, stackTrace);
+          }
+        });
+
+    return completer.future;
+  }
+
+  Future<void> _waitForJikanWindow() async {
+    var target = _nextJikanRequestAt;
+    final cooldownUntil = _jikanCooldownUntil;
+    if (cooldownUntil != null && cooldownUntil.isAfter(target)) {
+      target = cooldownUntil;
+    }
+
+    final now = _now();
+    if (target.isAfter(now)) {
+      await _delay(target.difference(now));
+    }
+
+    _nextJikanRequestAt = _now().add(_jikanRequestSpacing);
+    final remainingCooldown = _jikanCooldownUntil;
+    if (remainingCooldown != null && !remainingCooldown.isAfter(_now())) {
+      _jikanCooldownUntil = null;
+    }
+  }
+
+  void _recordJikanRateLimit(http.Response response) {
+    final retryAfter = _parseRetryAfterSeconds(response.headers['retry-after']);
+    final cooldownDuration =
+        retryAfter == null
+            ? _jikanRateLimitCooldown
+            : Duration(seconds: math.max(retryAfter, 1));
+    final cooldownUntil = _now().add(cooldownDuration);
+    if (_jikanCooldownUntil == null ||
+        cooldownUntil.isAfter(_jikanCooldownUntil!)) {
+      _jikanCooldownUntil = cooldownUntil;
+    }
+  }
+
+  void _recordAiFailure(Object error) {
+    if (error is! PlatformException) {
+      return;
+    }
+
+    final disabledUntil = _now().add(_aiFailureCooldown);
+    if (_aiDisabledUntil == null || disabledUntil.isAfter(_aiDisabledUntil!)) {
+      _aiDisabledUntil = disabledUntil;
+    }
   }
 }
 
@@ -732,6 +859,19 @@ int? _inferCandidateSeason(JikanAnimeSearchHit candidate) {
   }
 
   return null;
+}
+
+int? _parseRetryAfterSeconds(String? rawValue) {
+  if (rawValue == null) {
+    return null;
+  }
+
+  final trimmed = rawValue.trim();
+  if (trimmed.isEmpty) {
+    return null;
+  }
+
+  return int.tryParse(trimmed);
 }
 
 int _extractSeasonNumber(String value) {
