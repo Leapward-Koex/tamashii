@@ -59,3 +59,72 @@ Existing series folders at the base path:
 $encodedFolders
 '''.trim();
 }
+
+String buildJikanLookupPreparationPrompt(String rawTitle) {
+  return '''
+You normalize anime series titles before searching the Jikan/MyAnimeList API.
+
+Return JSON only. No markdown fences. No extra commentary.
+
+JSON schema:
+{
+  "search_title": "series title with season/part markers removed",
+  "season_hint": "Season NN",
+  "reason": "short explanation"
+}
+
+Rules:
+- Remove trailing season, part, cour, or sequel markers from the search title.
+- Keep the core franchise name intact.
+- Convert S2, Season 2, 2nd Season, Part 2, Cour 2 into "Season 02".
+- If the title has no explicit season marker, use "Season 01".
+
+Raw title:
+$rawTitle
+'''.trim();
+}
+
+String buildJikanCandidateSelectionPrompt({
+  required String rawTitle,
+  required String searchTitle,
+  required String seasonHint,
+  required List<Map<String, dynamic>> candidates,
+}) {
+  final encodedCandidates = const JsonEncoder.withIndent(
+    '  ',
+  ).convert(candidates);
+
+  return '''
+You are matching a local anime release title to the correct Jikan/MyAnimeList anime entry.
+
+Choose the candidate that most likely represents the same series and season/part as the raw title.
+Prefer the correct season over the most popular base series.
+Avoid recap movies, specials, summaries, and side stories unless the raw title clearly points to one.
+
+Return JSON only. No markdown fences. No extra commentary.
+
+JSON schema:
+{
+  "mal_id": 12345,
+  "reason": "short explanation"
+}
+
+If no candidate is plausible, return:
+{
+  "mal_id": null,
+  "reason": "short explanation"
+}
+
+Raw title:
+$rawTitle
+
+Normalized search title:
+$searchTitle
+
+Season hint:
+$seasonHint
+
+Candidates:
+$encodedCandidates
+'''.trim();
+}

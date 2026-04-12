@@ -10,10 +10,12 @@ import 'package:tamashii/providers/on_device_ai_provider.dart';
 import 'package:tamashii/providers/settings_provider.dart';
 import 'package:tamashii/providers/foreground_torrent_provider.dart'; // Foreground / background service
 import 'package:tamashii/providers/downloaded_torrents_provider.dart';
+import 'package:tamashii/providers/jikan_hotness_provider.dart';
 import 'package:tamashii/services/gemini_nano_service.dart';
 import 'package:tamashii/services/series_folder_resolution_service.dart';
 import 'package:simple_torrent/simple_torrent.dart'; // For TorrentState
 
+import 'package:tamashii/models/jikan_models.dart';
 import 'package:tamashii/models/show_models.dart';
 import 'package:tamashii/providers/bookmarked_series_provider.dart';
 import 'package:tamashii/widgets/series_folder_confirmation_dialog.dart';
@@ -39,6 +41,61 @@ class ShowCard extends ConsumerWidget {
     }
     final double gb = mb / 1024;
     return '${gb.toStringAsFixed(1)} GB';
+  }
+
+  Color _hotnessColor(int hotness) {
+    if (hotness >= 85) {
+      return Colors.deepOrange;
+    }
+    if (hotness >= 70) {
+      return Colors.orange;
+    }
+    if (hotness >= 55) {
+      return Colors.amber.shade800;
+    }
+    return Colors.blueGrey;
+  }
+
+  Widget _buildHotnessChip(
+    BuildContext context,
+    AsyncValue<JikanHotness?> hotnessAsync,
+  ) {
+    final textStyle = Theme.of(context).textTheme.bodySmall;
+
+    if (hotnessAsync.isLoading) {
+      return Text(
+        'Hotness: calculating...',
+        style: textStyle?.copyWith(color: Colors.black54),
+      );
+    }
+
+    final hotness = hotnessAsync.asData?.value;
+    if (hotness == null) {
+      return const SizedBox.shrink();
+    }
+
+    final color = _hotnessColor(hotness.value);
+    return Container(
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(Icons.local_fire_department_rounded, size: 14, color: color),
+          const SizedBox(width: 4),
+          Text(
+            'Hotness ${hotness.value}',
+            style: textStyle?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<String?> _determineDownloadPath({
@@ -138,6 +195,7 @@ class ShowCard extends ConsumerWidget {
       seriesFolderMappingProvider.notifier,
     );
     final textGenerator = ref.read(onDeviceTextGeneratorProvider);
+    final hotnessAsync = ref.watch(seriesHotnessProvider(show.show));
 
     // Construct a unique key for the torrent download based on show and episode
     final String torrentKey = '${show.show}-${show.episode}';
@@ -224,6 +282,8 @@ class ShowCard extends ConsumerWidget {
                           'Episode: ${show.episode} • ${DateFormat.yMMMd().format(show.releaseDate)}',
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
+                        const SizedBox(height: 8),
+                        _buildHotnessChip(context, hotnessAsync),
                       ],
                     ),
                   ),
