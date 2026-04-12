@@ -1,27 +1,36 @@
+import 'dart:math' as math;
 import 'dart:async';
 import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:tamashii/models/show_models.dart';
 import 'package:tamashii/pages/settings_page.dart';
 import 'package:tamashii/pages/schedule_page.dart';
-import 'package:tamashii/providers/subsplease_api_providers.dart';
 import 'package:tamashii/providers/filter_provider.dart';
+import 'package:tamashii/providers/subsplease_api_providers.dart';
 import 'package:tamashii/widgets/show_card.dart';
-import 'package:tamashii/models/show_models.dart';
 
 class HomePage extends HookConsumerWidget {
   const HomePage({super.key});
 
+  static const Key scrollViewKey = ValueKey<String>('home-scroll-view');
+  static const Key searchBarShellKey = ValueKey<String>(
+    'home-search-bar-shell',
+  );
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    const double searchBarHeight = 48;
+    const double searchBarMaxHeight = 60;
+    const double searchBarMinHeight = 44;
     const double searchBarOuterPadding = 16;
     const double homeListTopInset =
-        searchBarHeight + (searchBarOuterPadding * 2);
+        searchBarMaxHeight + (searchBarOuterPadding * 2) + 12;
     const double refreshIndicatorDisplacement = homeListTopInset + 24;
 
     final TextEditingController searchController = useTextEditingController();
+    final scrollController = useScrollController();
     final debounceTimerRef = useRef<Timer?>(null);
     final debouncedQuery = useState<String>('');
 
@@ -63,25 +72,38 @@ class HomePage extends HookConsumerWidget {
       return await ref.refresh(latestShowsProvider.future);
     }
 
-    // Navigation state for pages
     final selectedIndex = useState<int>(0);
     final pages = <Widget>[
-      // Home content
       Stack(
         children: [
-          // Scrollable content behind search bar
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Theme.of(
+                      context,
+                    ).colorScheme.primaryContainer.withValues(alpha: 0.24),
+                    Theme.of(context).colorScheme.surface,
+                    Theme.of(context).colorScheme.surfaceContainerHighest
+                        .withValues(alpha: 0.84),
+                  ],
+                ),
+              ),
+            ),
+          ),
           Positioned.fill(
             child: Builder(
               builder: (context) {
                 final List<ShowInfo> shows =
                     itemsValue.value ?? const <ShowInfo>[];
 
-                // First load: show spinner when we have no data yet and loading
                 if (shows.isEmpty && itemsValue.isLoading) {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                // Empty states (only when not loading and no data to show)
                 if (shows.isEmpty) {
                   if (currentFilter == ShowFilter.saved) {
                     return const Center(
@@ -104,11 +126,11 @@ class HomePage extends HookConsumerWidget {
                       ),
                     );
                   }
-                  // Generic empty (e.g., no search results)
                   return const Center(child: Text('No series found'));
                 }
 
-                // Show existing items while loading or on error; user still can pull-to-refresh
+                final remainingShows = shows.skip(1).toList(growable: false);
+
                 return RefreshIndicator(
                   key: refreshKey,
                   onRefresh: refresh,
@@ -116,79 +138,159 @@ class HomePage extends HookConsumerWidget {
                   displacement: refreshIndicatorDisplacement,
                   child: ScrollConfiguration(
                     behavior: const MaterialScrollBehavior().copyWith(
-                      // Allow pull-to-refresh with mouse/trackpad on desktop
                       dragDevices: {
                         PointerDeviceKind.touch,
                         PointerDeviceKind.mouse,
                         PointerDeviceKind.trackpad,
                       },
                     ),
-                    child: ListView.builder(
-                      // Allow pull even when list doesn't overflow
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.only(top: homeListTopInset),
-                      itemCount: shows.length,
-                      itemBuilder: (context, index) {
-                        final show = shows[index];
-                        return ShowCard(show: show);
-                      },
+                    child: CustomScrollView(
+                      key: scrollViewKey,
+                      controller: scrollController,
+                      physics: const BouncingScrollPhysics(
+                        parent: AlwaysScrollableScrollPhysics(),
+                      ),
+                      slivers: [
+                        const SliverToBoxAdapter(
+                          child: SizedBox(height: homeListTopInset),
+                        ),
+                        SliverToBoxAdapter(
+                          child: AnimatedBuilder(
+                            animation: scrollController,
+                            builder: (context, _) {
+                              final scrollOffset =
+                                  scrollController.hasClients
+                                      ? scrollController.offset
+                                      : 0.0;
+                              return ShowCard(
+                                show: shows.first,
+                                featured: true,
+                                posterParallax: math.min(
+                                  scrollOffset * 0.18,
+                                  28.0,
+                                ),
+                                revealIndex: 0,
+                              );
+                            },
+                          ),
+                        ),
+                        if (remainingShows.isNotEmpty)
+                          SliverList(
+                            delegate: SliverChildBuilderDelegate((
+                              context,
+                              index,
+                            ) {
+                              final show = remainingShows[index];
+                              return ShowCard(
+                                show: show,
+                                revealIndex: index + 1,
+                              );
+                            }, childCount: remainingShows.length),
+                          ),
+                        const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                      ],
                     ),
                   ),
                 );
               },
             ),
           ),
-          // Frosted glass search bar overlay
           Positioned(
             top: 0,
             left: 0,
             right: 0,
-            child: SafeArea(
-              bottom: false,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Theme.of(
-                          context,
-                        ).canvasColor.withValues(alpha: 0.7),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Theme.of(
-                            context,
-                          ).dividerColor.withValues(alpha: 0.3),
-                        ),
-                      ),
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-                      height: 48,
-                      alignment: Alignment.center,
-                      child: TextField(
-                        style: const TextStyle(
-                          fontSize: 20,
-                          color: Colors.black,
-                        ),
-                        controller: searchController,
-                        decoration: const InputDecoration(
-                          hintText: 'Search for shows...',
-                          border: InputBorder.none,
-                          suffixIcon: Icon(Icons.search),
+            child: AnimatedBuilder(
+              animation: scrollController,
+              builder: (context, _) {
+                final scrollOffset =
+                    scrollController.hasClients ? scrollController.offset : 0.0;
+                final progress = (scrollOffset / 140).clamp(0.0, 1.0);
+                final searchBarHeight =
+                    lerpDouble(
+                      searchBarMaxHeight,
+                      searchBarMinHeight,
+                      progress,
+                    )!;
+                final horizontalPadding =
+                    lerpDouble(searchBarOuterPadding, 10, progress)!;
+                final verticalPadding =
+                    lerpDouble(searchBarOuterPadding, 8, progress)!;
+                final blur = lerpDouble(18, 8, progress)!;
+                final radius = lerpDouble(24, 18, progress)!;
+                final theme = Theme.of(context);
+
+                return SafeArea(
+                  bottom: false,
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      horizontalPadding,
+                      verticalPadding,
+                      horizontalPadding,
+                      0,
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(radius),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+                        child: Container(
+                          key: searchBarShellKey,
+                          height: searchBarHeight,
+                          padding: const EdgeInsets.symmetric(horizontal: 18),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: Color.lerp(
+                              theme.colorScheme.surface.withValues(alpha: 0.58),
+                              theme.colorScheme.surface.withValues(alpha: 0.88),
+                              progress,
+                            ),
+                            borderRadius: BorderRadius.circular(radius),
+                            border: Border.all(
+                              color:
+                                  Color.lerp(
+                                    Colors.white.withValues(alpha: 0.18),
+                                    theme.colorScheme.outlineVariant.withValues(
+                                      alpha: 0.34,
+                                    ),
+                                    progress,
+                                  )!,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.06),
+                                blurRadius: 24,
+                                offset: const Offset(0, 12),
+                              ),
+                            ],
+                          ),
+                          child: TextField(
+                            controller: searchController,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              color: theme.colorScheme.onSurface,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: 'Search for shows...',
+                              hintStyle: theme.textTheme.titleMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                              border: InputBorder.none,
+                              prefixIcon: Icon(
+                                Icons.search,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ),
+                );
+              },
             ),
           ),
         ],
       ),
-      // Schedule page
       const SchedulePage(),
-      // Settings page
       const SettingsPage(),
     ];
     const titles = ['Tamashii', 'Schedule', 'Settings'];
@@ -197,10 +299,11 @@ class HomePage extends HookConsumerWidget {
       appBar: AppBar(
         title: Text(titles[selectedIndex.value]),
         elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
         actions:
             selectedIndex.value == 0
                 ? [
-                  // Filter toggle button
                   IconButton(
                     icon: Icon(currentFilter.icon),
                     tooltip: currentFilter.displayName,
@@ -210,12 +313,10 @@ class HomePage extends HookConsumerWidget {
                           .toggleFilter();
                     },
                   ),
-                  // Manual refresh button (desktop-friendly)
                   IconButton(
                     icon: const Icon(Icons.refresh),
                     tooltip: 'Refresh',
                     onPressed: () {
-                      // Shows the indicator and invokes onRefresh
                       refreshKey.currentState?.show();
                     },
                   ),

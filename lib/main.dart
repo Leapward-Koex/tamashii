@@ -64,7 +64,19 @@ class TamashiiApp extends ConsumerWidget {
 
     return MaterialApp(
       title: 'Tamashii',
-      theme: ThemeData(),
+      theme: ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF4D7CFE),
+          surface: const Color(0xFFF5F5F2),
+        ),
+        scaffoldBackgroundColor: const Color(0xFFF5F5F2),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFFF5F5F2),
+          foregroundColor: Colors.black,
+          elevation: 0,
+        ),
+      ),
       home: const HomePage(),
     );
   }
