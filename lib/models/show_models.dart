@@ -1,6 +1,10 @@
 // lib/models/show_models.dart
 
+import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:intl/intl.dart';
+
+part 'show_models.freezed.dart';
+part 'show_models.g.dart';
 
 /// The allowed torrent resolutions.
 enum ShowResolution { r480, r540, r720, r1080 }
@@ -135,42 +139,26 @@ class ShowInfo {
   }
 }
 
-class BookmarkedShowInfo {
-  final String imageUrl;
-  final int releaseDayOfWeek;
-  final String showName;
+enum BookmarkedShowSource { subsplease, manual }
 
-  BookmarkedShowInfo({
-    required this.imageUrl,
-    required this.releaseDayOfWeek,
-    required this.showName,
-  });
+@freezed
+abstract class BookmarkedShowInfo with _$BookmarkedShowInfo {
+  const BookmarkedShowInfo._();
 
-  factory BookmarkedShowInfo.fromJson(Map<String, dynamic> json) {
-    return BookmarkedShowInfo(
-      imageUrl: json['imageUrl'] as String,
-      releaseDayOfWeek: json['releaseDayOfWeek'] as int,
-      showName: json['showName'] as String,
-    );
-  }
+  const factory BookmarkedShowInfo({
+    required String imageUrl,
+    required int releaseDayOfWeek,
+    required String showName,
+    int? jikanId,
+    @Default(BookmarkedShowSource.subsplease) BookmarkedShowSource source,
+  }) = _BookmarkedShowInfo;
 
-  Map<String, dynamic> toJson() {
-    return <String, dynamic>{
-      'imageUrl': imageUrl,
-      'releaseDayOfWeek': releaseDayOfWeek,
-      'showName': showName,
-    };
-  }
+  factory BookmarkedShowInfo.fromJson(Map<String, dynamic> json) =>
+      _$BookmarkedShowInfoFromJson(json);
 
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is BookmarkedShowInfo &&
-          runtimeType == other.runtimeType &&
-          showName == other.showName;
+  bool get isManualEntry => source == BookmarkedShowSource.manual;
 
-  @override
-  int get hashCode => showName.hashCode;
+  bool get showsOnHomePage => source == BookmarkedShowSource.subsplease;
 }
 
 /// The raw API result is a map from episode-key → [ShowInfo].

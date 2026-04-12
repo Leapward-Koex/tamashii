@@ -10,6 +10,7 @@ import 'package:tamashii/pages/settings_page.dart';
 import 'package:tamashii/pages/schedule_page.dart';
 import 'package:tamashii/providers/filter_provider.dart';
 import 'package:tamashii/providers/subsplease_api_providers.dart';
+import 'package:tamashii/widgets/add_schedule_show_sheet.dart';
 import 'package:tamashii/widgets/show_card.dart';
 
 class HomePage extends HookConsumerWidget {
@@ -18,6 +19,9 @@ class HomePage extends HookConsumerWidget {
   static const Key scrollViewKey = ValueKey<String>('home-scroll-view');
   static const Key searchBarShellKey = ValueKey<String>(
     'home-search-bar-shell',
+  );
+  static const Key scheduleAddFabKey = ValueKey<String>(
+    'schedule-add-show-fab',
   );
 
   @override
@@ -324,6 +328,32 @@ class HomePage extends HookConsumerWidget {
                 : null,
       ),
       body: IndexedStack(index: selectedIndex.value, children: pages),
+      floatingActionButton:
+          selectedIndex.value == 1
+              ? FloatingActionButton(
+                key: scheduleAddFabKey,
+                onPressed: () async {
+                  final addedShowName = await showModalBottomSheet<String>(
+                    context: context,
+                    isScrollControlled: true,
+                    builder: (_) => const AddScheduleShowSheet(),
+                  );
+
+                  if (!context.mounted || addedShowName == null) {
+                    return;
+                  }
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Added "$addedShowName" to your watching list.',
+                      ),
+                    ),
+                  );
+                },
+                child: const Icon(Icons.add),
+              )
+              : null,
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: selectedIndex.value,
         onTap: (i) => selectedIndex.value = i,

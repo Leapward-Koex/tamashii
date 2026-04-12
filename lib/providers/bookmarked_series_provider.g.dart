@@ -41,7 +41,7 @@ final class BookmarkedSeriesNotifierProvider
 }
 
 String _$bookmarkedSeriesNotifierHash() =>
-    r'1e04558f90b8c1d8b6a44a9eaaa6f65936aac37e';
+    r'5b979fe6249e4e37948100bef410b78b08a61520';
 
 /// Maintains the list of bookmarked series (by slug/page ID), persisted to storage.
 

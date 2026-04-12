@@ -180,6 +180,37 @@ void main() {
       expect(state.value, hasLength(1)); // Should not duplicate
     });
 
+    test(
+      'should ignore manual schedule-only entries when caching episodes',
+      () async {
+        final bookmarkNotifier = container.read(
+          bookmarkedSeriesProvider.notifier,
+        );
+        await bookmarkNotifier.add(
+          const BookmarkedShowInfo(
+            showName: 'Manual Show',
+            imageUrl: '',
+            releaseDayOfWeek: 1,
+            source: BookmarkedShowSource.manual,
+          ),
+        );
+
+        final cachedNotifier = container.read(cachedEpisodesProvider.notifier);
+        await cachedNotifier.cacheNewBookmarkedEpisodes([
+          createTestEpisode(
+            showName: 'Manual Show',
+            episode: '1',
+            releaseDate: DateTime(2024, 1, 5),
+          ),
+        ]);
+
+        final cachedEpisodes = await container.read(
+          cachedEpisodesProvider.future,
+        );
+        expect(cachedEpisodes, isEmpty);
+      },
+    );
+
     test('should clear cache', () async {
       final notifier = container.read(cachedEpisodesProvider.notifier);
 

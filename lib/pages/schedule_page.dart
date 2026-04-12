@@ -4,18 +4,29 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:tamashii/models/show_models.dart';
 import 'package:tamashii/providers/bookmarked_series_provider.dart';
+import 'package:tamashii/widgets/schedule_show_actions_sheet.dart';
 import 'package:tamashii/widgets/show_image.dart';
 
 /// A page displaying a weekly schedule for bookmarked series.
 class SchedulePage extends HookConsumerWidget {
   const SchedulePage({super.key});
 
+  static Key showTileKey(String showName) =>
+      ValueKey<String>('schedule-show-tile-$showName');
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final bookmarked =
-        ref.watch(bookmarkedSeriesProvider).value ?? <BookmarkedShowInfo>[];
+    final bookmarkedAsync = ref.watch(bookmarkedSeriesProvider);
+    if (bookmarkedAsync.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-    // Controller for continuous horizontal scrolling
+    if (bookmarkedAsync.hasError) {
+      return const Center(child: Text('Unable to load your schedule.'));
+    }
+
+    final bookmarked = bookmarkedAsync.value ?? <BookmarkedShowInfo>[];
+
     final initialPage = useMemoized(() => DateTime.now().weekday - 1);
     final controller = usePageController(
       viewportFraction: 0.9,
@@ -23,9 +34,7 @@ class SchedulePage extends HookConsumerWidget {
     );
     final selectedIndex = useState(initialPage);
 
-    // Filter only bookmarked shows
-    final bookmarkedShows = bookmarked.toSet();
-    if (bookmarkedShows.isEmpty) {
+    if (bookmarked.isEmpty) {
       return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -35,27 +44,54 @@ class SchedulePage extends HookConsumerWidget {
             Text('No scheduled shows'),
             SizedBox(height: 8),
             Text(
-              'Bookmark series to see their schedule here',
+              'Use the add button or bookmark a series to build your schedule.',
               style: TextStyle(color: Colors.grey),
+              textAlign: TextAlign.center,
             ),
           ],
         ),
       );
     }
 
-    // Group by weekday
     final schedule = <int, List<BookmarkedShowInfo>>{
-      for (var i = 1; i <= 7; i++) i: [],
+      for (var i = 1; i <= 7; i++) i: <BookmarkedShowInfo>[],
     };
-    for (var show in bookmarkedShows) {
+    for (final show in bookmarked) {
       final weekday = show.releaseDayOfWeek;
       schedule[weekday]?.add(show);
+    }
+    for (final shows in schedule.values) {
+      shows.sort((a, b) => a.showName.compareTo(b.showName));
+    }
+
+    Future<void> openActions(BookmarkedShowInfo show) async {
+      final action = await showModalBottomSheet<ScheduleShowAction>(
+        context: context,
+        builder: (_) => ScheduleShowActionsSheet(show: show),
+      );
+
+      if (action != ScheduleShowAction.remove) {
+        return;
+      }
+
+      final removed = await ref
+          .read(bookmarkedSeriesProvider.notifier)
+          .remove(show.showName);
+
+      if (!context.mounted || !removed) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Removed "${show.showName}" from watching list.'),
+        ),
+      );
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Day indicator row
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           child: Row(
@@ -64,16 +100,8 @@ class SchedulePage extends HookConsumerWidget {
               final dayIndex = index + 1;
               final isToday = dayIndex == DateTime.now().weekday;
               final isSelected = index == selectedIndex.value;
+              final dayName = _weekdayName(dayIndex, pattern: 'E');
 
-              // Get abbreviated weekday name (Mon, Tue, etc)
-              // Create a date for the specified weekday (1=Mon, 7=Sun)
-              final now = DateTime.now();
-              final mondayOfThisWeek = now.subtract(
-                Duration(days: now.weekday - 1),
-              );
-              final dayName = DateFormat(
-                'E',
-              ).format(mondayOfThisWeek.add(Duration(days: dayIndex - 1)));
               return InkWell(
                 onTap: () {
                   selectedIndex.value = index;
@@ -123,11 +151,7 @@ class SchedulePage extends HookConsumerWidget {
             }),
           ),
         ),
-
-        // Divider
         const Divider(height: 1),
-
-        // Page view for days
         Expanded(
           child: PageView.builder(
             controller: controller,
@@ -135,15 +159,7 @@ class SchedulePage extends HookConsumerWidget {
             itemCount: 7,
             itemBuilder: (context, index) {
               final dayIndex = index + 1;
-              // Full weekday name
-              // Create a date for the specified weekday (1=Mon, 7=Sun)
-              final now = DateTime.now();
-              final mondayOfThisWeek = now.subtract(
-                Duration(days: now.weekday - 1),
-              );
-              final dayName = DateFormat(
-                'EEEE',
-              ).format(mondayOfThisWeek.add(Duration(days: dayIndex - 1)));
+              final dayName = _weekdayName(dayIndex);
               final dayShows = schedule[dayIndex]!;
 
               return Padding(
@@ -187,6 +203,8 @@ class SchedulePage extends HookConsumerWidget {
                                       vertical: 6.0,
                                     ),
                                     child: ListTile(
+                                      key: showTileKey(show.showName),
+                                      onTap: () => openActions(show),
                                       contentPadding:
                                           const EdgeInsets.symmetric(
                                             horizontal: 16.0,
@@ -198,6 +216,11 @@ class SchedulePage extends HookConsumerWidget {
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
+                                      subtitle:
+                                          show.isManualEntry
+                                              ? const Text('Manual entry')
+                                              : null,
+                                      trailing: const Icon(Icons.more_horiz),
                                       leading: ClipRRect(
                                         borderRadius: BorderRadius.circular(4),
                                         child: ShowImage(
@@ -220,4 +243,9 @@ class SchedulePage extends HookConsumerWidget {
       ],
     );
   }
+}
+
+String _weekdayName(int weekday, {String pattern = 'EEEE'}) {
+  final monday = DateTime.utc(2024, 1, 1);
+  return DateFormat(pattern).format(monday.add(Duration(days: weekday - 1)));
 }

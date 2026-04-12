@@ -53,7 +53,11 @@ class CachedEpisodesNotifier extends _$CachedEpisodesNotifier {
   /// Cache new episodes from bookmarked series
   Future<void> cacheNewBookmarkedEpisodes(List<ShowInfo> apiEpisodes) async {
     final bookmarkedSeries = await ref.read(bookmarkedSeriesProvider.future);
-    final bookmarkedNames = bookmarkedSeries.map((b) => b.showName).toSet();
+    final bookmarkedNames =
+        bookmarkedSeries
+            .where((bookmark) => bookmark.showsOnHomePage)
+            .map((bookmark) => bookmark.showName)
+            .toSet();
 
     // Get current cached episodes, defaulting to empty list if null
     final stateValue = state.value;
@@ -239,11 +243,15 @@ Future<List<ShowInfo>> filteredCombinedEpisodes(
         bookmarkedSeriesAsync.value ?? <BookmarkedShowInfo>[];
 
     // If no bookmarks, return empty list
-    if (bookmarkedSeries.isEmpty) {
+    final homePageBookmarks = bookmarkedSeries
+        .where((bookmark) => bookmark.showsOnHomePage)
+        .toList(growable: false);
+    if (homePageBookmarks.isEmpty) {
       return <ShowInfo>[];
     }
 
-    final bookmarkedNames = bookmarkedSeries.map((b) => b.showName).toSet();
+    final bookmarkedNames =
+        homePageBookmarks.map((bookmark) => bookmark.showName).toSet();
 
     // Get combined episodes and filter by bookmarked series
     final combinedEpisodes = await ref.watch(

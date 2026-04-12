@@ -37,7 +37,7 @@ final class CachedEpisodesNotifierProvider
 }
 
 String _$cachedEpisodesNotifierHash() =>
-    r'8d410d20ba674c2b8a4922c2fc28cce84edab4d9';
+    r'a908eb3439a3537183fddf80864845e0eecf12ae';
 
 /// Manages cached episodes from bookmarked series
 
@@ -206,7 +206,7 @@ final class FilteredCombinedEpisodesProvider
 }
 
 String _$filteredCombinedEpisodesHash() =>
-    r'14c76ccbfca27717f0afe5670c31f36618d69cfe';
+    r'9f959cc79c3274703b035b355283d238ca1eb16b';
 
 /// Filtered combined episodes provider (replaces the existing filteredShows)
 

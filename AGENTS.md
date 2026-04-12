@@ -1,5 +1,12 @@
 # AGENTS.md
 
+## App Overview
+
+- The app fetches show and episode data from an external API.
+- In product terms, a show can be marked as "watching". In the current codebase, that state is represented as a bookmarked series.
+- A show can have an associated download folder even if it is not marked as watching. Folder mappings are separate from the bookmarked or watching state.
+- Shows marked as watching appear on the Schedule page, grouped by their release weekday.
+
 ## Development Rules
 
 - Providers should use Riverpod code generation. Prefer `@riverpod` and generated `.g.dart` files over manually declared providers.

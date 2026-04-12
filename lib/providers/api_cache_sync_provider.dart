@@ -70,8 +70,14 @@ class ApiCacheSyncService {
   Future<void> _performInitialSync() async {
     try {
       final bookmarkedSeries = await _ref.read(bookmarkedSeriesProvider.future);
-      if (bookmarkedSeries.isEmpty) return;
-      final bookmarkedNames = bookmarkedSeries.map((b) => b.showName).toSet();
+      final homePageBookmarks = bookmarkedSeries
+          .where((bookmark) => bookmark.showsOnHomePage)
+          .toList(growable: false);
+      if (homePageBookmarks.isEmpty) {
+        return;
+      }
+      final bookmarkedNames =
+          homePageBookmarks.map((bookmark) => bookmark.showName).toSet();
 
       final latestEpisodes = await _ref.read(latestShowsProvider.future);
       final bookmarkedEpisodes =
@@ -88,7 +94,7 @@ class ApiCacheSyncService {
       final cachedEpisodes = await _ref.read(cachedEpisodesProvider.future);
       final cachedShows = cachedEpisodes.map((episode) => episode.show).toSet();
       final missingBookmarks =
-          bookmarkedSeries
+          homePageBookmarks
               .where((bookmark) => !cachedShows.contains(bookmark.showName))
               .toSet();
 

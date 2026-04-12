@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tamashii/models/show_models.dart';
+import 'package:tamashii/providers/bookmarked_series_provider.dart';
 import 'package:tamashii/providers/cached_episodes_provider.dart';
 import 'dart:convert';
 
@@ -158,6 +159,28 @@ void main() {
       expect(cached, isEmpty);
 
       container.dispose();
+    });
+
+    test('legacy bookmarks load with subsplease source by default', () async {
+      SharedPreferences.setMockInitialValues({
+        'bookmarked_series': [
+          jsonEncode({
+            'showName': 'Legacy Show',
+            'imageUrl': 'https://example.com/legacy.jpg',
+            'releaseDayOfWeek': 2,
+          }),
+        ],
+      });
+
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final bookmarks = await container.read(bookmarkedSeriesProvider.future);
+
+      expect(bookmarks, hasLength(1));
+      expect(bookmarks.single.showName, 'Legacy Show');
+      expect(bookmarks.single.source, BookmarkedShowSource.subsplease);
+      expect(bookmarks.single.showsOnHomePage, isTrue);
     });
   });
 }

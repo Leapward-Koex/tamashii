@@ -121,6 +121,61 @@ void main() {
       },
     );
 
+    test('saved filter excludes manual schedule-only entries', () async {
+      final trackedEpisode = createEpisode(
+        showName: 'Tracked Show',
+        episode: '7',
+        releaseDate: DateTime(2024, 5, 3),
+      );
+      final manualEpisode = createEpisode(
+        showName: 'Manual Show',
+        episode: '2',
+        releaseDate: DateTime(2024, 5, 4),
+      );
+      final container = createContainer(
+        FakeSubsPleaseApi(
+          latestEpisodes: <ShowInfo>[trackedEpisode, manualEpisode],
+          searchEpisodesByTerm: const <String, List<ShowInfo>>{},
+        ),
+      );
+      addTearDown(container.dispose);
+
+      await container.read(bookmarkedSeriesProvider.future);
+      await container
+          .read(bookmarkedSeriesProvider.notifier)
+          .add(
+            BookmarkedShowInfo(
+              showName: 'Tracked Show',
+              imageUrl: trackedEpisode.imageUrl,
+              releaseDayOfWeek: trackedEpisode.releaseDate.weekday,
+            ),
+          );
+      await container
+          .read(bookmarkedSeriesProvider.notifier)
+          .add(
+            BookmarkedShowInfo(
+              showName: 'Manual Show',
+              imageUrl: manualEpisode.imageUrl,
+              releaseDayOfWeek: manualEpisode.releaseDate.weekday,
+              source: BookmarkedShowSource.manual,
+            ),
+          );
+      await container.read(showFilterProvider.future);
+      await container
+          .read(showFilterProvider.notifier)
+          .setFilter(ShowFilter.saved);
+
+      final filteredShows = await container.read(
+        filteredCombinedEpisodesProvider('').future,
+      );
+
+      expect(filteredShows.map((show) => show.show), contains('Tracked Show'));
+      expect(
+        filteredShows.map((show) => show.show),
+        isNot(contains('Manual Show')),
+      );
+    });
+
     test(
       'saved filter still filters results while a search query is active',
       () async {
