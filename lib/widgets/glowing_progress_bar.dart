@@ -5,15 +5,15 @@ class GlowingProgressBar extends StatefulWidget {
     super.key,
     required this.progress,
     this.height = 6,
-    this.color = const Color(0xFF68F0FF),
-    this.backgroundColor = const Color(0x1FFFFFFF),
+    this.color,
+    this.backgroundColor,
     this.fillKey,
   });
 
   final double progress;
   final double height;
-  final Color color;
-  final Color backgroundColor;
+  final Color? color;
+  final Color? backgroundColor;
   final Key? fillKey;
 
   @override
@@ -30,8 +30,14 @@ class _GlowingProgressBarState extends State<GlowingProgressBar> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final targetProgress = _normalizedProgress(widget.progress);
     final borderRadius = BorderRadius.circular(widget.height * 2);
+    final progressColor = widget.color ?? colorScheme.primary;
+    final accentColor = Color.lerp(progressColor, colorScheme.tertiary, 0.34)!;
+    final trackColor =
+        widget.backgroundColor ??
+        colorScheme.surfaceContainerHighest.withValues(alpha: 0.72);
 
     return Semantics(
       value: '${(targetProgress * 100).round()}%',
@@ -39,7 +45,7 @@ class _GlowingProgressBarState extends State<GlowingProgressBar> {
         borderRadius: borderRadius,
         child: Container(
           height: widget.height,
-          color: widget.backgroundColor,
+          color: trackColor,
           child: LayoutBuilder(
             builder: (context, constraints) {
               final fillWidth = constraints.maxWidth * targetProgress;
@@ -60,15 +66,15 @@ class _GlowingProgressBarState extends State<GlowingProgressBar> {
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: [
-                              widget.color.withValues(alpha: 0.78),
-                              Colors.white.withValues(alpha: 0.9),
-                              widget.color,
+                              Color.lerp(progressColor, Colors.black, 0.08)!,
+                              progressColor,
+                              accentColor,
                             ],
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: widget.color.withValues(alpha: 0.36),
-                              blurRadius: 12,
+                              color: progressColor.withValues(alpha: 0.22),
+                              blurRadius: 8,
                               spreadRadius: 1,
                             ),
                           ],

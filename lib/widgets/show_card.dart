@@ -512,8 +512,8 @@ class ShowCard extends ConsumerWidget {
                       GlowingProgressBar(
                         progress: progressFraction,
                         height: 8,
-                        color: const Color(0xFF74F5FF),
-                        backgroundColor: Colors.white.withValues(alpha: 0.12),
+                        color: theme.colorScheme.primary,
+                        backgroundColor: Colors.white.withValues(alpha: 0.16),
                       ),
                     ],
                     const SizedBox(height: 16),
