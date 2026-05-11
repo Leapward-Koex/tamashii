@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -48,12 +50,17 @@ void main() {
   Future<void> pumpSchedulePage(
     WidgetTester tester, {
     required FakeJikanApi jikanApi,
+    List<BookmarkedShowInfo> initialBookmarks = const <BookmarkedShowInfo>[],
+    bool openAddSheet = true,
   }) async {
     SharedPreferences.setMockInitialValues(<String, Object>{
       'auto_generate_folders': true,
       'download_base_path': '',
       'series_folder_mapping': '{}',
-      'bookmarked_series': <String>[],
+      'bookmarked_series':
+          initialBookmarks
+              .map((bookmark) => jsonEncode(bookmark.toJson()))
+              .toList(),
       'downloaded_torrents': <String>[],
       'show_filter': 'all',
     });
@@ -75,8 +82,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Schedule'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(HomePage.scheduleAddFabKey));
-    await tester.pumpAndSettle();
+    if (openAddSheet) {
+      await tester.tap(find.byKey(HomePage.scheduleAddFabKey));
+      await tester.pumpAndSettle();
+    }
   }
 
   FakeJikanApi createFakeJikanApi() {
@@ -113,7 +122,7 @@ void main() {
     expect(jikanApi.searchedQueries, isEmpty);
     expect(find.text('My Hero Academia'), findsNothing);
     expect(
-      find.text('Press search or wait 2 seconds to search for "hero".'),
+      find.textContaining('Search for a show to add it to'),
       findsOneWidget,
     );
 
@@ -164,5 +173,99 @@ void main() {
       find.byKey(SchedulePage.showTileKey('My Hero Academia')),
       findsNothing,
     );
+  });
+
+  testWidgets('schedule page can move a watching show to another day', (
+    WidgetTester tester,
+  ) async {
+    final jikanApi = createFakeJikanApi();
+    await pumpSchedulePage(
+      tester,
+      jikanApi: jikanApi,
+      openAddSheet: false,
+      initialBookmarks: const <BookmarkedShowInfo>[
+        BookmarkedShowInfo(
+          imageUrl: '',
+          releaseDayOfWeek: 1,
+          showName: 'My Hero Academia',
+          jikanId: 31964,
+          source: BookmarkedShowSource.manual,
+        ),
+      ],
+    );
+
+    await tester.tap(find.text('Mon'));
+    await tester.pumpAndSettle();
+
+    const targetWeekday = 5;
+
+    expect(
+      find.byKey(SchedulePage.showTileKey('My Hero Academia')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(SchedulePage.showTileKey('My Hero Academia')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(ScheduleShowActionsSheet.changeDayButtonKey));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(
+      find.byKey(ScheduleShowActionsSheet.dayButtonKey(targetWeekday)),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(ScheduleShowActionsSheet.dayButtonKey(targetWeekday)),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Moved "My Hero Academia"'), findsOneWidget);
+    expect(
+      find.byKey(SchedulePage.showTileKey('My Hero Academia')),
+      findsNothing,
+    );
+
+    await tester.tap(find.text('Fri'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(SchedulePage.showTileKey('My Hero Academia')),
+      findsOneWidget,
+    );
+    expect(find.text('Manual entry'), findsOneWidget);
+  });
+
+  testWidgets('schedule show action rows are horizontally aligned', (
+    WidgetTester tester,
+  ) async {
+    final jikanApi = createFakeJikanApi();
+    await pumpSchedulePage(
+      tester,
+      jikanApi: jikanApi,
+      openAddSheet: false,
+      initialBookmarks: const <BookmarkedShowInfo>[
+        BookmarkedShowInfo(
+          imageUrl: '',
+          releaseDayOfWeek: 1,
+          showName: 'My Hero Academia',
+          jikanId: 31964,
+          source: BookmarkedShowSource.manual,
+        ),
+      ],
+    );
+
+    await tester.tap(find.text('Mon'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(SchedulePage.showTileKey('My Hero Academia')));
+    await tester.pumpAndSettle();
+
+    final changeDayLeft =
+        tester.getTopLeft(find.text('Change schedule day')).dx;
+    final removeLeft =
+        tester.getTopLeft(find.text('Remove from watching list')).dx;
+
+    expect(changeDayLeft, removeLeft);
   });
 }

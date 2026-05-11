@@ -67,26 +67,53 @@ class SchedulePage extends HookConsumerWidget {
     Future<void> openActions(BookmarkedShowInfo show) async {
       final action = await showModalBottomSheet<ScheduleShowAction>(
         context: context,
+        isScrollControlled: true,
         builder: (_) => ScheduleShowActionsSheet(show: show),
       );
 
-      if (action != ScheduleShowAction.remove) {
+      if (action == null) {
         return;
       }
 
-      final removed = await ref
-          .read(bookmarkedSeriesProvider.notifier)
-          .remove(show.showName);
+      switch (action.type) {
+        case ScheduleShowActionType.remove:
+          final removed = await ref
+              .read(bookmarkedSeriesProvider.notifier)
+              .remove(show.showName);
 
-      if (!context.mounted || !removed) {
-        return;
+          if (!context.mounted || !removed) {
+            return;
+          }
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Removed "${show.showName}" from watching list.'),
+            ),
+          );
+          return;
+        case ScheduleShowActionType.changeDay:
+          final releaseDayOfWeek = action.releaseDayOfWeek;
+          if (releaseDayOfWeek == null) {
+            return;
+          }
+
+          final updated = await ref
+              .read(bookmarkedSeriesProvider.notifier)
+              .updateReleaseDay(show.showName, releaseDayOfWeek);
+
+          if (!context.mounted || !updated) {
+            return;
+          }
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Moved "${show.showName}" to ${_weekdayName(releaseDayOfWeek)}.',
+              ),
+            ),
+          );
+          return;
       }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Removed "${show.showName}" from watching list.'),
-        ),
-      );
     }
 
     return Column(

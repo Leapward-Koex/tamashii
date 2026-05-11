@@ -182,5 +182,49 @@ void main() {
       expect(bookmarks.single.source, BookmarkedShowSource.subsplease);
       expect(bookmarks.single.showsOnHomePage, isTrue);
     });
+
+    test(
+      'bookmarked series schedule day can be updated and persisted',
+      () async {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+
+        await container.read(bookmarkedSeriesProvider.future);
+        final notifier = container.read(bookmarkedSeriesProvider.notifier);
+
+        await notifier.add(
+          const BookmarkedShowInfo(
+            showName: 'Movable Show',
+            imageUrl: 'https://example.com/movable.jpg',
+            releaseDayOfWeek: 1,
+            source: BookmarkedShowSource.manual,
+          ),
+        );
+
+        final updated = await notifier.updateReleaseDay('Movable Show', 5);
+
+        expect(updated, isTrue);
+        expect(
+          container
+              .read(bookmarkedSeriesProvider)
+              .value!
+              .single
+              .releaseDayOfWeek,
+          5,
+        );
+
+        final reloadedContainer = ProviderContainer();
+        addTearDown(reloadedContainer.dispose);
+
+        final bookmarks = await reloadedContainer.read(
+          bookmarkedSeriesProvider.future,
+        );
+
+        expect(bookmarks, hasLength(1));
+        expect(bookmarks.single.showName, 'Movable Show');
+        expect(bookmarks.single.releaseDayOfWeek, 5);
+        expect(bookmarks.single.source, BookmarkedShowSource.manual);
+      },
+    );
   });
 }

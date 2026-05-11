@@ -56,6 +56,29 @@ class BookmarkedSeriesNotifier extends _$BookmarkedSeriesNotifier {
     return true;
   }
 
+  /// Change the schedule day for [showName], if it is currently bookmarked.
+  Future<bool> updateReleaseDay(String showName, int releaseDayOfWeek) async {
+    RangeError.checkValueInInterval(releaseDayOfWeek, 1, 7, 'releaseDayOfWeek');
+
+    final List<BookmarkedShowInfo> currentList =
+        state.value ?? <BookmarkedShowInfo>[];
+    final int index = currentList.indexWhere((s) => s.showName == showName);
+    if (index == -1) {
+      return false;
+    }
+
+    final BookmarkedShowInfo current = currentList[index];
+    if (current.releaseDayOfWeek == releaseDayOfWeek) {
+      return false;
+    }
+
+    final List<BookmarkedShowInfo> updatedList = [...currentList];
+    updatedList[index] = current.copyWith(releaseDayOfWeek: releaseDayOfWeek);
+    state = AsyncValue.data(updatedList);
+    await _save(updatedList);
+    return true;
+  }
+
   Future<void> _save(List<BookmarkedShowInfo> list) async {
     final SharedPreferences preferences = await SharedPreferences.getInstance();
     final List<String> rawList =
