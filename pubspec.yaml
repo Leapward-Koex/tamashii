@@ -31,10 +31,10 @@ environment:
 dependencies:
   cached_network_image: ^3.4.1
   cupertino_icons: ^1.0.8
-  file_picker: ^10.3.7
+  file_picker: ^12.1.2
   flutter:
     sdk: flutter
-  flutter_foreground_task: ^9.1.0
+  flutter_foreground_task: ^11.0.1
   flutter_hooks: ^0.21.3+1
   flutter_local_notifications: ^22.3.0
   freezed_annotation: ^3.0.0
@@ -47,11 +47,11 @@ dependencies:
   path: ^1.9.1
   permission_handler: ^12.0.1
   riverpod_annotation: ^3.0.3
-  shared_preferences: ^2.5.3
+  shared_preferences: ^2.5.5
   simple_torrent:
     git:
       url: https://github.com/Leapward-Koex/simple_torrent.git
-      ref: 9b1a1242e332e4c8836100d803ea2a2676a81144
+      ref: c8b0129a4b78b9284f00b07cec33b0c8362be2de
       path: packages/simple_torrent
   tamashii_network_cost:
     path: plugins/tamashii_network_cost
@@ -73,27 +73,27 @@ dependency_overrides:
   simple_torrent_android:
     git:
       url: https://github.com/Leapward-Koex/simple_torrent.git
-      ref: 9b1a1242e332e4c8836100d803ea2a2676a81144
+      ref: c8b0129a4b78b9284f00b07cec33b0c8362be2de
       path: packages/simple_torrent_android
   simple_torrent_ios:
     git:
       url: https://github.com/Leapward-Koex/simple_torrent.git
-      ref: 9b1a1242e332e4c8836100d803ea2a2676a81144
+      ref: c8b0129a4b78b9284f00b07cec33b0c8362be2de
       path: packages/simple_torrent_ios
   simple_torrent_macos:
     git:
       url: https://github.com/Leapward-Koex/simple_torrent.git
-      ref: 9b1a1242e332e4c8836100d803ea2a2676a81144
+      ref: c8b0129a4b78b9284f00b07cec33b0c8362be2de
       path: packages/simple_torrent_macos
   simple_torrent_platform_interface:
     git:
       url: https://github.com/Leapward-Koex/simple_torrent.git
-      ref: 9b1a1242e332e4c8836100d803ea2a2676a81144
+      ref: c8b0129a4b78b9284f00b07cec33b0c8362be2de
       path: packages/simple_torrent_platform_interface
   simple_torrent_windows:
     git:
       url: https://github.com/Leapward-Koex/simple_torrent.git
-      ref: 9b1a1242e332e4c8836100d803ea2a2676a81144
+      ref: c8b0129a4b78b9284f00b07cec33b0c8362be2de
       path: packages/simple_torrent_windows
 
 # For information on the generic Dart part of this file, see the

@@ -138,7 +138,7 @@ class ShowCard extends ConsumerWidget {
       }
     }
 
-    final selectedDirectory = await FilePicker.platform.getDirectoryPath(
+    final selectedDirectory = await FilePicker.getDirectoryPath(
       dialogTitle: 'Select download folder for "${showInfo.show}"',
     );
     if (selectedDirectory != null && selectedDirectory.isNotEmpty) {

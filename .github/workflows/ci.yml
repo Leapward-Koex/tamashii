@@ -10,7 +10,6 @@ permissions:
   contents: read
 
 env:
-  FLUTTER_VERSION: '3.47.2'
   SAFE_TORRENT_DEFINE: TAMASHII_USE_TEST_TORRENT=true
 
 jobs:
@@ -19,6 +18,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Validate Gradle wrappers
+        uses: gradle/actions/wrapper-validation@v6
 
       - name: Install Git LFS filters
         run: git lfs install
@@ -32,12 +34,12 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
+          flutter-version-file: .fvmrc
           channel: stable
           cache: true
 
       - name: Resolve dependencies
-        run: flutter pub get
+        run: flutter pub get --enforce-lockfile
 
       - name: Verify bundled torrent binaries
         run: dart run tool/verify_simple_torrent_artifacts.dart
@@ -59,16 +61,17 @@ jobs:
         run: dart format --output=none --set-exit-if-changed .
 
       - name: Analyze
-        run: flutter analyze
+        run: flutter analyze --no-pub
 
       - name: Test
-        run: flutter test
+        run: flutter test --no-pub
 
       - name: Analyze and test Android network-cost plugin
         working-directory: plugins/tamashii_network_cost
         run: |
-          flutter analyze
-          flutter test
+          flutter pub get
+          flutter analyze --no-pub
+          flutter test --no-pub
 
       - name: Test Android network-cost adapter
         working-directory: android
@@ -98,13 +101,13 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
+          flutter-version-file: .fvmrc
           channel: stable
           cache: true
 
       - name: Resolve and verify dependencies
         run: |
-          flutter pub get
+          flutter pub get --enforce-lockfile
           dart run tool/verify_simple_torrent_artifacts.dart
 
       - name: Create smoke-test signing key
@@ -118,7 +121,7 @@ jobs:
             'storeFile=smoke-upload-keystore.jks' > android/key.properties
 
       - name: Build Android
-        run: flutter build apk --${{ matrix.mode }} --dart-define=${{ env.SAFE_TORRENT_DEFINE }}
+        run: flutter build apk --${{ matrix.mode }} --no-pub --dart-define=${{ env.SAFE_TORRENT_DEFINE }}
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -144,17 +147,17 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
+          flutter-version-file: .fvmrc
           channel: stable
           cache: true
 
       - name: Resolve and verify dependencies
         run: |
-          flutter pub get
+          flutter pub get --enforce-lockfile
           dart run tool/verify_simple_torrent_artifacts.dart
 
       - name: Build Windows
-        run: flutter build windows --${{ matrix.mode }} --dart-define=${{ env.SAFE_TORRENT_DEFINE }}
+        run: flutter build windows --${{ matrix.mode }} --no-pub --dart-define=${{ env.SAFE_TORRENT_DEFINE }}
 
       - name: Upload Windows bundle
         uses: actions/upload-artifact@v4

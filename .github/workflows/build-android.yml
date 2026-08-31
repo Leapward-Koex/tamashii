@@ -9,7 +9,6 @@ permissions:
   contents: write
 
 env:
-  FLUTTER_VERSION: '3.47.2'
   ANDROID_VERSION_CODE_BASE_EPOCH: '1704067200'
 
 jobs:
@@ -17,6 +16,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Validate Gradle wrappers
+        uses: gradle/actions/wrapper-validation@v6
 
       - name: Install Git LFS filters
         run: git lfs install
@@ -30,13 +32,13 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
+          flutter-version-file: .fvmrc
           channel: stable
           cache: true
 
       - name: Resolve and verify dependencies
         run: |
-          flutter pub get
+          flutter pub get --enforce-lockfile
           dart run tool/verify_simple_torrent_artifacts.dart
 
       - name: Validate signing secrets
@@ -83,7 +85,7 @@ jobs:
       - name: Build signed release APK
         env:
           ANDROID_VERSION_CODE: ${{ steps.version.outputs.build_number }}
-        run: flutter build apk --release
+        run: flutter build apk --release --no-pub
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4

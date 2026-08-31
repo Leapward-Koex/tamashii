@@ -24,10 +24,7 @@ void main() {
       await firstContainer
           .read(allowMobileDataProvider.notifier)
           .setAllowed(true);
-      expect(
-        await firstContainer.read(allowMobileDataProvider.future),
-        isTrue,
-      );
+      expect(await firstContainer.read(allowMobileDataProvider.future), isTrue);
       firstContainer.dispose();
 
       final secondContainer = ProviderContainer();

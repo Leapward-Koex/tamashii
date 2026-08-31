@@ -46,7 +46,7 @@ class SettingsPage extends ConsumerWidget {
             subtitle: Text(path.isEmpty ? 'Not set' : path),
             trailing: const Icon(Icons.folder_open),
             onTap: () async {
-              final selected = await FilePicker.platform.getDirectoryPath();
+              final selected = await FilePicker.getDirectoryPath();
               if (selected != null) {
                 await ref
                     .read(downloadBasePathProvider.notifier)
@@ -274,8 +274,7 @@ class SettingsPage extends ConsumerWidget {
                     IconButton(
                       icon: const Icon(Icons.edit),
                       onPressed: () async {
-                        final selected = await FilePicker.platform
-                            .getDirectoryPath();
+                        final selected = await FilePicker.getDirectoryPath();
                         if (selected != null) {
                           await ref
                               .read(seriesFolderMappingProvider.notifier)

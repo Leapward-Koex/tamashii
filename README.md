@@ -15,12 +15,12 @@ fvm flutter analyze
 fvm flutter test
 ```
 
-The Android build currently stays on the latest mutually compatible legacy
-toolchain (AGP 8.11.1, Gradle 8.14, and Kotlin 2.2.20). Flutter 3.47 reports
-these versions as approaching end of support, but `simple_torrent` 2.0 still
-applies the external Kotlin Android plugin and therefore cannot yet use AGP 9's
-built-in Kotlin mode. Upgrade these together after the pinned plugin commit is
-migrated; the current Gradle distribution is checksum-verified.
+The Android build uses AGP 9.1.0, Gradle 9.3.1, Java 17, and AGP's built-in
+Kotlin support. The app, its private network-cost plugin, and
+`simple_torrent` use the declarative Flutter plugin DSL without applying the
+external Kotlin Android plugin. Flutter's legacy Android DSL compatibility flag
+remains enabled until the separate new-DSL migration is supported. The Gradle
+distribution is checksum-verified.
 
 The supported build targets are Android and Windows. iOS 15 and macOS 12 project
 files are retained for source validation, but require the Apple

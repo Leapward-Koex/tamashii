@@ -8,6 +8,10 @@ analyzer:
     - '.dart_tool/**'
     - 'lib/**.g.dart'
     - 'lib/**.freezed.dart'
+    - android/**
+    - ios/**
+    - windows/**
+    - macos/**
 
 linter:
   rules:
