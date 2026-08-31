@@ -5,20 +5,25 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Keep prereleases in FIFO order so an older run cannot publish last.
+  queue: max
 
 permissions:
   contents: read
 
 env:
   ANDROID_NDK_VERSION: '29.0.13113456'
-  SAFE_TORRENT_DEFINE: TAMASHII_USE_TEST_TORRENT=true
 
 jobs:
   quality:
     name: Analyze and test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Validate Gradle wrappers
         uses: gradle/actions/wrapper-validation@v6
@@ -27,7 +32,7 @@ jobs:
         run: git lfs install
 
       - name: Set up Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: zulu
           java-version: '17'
@@ -94,13 +99,13 @@ jobs:
       matrix:
         mode: [debug, release]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install Git LFS filters
         run: git lfs install
 
       - name: Set up Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: zulu
           java-version: '17'
@@ -123,8 +128,42 @@ jobs:
           flutter pub get --enforce-lockfile
           dart run tool/verify_simple_torrent_artifacts.dart
 
-      - name: Create smoke-test signing key
-        if: matrix.mode == 'release'
+      - name: Validate prerelease signing secrets
+        if: matrix.mode == 'release' && github.ref == 'refs/heads/main'
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          for secret_name in \
+            ANDROID_KEYSTORE_BASE64 \
+            ANDROID_KEYSTORE_PASSWORD \
+            ANDROID_KEY_ALIAS \
+            ANDROID_KEY_PASSWORD; do
+            if [ -z "${!secret_name}" ]; then
+              echo "::error::$secret_name is not set"
+              exit 1
+            fi
+          done
+
+      - name: Restore prerelease signing key
+        if: matrix.mode == 'release' && github.ref == 'refs/heads/main'
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/upload-keystore.jks
+          printf '%s\n' \
+            "storePassword=$ANDROID_KEYSTORE_PASSWORD" \
+            "keyPassword=$ANDROID_KEY_PASSWORD" \
+            "keyAlias=$ANDROID_KEY_ALIAS" \
+            'storeFile=upload-keystore.jks' > android/key.properties
+
+      - name: Create pull-request signing key
+        if: matrix.mode == 'release' && github.ref != 'refs/heads/main'
         run: |
           keytool -genkeypair -keystore android/smoke-upload-keystore.jks -storepass tamashii-smoke -keypass tamashii-smoke -alias smoke -keyalg RSA -keysize 2048 -validity 1 -dname "CN=Tamashii CI"
           printf '%s\n' \
@@ -136,13 +175,31 @@ jobs:
       - name: Build Android
         # Flutter must refresh its build-mode-specific Android plugin registrant;
         # --no-pub can leave the dev-only integration_test plugin in release builds.
-        run: flutter build apk --${{ matrix.mode }} --dart-define=${{ env.SAFE_TORRENT_DEFINE }}
+        # CI artifacts intentionally retain the production torrent configuration.
+        run: flutter build apk --${{ matrix.mode }}
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      - name: Upload debug APK
+        if: matrix.mode == 'debug'
+        uses: actions/upload-artifact@v7
         with:
-          name: android-${{ matrix.mode }}
-          path: build/app/outputs/flutter-apk/app-${{ matrix.mode }}.apk
+          name: android-debug
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Prepare Android prerelease asset
+        if: matrix.mode == 'release'
+        run: |
+          mkdir -p dist
+          cp build/app/outputs/flutter-apk/app-release.apk dist/tamashii-android.apk
+
+      - name: Upload release APK
+        if: matrix.mode == 'release'
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-release
+          path: dist/tamashii-android.apk
+          if-no-files-found: error
           retention-days: 14
 
   windows-smoke:
@@ -154,7 +211,7 @@ jobs:
       matrix:
         mode: [debug, release]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install Git LFS filters
         run: git lfs install
@@ -173,11 +230,122 @@ jobs:
 
       - name: Build Windows
         # Keep pub enabled so Flutter refreshes build-mode-specific plugin registrants.
-        run: flutter build windows --${{ matrix.mode }} --dart-define=${{ env.SAFE_TORRENT_DEFINE }}
+        # CI artifacts intentionally retain the production torrent configuration.
+        run: flutter build windows --${{ matrix.mode }}
 
-      - name: Upload Windows bundle
-        uses: actions/upload-artifact@v4
+      - name: Upload debug Windows bundle
+        if: matrix.mode == 'debug'
+        uses: actions/upload-artifact@v7
         with:
-          name: windows-${{ matrix.mode }}
-          path: build/windows/x64/runner/${{ matrix.mode }}/
+          name: windows-debug
+          path: build/windows/x64/runner/debug/
+          if-no-files-found: error
           retention-days: 14
+
+      - name: Prepare Windows prerelease asset
+        if: matrix.mode == 'release'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Compress-Archive -Path 'build/windows/x64/runner/release/*' -DestinationPath 'dist/tamashii-windows.zip' -Force
+
+      - name: Upload release Windows bundle
+        if: matrix.mode == 'release'
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-release
+          path: dist/tamashii-windows.zip
+          if-no-files-found: error
+          retention-days: 14
+
+  prerelease:
+    name: Publish prerelease
+    if: github.ref == 'refs/heads/main'
+    needs:
+      - quality
+      - android-smoke
+      - windows-smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Check out repository history
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Download release artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: '*-release'
+          path: release-assets
+          merge-multiple: true
+
+      - name: Generate changelog
+        shell: bash
+        run: |
+          current_tag="prerelease-${GITHUB_RUN_NUMBER}"
+          previous_tag="$(
+            git tag --merged "$GITHUB_SHA" --list 'prerelease-*' --sort=-version:refname |
+              grep -Fvx "$current_tag" |
+              head -n 1 || true
+          )"
+
+          if [[ -n "$previous_tag" ]]; then
+            commit_range="$previous_tag..$GITHUB_SHA"
+            comparison="Changes since [$previous_tag]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/$previous_tag...$GITHUB_SHA):"
+          else
+            commit_range="$GITHUB_SHA"
+            comparison="Changes included in this first automated prerelease:"
+          fi
+
+          {
+            printf 'Automated build of [`%s`](%s/%s/commit/%s).\n\n' "${GITHUB_SHA::7}" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_SHA"
+            printf '%s\n\n' "$comparison"
+            git log "$commit_range" --first-parent --pretty=format:'- %s (`%h`)'
+            printf '\n\n### Artifacts\n\n- Signed Android release APK\n- Windows release bundle\n'
+          } > release-notes.md
+
+      - name: Create or update GitHub prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          # A rerun keeps its original SHA. Do not let an old rerun publish
+          # after a newer main build has already become the branch head.
+          if [[ "$GITHUB_RUN_ATTEMPT" != '1' ]]; then
+            git fetch --no-tags origin '+refs/heads/main:refs/remotes/origin/main'
+            main_sha="$(git rev-parse refs/remotes/origin/main)"
+            if [[ "$main_sha" != "$GITHUB_SHA" ]]; then
+              echo "::notice::Skipping stale prerelease rerun for $GITHUB_SHA; main is $main_sha"
+              exit 0
+            fi
+          fi
+
+          shopt -s nullglob
+          assets=(release-assets/*)
+          if [[ ${#assets[@]} -ne 2 ]]; then
+            echo "::error::Expected two prerelease assets, found ${#assets[@]}"
+            printf '%s\n' "${assets[@]}"
+            exit 1
+          fi
+
+          short_sha="${GITHUB_SHA::7}"
+          tag="prerelease-${GITHUB_RUN_NUMBER}"
+          title="Tamashii prerelease $short_sha"
+
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release edit "$tag" \
+              --prerelease \
+              --title "$title" \
+              --notes-file release-notes.md
+            gh release upload "$tag" "${assets[@]}" --clobber
+          else
+            gh release create "$tag" "${assets[@]}" \
+              --prerelease \
+              --target "$GITHUB_SHA" \
+              --title "$title" \
+              --notes-file release-notes.md
+          fi
