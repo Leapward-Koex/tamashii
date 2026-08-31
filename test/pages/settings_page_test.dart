@@ -6,8 +6,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:tamashii/pages/settings_page.dart';
+import 'package:tamashii/providers/foreground_torrent_provider.dart';
 import 'package:tamashii/providers/on_device_ai_provider.dart';
 import 'package:tamashii/services/gemini_nano_service.dart';
+import 'package:tamashii/services/transfer_policy.dart';
+import 'package:tamashii_network_cost/tamashii_network_cost.dart';
 
 class _FakeOnDeviceTextGenerator implements OnDeviceTextGenerator {
   _FakeOnDeviceTextGenerator({required this.catalog});
@@ -61,6 +64,15 @@ void main() {
       ProviderScope(
         overrides: [
           onDeviceTextGeneratorProvider.overrideWithValue(textGenerator),
+          foregroundTransferPolicyStatusProvider.overrideWithValue((
+            allowMeteredDownloads: false,
+            allowMobileData: false,
+            networkCost: NetworkCost.unmetered,
+            networkTransport: NetworkTransport.wifi,
+            isVpn: false,
+            reason: TransferSuspensionReason.none,
+            suspended: false,
+          )),
         ],
         child: const MaterialApp(
           home: Scaffold(body: SettingsPage(platform: TargetPlatform.android)),
@@ -98,10 +110,7 @@ void main() {
           .value,
       isFalse,
     );
-    expect(
-      find.text('Network cost unknown; downloads allowed'),
-      findsOneWidget,
-    );
+    expect(find.text('Downloads allowed'), findsOneWidget);
     expect(find.text('Gemini Nano Demo'), findsNothing);
     expect(
       find.byKey(const ValueKey<String>('onDeviceAiStatus')),

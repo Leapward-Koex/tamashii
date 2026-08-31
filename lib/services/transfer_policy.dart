@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:simple_torrent/simple_torrent.dart';
 import 'package:tamashii/config/torrent_config.dart';
@@ -222,6 +223,29 @@ typedef TransferPolicyErrorListener = void Function(
   Object error,
   StackTrace stackTrace,
 );
+typedef TransferPolicyRefreshCancellation = void Function();
+typedef TransferPolicyPeriodicRefreshScheduler =
+    TransferPolicyRefreshCancellation Function(
+      Duration interval,
+      Future<void> Function() refresh,
+    );
+
+/// Maps app resume events to an injected policy refresh callback.
+final class TransferPolicyLifecycleObserver with WidgetsBindingObserver {
+  factory TransferPolicyLifecycleObserver({required VoidCallback onResume}) =>
+      TransferPolicyLifecycleObserver._(onResume);
+
+  TransferPolicyLifecycleObserver._(this._onResume);
+
+  final VoidCallback _onResume;
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _onResume();
+    }
+  }
+}
 
 Future<bool> readAllowMeteredDownloadsPreference() async {
   final preferences = SharedPreferencesAsync();
@@ -231,6 +255,232 @@ Future<bool> readAllowMeteredDownloadsPreference() async {
 Future<bool> readAllowMobileDataPreference() async {
   final preferences = SharedPreferencesAsync();
   return await preferences.getBool(allowMobileDataPreferenceKey) ?? false;
+}
+
+TransferPolicyRefreshCancellation _scheduleTransferPolicyPeriodicRefresh(
+  Duration interval,
+  Future<void> Function() refresh,
+) {
+  final timer = Timer.periodic(interval, (_) => unawaited(refresh()));
+  return timer.cancel;
+}
+
+/// Keeps a UI-side transfer-policy snapshot current without starting a torrent.
+///
+/// The initial query, route events, explicit refreshes, and periodic refreshes
+/// all share one queue. This prevents an older, delayed query from overwriting a
+/// newer result. Preference values are reread with every update so a page can
+/// also use [refresh] after changing a setting or when the app resumes.
+final class TransferPolicyStatusMonitor {
+  factory TransferPolicyStatusMonitor({
+    required NetworkStatusSource networkStatusSource,
+    required AllowMeteredDownloadsReader readAllowMeteredDownloads,
+    required AllowMobileDataReader readAllowMobileData,
+    TransferPolicyListener? onChanged,
+    TransferPolicyErrorListener? onError,
+    Duration refreshInterval = const Duration(seconds: 30),
+    TransferPolicyPeriodicRefreshScheduler schedulePeriodicRefresh =
+        _scheduleTransferPolicyPeriodicRefresh,
+  }) => TransferPolicyStatusMonitor._(
+    networkStatusSource,
+    readAllowMeteredDownloads,
+    readAllowMobileData,
+    onChanged,
+    onError,
+    refreshInterval,
+    schedulePeriodicRefresh,
+  );
+
+  TransferPolicyStatusMonitor._(
+    this._networkStatusSource,
+    this._readAllowMeteredDownloads,
+    this._readAllowMobileData,
+    this._onChanged,
+    this._onError,
+    this._refreshInterval,
+    this._schedulePeriodicRefresh,
+  );
+
+  final NetworkStatusSource _networkStatusSource;
+  final AllowMeteredDownloadsReader _readAllowMeteredDownloads;
+  final AllowMobileDataReader _readAllowMobileData;
+  final TransferPolicyListener? _onChanged;
+  final TransferPolicyErrorListener? _onError;
+  final Duration _refreshInterval;
+  final TransferPolicyPeriodicRefreshScheduler _schedulePeriodicRefresh;
+
+  TransferPolicySnapshot _snapshot = initialTransferPolicySnapshot;
+  Future<void> _pending = Future<void>.value();
+  Future<void>? _initialization;
+  StreamSubscription<NetworkStatus>? _networkSubscription;
+  TransferPolicyRefreshCancellation? _cancelPeriodicRefresh;
+  bool _hasSnapshot = false;
+  bool _disposed = false;
+
+  TransferPolicySnapshot get snapshot => _snapshot;
+
+  /// Starts monitoring and immediately queries the current network route.
+  Future<void> initialize() {
+    if (_disposed) {
+      return Future<void>.error(
+        StateError('TransferPolicyStatusMonitor has been disposed.'),
+      );
+    }
+
+    return _initialization ??= _enqueueAndReport(() async {
+      if (_disposed) {
+        return;
+      }
+
+      // Subscribe before querying so a route event received during a delayed
+      // current-value query is queued behind it and remains authoritative.
+      _networkSubscription = _networkStatusSource.changes.listen(
+        _handleNetworkStatus,
+        onError: _handleNetworkError,
+        onDone: _handleNetworkDone,
+      );
+      _cancelPeriodicRefresh = _schedulePeriodicRefresh(
+        _refreshInterval,
+        _refreshAutomatically,
+      );
+      await _refreshFromCurrent();
+    });
+  }
+
+  /// Re-queries network and preference state, for example after app resume.
+  Future<void> refresh() {
+    if (_disposed) {
+      return Future<void>.error(
+        StateError('TransferPolicyStatusMonitor has been disposed.'),
+      );
+    }
+    return _enqueueAndReport(_refreshFromCurrent);
+  }
+
+  void _handleNetworkStatus(NetworkStatus networkStatus) {
+    if (_disposed) {
+      return;
+    }
+    unawaited(
+      _enqueueAndReport(() => _refreshFromNetworkStatus(networkStatus)),
+    );
+  }
+
+  void _handleNetworkError(Object error, StackTrace stackTrace) {
+    _enqueueFailure(error, stackTrace);
+  }
+
+  void _handleNetworkDone() {
+    _enqueueFailure(
+      StateError('The network-status stream closed.'),
+      StackTrace.current,
+    );
+  }
+
+  void _enqueueFailure(Object error, StackTrace stackTrace) {
+    if (_disposed) {
+      return;
+    }
+    unawaited(
+      _enqueue(() async {
+        _reportFailure(error, stackTrace);
+      }),
+    );
+  }
+
+  Future<void> _refreshAutomatically() {
+    if (_disposed) {
+      return Future<void>.value();
+    }
+    return _enqueueAndReport(_refreshFromCurrent);
+  }
+
+  Future<void> _refreshFromCurrent() async {
+    if (_disposed) {
+      return;
+    }
+    final networkStatus = await _networkStatusSource.current();
+    if (_disposed) {
+      return;
+    }
+    await _refreshFromNetworkStatus(networkStatus);
+  }
+
+  Future<void> _refreshFromNetworkStatus(NetworkStatus networkStatus) async {
+    if (_disposed) {
+      return;
+    }
+    final allowMeteredDownloads = await _readAllowMeteredDownloads();
+    if (_disposed) {
+      return;
+    }
+    final allowMobileData = await _readAllowMobileData();
+    if (_disposed) {
+      return;
+    }
+
+    final next = evaluateTransferPolicy(
+      networkStatus: networkStatus,
+      allowMeteredDownloads: allowMeteredDownloads,
+      allowMobileData: allowMobileData,
+    );
+    if (_hasSnapshot && next == _snapshot) {
+      return;
+    }
+
+    _snapshot = next;
+    _hasSnapshot = true;
+    _onChanged?.call(next);
+  }
+
+  Future<void> _enqueueAndReport(Future<void> Function() operation) =>
+      _enqueue(() async {
+        try {
+          await operation();
+        } on Object catch (error, stackTrace) {
+          _reportFailure(error, stackTrace);
+        }
+      });
+
+  void _reportFailure(Object error, StackTrace stackTrace) {
+    if (_disposed) {
+      return;
+    }
+
+    final unavailable = evaluateTransferPolicy(
+      networkStatus: _detectionUnavailableStatus,
+      allowMeteredDownloads: _snapshot.allowMeteredDownloads,
+      allowMobileData: _snapshot.allowMobileData,
+    );
+    if (!_hasSnapshot || unavailable != _snapshot) {
+      _snapshot = unavailable;
+      _hasSnapshot = true;
+      _onChanged?.call(unavailable);
+    }
+    _onError?.call(error, stackTrace);
+  }
+
+  Future<void> _enqueue(Future<void> Function() operation) {
+    final result = _pending.then((_) => operation());
+    _pending = result.then<void>((_) {}, onError: (Object _, StackTrace _) {});
+    return result;
+  }
+
+  Future<void> dispose() async {
+    if (_disposed) {
+      return;
+    }
+    _disposed = true;
+
+    final cancelPeriodicRefresh = _cancelPeriodicRefresh;
+    _cancelPeriodicRefresh = null;
+    cancelPeriodicRefresh?.call();
+
+    final networkSubscription = _networkSubscription;
+    _networkSubscription = null;
+    await networkSubscription?.cancel();
+    await _pending;
+  }
 }
 
 /// Owns the process-local global transfer gate for one torrent engine.
@@ -350,6 +600,32 @@ final class TransferPolicyController {
     await _runtime.setTransfersSuspended(_snapshot.suspended);
     _onChanged?.call(_snapshot);
   });
+
+  /// Re-queries the route in case the platform emitted no change event.
+  Future<void> refresh() async {
+    try {
+      await _enqueue(() async {
+        _ensureInitialized();
+        final allowMeteredDownloads = await _readAllowMeteredDownloads();
+        final allowMobileData = await _readAllowMobileData();
+        final networkStatus = await _networkStatusSource.current();
+        final next = evaluateTransferPolicy(
+          networkStatus: networkStatus,
+          allowMeteredDownloads: allowMeteredDownloads,
+          allowMobileData: allowMobileData,
+        );
+        if (_snapshot == next) {
+          return;
+        }
+
+        await _apply(next);
+      });
+    } on Object catch (error, stackTrace) {
+      await _failClosedAfterDetectionFailure(error, stackTrace);
+    }
+  }
+
+  Future<void> refreshNetworkStatus() => refresh();
 
   Future<void> _setNetworkStatus(NetworkStatus networkStatus) =>
       _enqueue(() async {

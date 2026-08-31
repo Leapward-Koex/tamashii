@@ -55,6 +55,57 @@ void main() {
     expect(taskSource, contains('Map<String, bool>.of(_completedTorrents)'));
   });
 
+  test('repeat and service-state events refresh the transfer policy', () {
+    final onRepeatEvent = _between(
+      taskSource,
+      'void onRepeatEvent',
+      'void _updateNotificationWithProgress',
+    );
+    _expectOrdered(onRepeatEvent, <String>[
+      '_enqueueCommand(() async {',
+      'await _transferPolicyController?.refresh()',
+      '_updateNotificationWithProgress()',
+    ]);
+
+    final requestServiceState = _between(
+      taskSource,
+      "case 'request_service_state':",
+      "case 'set_test_network_status':",
+    );
+    _expectOrdered(requestServiceState, <String>[
+      'await _transferPolicyController!.refresh()',
+      'if (!_serviceReady)',
+      '_sendServiceReady(',
+    ]);
+  });
+
+  test('idle UI monitoring does not start the torrent service', () {
+    final policyStatusProvider = _between(
+      providerSource,
+      'class ForegroundTransferPolicyStatus',
+      '// Provider for managing the foreground service state',
+    );
+
+    expect(policyStatusProvider, contains('TransferPolicyStatusMonitor('));
+    expect(policyStatusProvider, contains('monitor.initialize()'));
+    expect(policyStatusProvider, contains('onResume:'));
+    expect(
+      policyStatusProvider,
+      contains('WidgetsBinding.instance.addObserver'),
+    );
+    expect(
+      policyStatusProvider,
+      contains('WidgetsBinding.instance.removeObserver'),
+    );
+    expect(policyStatusProvider, contains('if (!ref.mounted)'));
+    expect(policyStatusProvider, isNot(contains('startService(')));
+    expect(providerSource, contains('.useLocalStatus()'));
+    expect(
+      providerSource,
+      isNot(contains('.replace(initialTransferPolicySnapshot)')),
+    );
+  });
+
   test('engine teardown retains files and completion awaits finalise', () {
     final onDestroy = _between(
       taskSource,
@@ -98,8 +149,13 @@ void main() {
       '_sendServiceReady(timestamp)',
     ]);
 
-    final policyInitialization = _between(
+    final transferPolicyController = _between(
       transferPolicySource,
+      'final class TransferPolicyController',
+      'NetworkStatus _networkStatusFromSnapshot',
+    );
+    final policyInitialization = _between(
+      transferPolicyController,
       'Future<void> initialize()',
       'Future<void> setAllowMeteredDownloads',
     );

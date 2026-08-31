@@ -83,8 +83,14 @@ class TorrentTaskHandler extends TaskHandler {
 
   @override
   void onRepeatEvent(DateTime timestamp) {
-    // Update notification with current download status
-    _updateNotificationWithProgress();
+    // Re-query as a fallback for a missed Android connectivity callback, then
+    // update the notification from the same serialized policy snapshot.
+    _enqueueCommand(() async {
+      await _transferPolicyController?.refresh();
+      if (_serviceReady) {
+        _updateNotificationWithProgress();
+      }
+    });
   }
 
   void _updateNotificationWithProgress() {
@@ -305,6 +311,10 @@ class TorrentTaskHandler extends TaskHandler {
         }
         break;
       case 'request_service_state':
+        await _transferPolicyController!.refresh();
+        if (!_serviceReady) {
+          return;
+        }
         _sendServiceReady(
           DateTime.now(),
           requestId: command['requestId'] as int?,

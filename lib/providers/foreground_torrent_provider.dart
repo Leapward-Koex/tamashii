@@ -3,6 +3,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/widgets.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:simple_torrent/simple_torrent.dart';
@@ -57,11 +58,80 @@ class _PendingTorrentCommand {
 
 @Riverpod(keepAlive: true)
 class ForegroundTransferPolicyStatus extends _$ForegroundTransferPolicyStatus {
-  @override
-  TransferPolicySnapshot build() => initialTransferPolicySnapshot;
+  TransferPolicyStatusMonitor? _localMonitor;
+  bool _serviceSnapshotIsAuthoritative = false;
 
+  @override
+  TransferPolicySnapshot build() {
+    if (Platform.isAndroid) {
+      final monitor = TransferPolicyStatusMonitor(
+        networkStatusSource: const PluginNetworkStatusSource(),
+        readAllowMeteredDownloads: readAllowMeteredDownloadsPreference,
+        readAllowMobileData: readAllowMobileDataPreference,
+        onChanged: _replaceFromLocalMonitor,
+        onError: (error, stackTrace) {
+          print(
+            'Unable to refresh the foreground transfer policy: '
+            '$error\n$stackTrace',
+          );
+        },
+      );
+      final lifecycleObserver = TransferPolicyLifecycleObserver(
+        onResume: () => unawaited(refresh()),
+      );
+      _localMonitor = monitor;
+      WidgetsBinding.instance.addObserver(lifecycleObserver);
+
+      ref.onDispose(() {
+        WidgetsBinding.instance.removeObserver(lifecycleObserver);
+        unawaited(monitor.dispose());
+      });
+      unawaited(monitor.initialize());
+    }
+
+    return initialTransferPolicySnapshot;
+  }
+
+  void _replaceFromLocalMonitor(TransferPolicySnapshot snapshot) {
+    if (!_serviceSnapshotIsAuthoritative) {
+      _replaceState(snapshot);
+    }
+  }
+
+  /// Applies an authoritative status acknowledgement from the live service.
   void replace(TransferPolicySnapshot snapshot) {
-    state = snapshot;
+    _serviceSnapshotIsAuthoritative = true;
+    _replaceState(snapshot);
+  }
+
+  /// Returns display ownership to the UI monitor after the service stops.
+  Future<void> useLocalStatus() async {
+    _serviceSnapshotIsAuthoritative = false;
+    await refresh();
+  }
+
+  /// Re-queries status for page loads, app resumes, and explicit refreshes.
+  Future<void> refresh() async {
+    final monitor = _localMonitor;
+    if (monitor == null) {
+      return;
+    }
+
+    await monitor.refresh();
+    if (!ref.mounted) {
+      return;
+    }
+    // The monitor de-duplicates unchanged snapshots. Publish its latest value
+    // explicitly when switching back from an authoritative service snapshot.
+    if (!_serviceSnapshotIsAuthoritative) {
+      _replaceState(monitor.snapshot);
+    }
+  }
+
+  void _replaceState(TransferPolicySnapshot snapshot) {
+    if (state != snapshot) {
+      state = snapshot;
+    }
   }
 }
 
@@ -299,10 +369,10 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
         StateError('Torrent service stopped before the query completed.'),
       );
       _failPendingTorrentCommands(StateError('Torrent service stopped.'));
-      ref
-          .read(foregroundTransferPolicyStatusProvider.notifier)
-          .replace(initialTransferPolicySnapshot);
     }
+    await ref
+        .read(foregroundTransferPolicyStatusProvider.notifier)
+        .useLocalStatus();
   }
 
   /// Applies a persisted setting change to the live background manager.
@@ -334,9 +404,9 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
     await (_startOrAttachOperation ?? Future<void>.value());
     if (!await FlutterForegroundTask.isRunningService) {
       _isServiceRunning = false;
-      ref
+      await ref
           .read(foregroundTransferPolicyStatusProvider.notifier)
-          .replace(initialTransferPolicySnapshot);
+          .useLocalStatus();
       return;
     }
 
@@ -431,9 +501,9 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
     await (_startOrAttachOperation ?? Future<void>.value());
     if (!await FlutterForegroundTask.isRunningService) {
       _isServiceRunning = false;
-      ref
+      await ref
           .read(foregroundTransferPolicyStatusProvider.notifier)
-          .replace(initialTransferPolicySnapshot);
+          .useLocalStatus();
       return;
     }
 
@@ -955,9 +1025,11 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
           }
           _failPendingTestQueries(error);
           _failPendingTorrentCommands(error);
-          ref
-              .read(foregroundTransferPolicyStatusProvider.notifier)
-              .replace(initialTransferPolicySnapshot);
+          unawaited(
+            ref
+                .read(foregroundTransferPolicyStatusProvider.notifier)
+                .useLocalStatus(),
+          );
           break;
 
         case 'test_transfers_suspended_result':

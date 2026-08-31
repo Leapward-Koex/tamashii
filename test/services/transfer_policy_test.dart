@@ -547,6 +547,114 @@ void main() {
       await network.close();
     });
 
+    test('refreshes a changed current route without a stream event', () async {
+      final runtime = _FakeTorrentRuntime();
+      final network = _FakeNetworkStatusSource(_unmeteredWifi);
+      final snapshots = <TransferPolicySnapshot>[];
+      final controller = TransferPolicyController(
+        runtime: runtime,
+        networkStatusSource: network,
+        readAllowMeteredDownloads: () async => false,
+        readAllowMobileData: () async => false,
+        onChanged: snapshots.add,
+      );
+      await controller.initialize();
+
+      network.value = _unmeteredCellular;
+      await controller.refresh();
+
+      expect(controller.snapshot.networkTransport, NetworkTransport.cellular);
+      expect(controller.snapshot.suspended, isTrue);
+      expect(runtime.suspensionValues, <bool>[false, true]);
+      expect(snapshots, hasLength(2));
+
+      await controller.dispose();
+      await network.close();
+    });
+
+    test('refresh reconciles persisted settings missed by live IPC', () async {
+      var allowMeteredDownloads = false;
+      var allowMobileData = false;
+      var meteredReadCount = 0;
+      var mobileReadCount = 0;
+      final runtime = _FakeTorrentRuntime();
+      final network = _FakeNetworkStatusSource(_meteredCellular);
+      final controller = TransferPolicyController(
+        runtime: runtime,
+        networkStatusSource: network,
+        readAllowMeteredDownloads: () async {
+          meteredReadCount += 1;
+          return allowMeteredDownloads;
+        },
+        readAllowMobileData: () async {
+          mobileReadCount += 1;
+          return allowMobileData;
+        },
+      );
+      await controller.initialize();
+
+      allowMeteredDownloads = true;
+      allowMobileData = true;
+      await controller.refresh();
+
+      expect(controller.snapshot.allowMeteredDownloads, isTrue);
+      expect(controller.snapshot.allowMobileData, isTrue);
+      expect(controller.snapshot.suspended, isFalse);
+      expect(runtime.suspensionValues, <bool>[true, false]);
+      expect(meteredReadCount, 2);
+      expect(mobileReadCount, 2);
+
+      await controller.dispose();
+      await network.close();
+    });
+
+    test('refreshing an unchanged current route is a no-op', () async {
+      final runtime = _FakeTorrentRuntime();
+      final network = _FakeNetworkStatusSource(_unmeteredWifi);
+      final snapshots = <TransferPolicySnapshot>[];
+      final controller = TransferPolicyController(
+        runtime: runtime,
+        networkStatusSource: network,
+        readAllowMeteredDownloads: () async => false,
+        readAllowMobileData: () async => false,
+        onChanged: snapshots.add,
+      );
+      await controller.initialize();
+
+      await controller.refresh();
+
+      expect(runtime.suspensionValues, <bool>[false]);
+      expect(snapshots, hasLength(1));
+
+      await controller.dispose();
+      await network.close();
+    });
+
+    test('refresh fails closed and reports a current-route failure', () async {
+      final runtime = _FakeTorrentRuntime();
+      final network = _FakeNetworkStatusSource(_unmeteredWifi);
+      final errors = <Object>[];
+      final controller = TransferPolicyController(
+        runtime: runtime,
+        networkStatusSource: network,
+        readAllowMeteredDownloads: () async => false,
+        readAllowMobileData: () async => false,
+        onError: (error, _) => errors.add(error),
+      );
+      await controller.initialize();
+
+      network.failNextCurrent = StateError('route query failed');
+      await controller.refresh();
+
+      expect(controller.snapshot.reason, TransferSuspensionReason.offline);
+      expect(controller.snapshot.suspended, isTrue);
+      expect(runtime.suspensionValues, <bool>[false, true]);
+      expect(errors, hasLength(1));
+
+      await controller.dispose();
+      await network.close();
+    });
+
     test('recreation rereads and reapplies both persisted settings', () async {
       var allowMeteredDownloads = false;
       var allowMobileData = false;
@@ -731,6 +839,7 @@ final class _FakeNetworkStatusSource implements NetworkStatusSource {
   _FakeNetworkStatusSource(this.value, {this.events});
 
   NetworkStatus value;
+  Object? failNextCurrent;
   final List<String>? events;
   final StreamController<NetworkStatus> _controller =
       StreamController<NetworkStatus>.broadcast(sync: true);
@@ -741,6 +850,11 @@ final class _FakeNetworkStatusSource implements NetworkStatusSource {
   @override
   Future<NetworkStatus> current() async {
     events?.add('currentNetworkStatus');
+    final failure = failNextCurrent;
+    failNextCurrent = null;
+    if (failure != null) {
+      throw failure;
+    }
     return value;
   }
 
