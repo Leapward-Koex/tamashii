@@ -46,6 +46,24 @@ class ShowCard extends ConsumerWidget {
   static Key featuredPosterTransformKey(String showName) =>
       ValueKey<String>('featured-show-poster-transform-$showName');
 
+  static Key featuredCardKey(String showName) =>
+      ValueKey<String>('featured-show-card-$showName');
+
+  static Key featuredTopBadgeKey(String showName) =>
+      ValueKey<String>('featured-show-top-badge-$showName');
+
+  static Key featuredContentKey(String showName) =>
+      ValueKey<String>('featured-show-content-$showName');
+
+  static Key standardCardKey(String showName) =>
+      ValueKey<String>('standard-show-card-$showName');
+
+  static Key standardStatusKey(String showName) =>
+      ValueKey<String>('standard-show-status-$showName');
+
+  static Key standardActionsKey(String showName) =>
+      ValueKey<String>('standard-show-actions-$showName');
+
   static Future<SeriesFolderResolutionPlan> _defaultSeriesFolderPlanBuilder({
     required ShowInfo showInfo,
     required String basePath,
@@ -186,8 +204,10 @@ class ShowCard extends ConsumerWidget {
     final isDownloading = torrentDownloadState.isDownloading;
     final isPaused = torrentDownloadState.isPaused;
     final hasActiveTorrent = torrentDownloadState.torrentId != null;
+    final showTorrentDetails =
+        hasActiveTorrent && !torrentDownloadState.isCompleted;
     final showProgress =
-        hasActiveTorrent && progressFraction > 0 && progressFraction < 1;
+        showTorrentDetails && progressFraction > 0 && progressFraction < 1;
     final torrentStateColor = _getTorrentStateColor(
       torrentDownloadState.currentState,
     );
@@ -344,6 +364,7 @@ class ShowCard extends ConsumerWidget {
             isDownloading: isDownloading,
             progressFraction: progressFraction,
             showProgress: showProgress,
+            showTorrentDetails: showTorrentDetails,
             torrentDownloadState: torrentDownloadState,
             torrentStateColor: torrentStateColor,
             downloadRate: downloadRate,
@@ -362,6 +383,7 @@ class ShowCard extends ConsumerWidget {
             isDownloading: isDownloading,
             progressFraction: progressFraction,
             showProgress: showProgress,
+            showTorrentDetails: showTorrentDetails,
             torrentDownloadState: torrentDownloadState,
             torrentStateColor: torrentStateColor,
             downloadRate: downloadRate,
@@ -384,6 +406,7 @@ class ShowCard extends ConsumerWidget {
     required bool isDownloading,
     required double progressFraction,
     required bool showProgress,
+    required bool showTorrentDetails,
     required TorrentDownloadState torrentDownloadState,
     required Color torrentStateColor,
     required int downloadRate,
@@ -393,8 +416,11 @@ class ShowCard extends ConsumerWidget {
   }) {
     final theme = Theme.of(context);
 
-    return Container(
-      height: 324,
+    return AnimatedContainer(
+      key: featuredCardKey(show.show),
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      height: showTorrentDetails ? 424 : 324,
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(30),
@@ -436,10 +462,13 @@ class ShowCard extends ConsumerWidget {
             Positioned(
               top: 18,
               left: 18,
-              child: _buildInfoPill(
-                label: 'Latest release',
-                foregroundColor: Colors.white,
-                backgroundColor: Colors.white.withValues(alpha: 0.14),
+              child: KeyedSubtree(
+                key: featuredTopBadgeKey(show.show),
+                child: _buildInfoPill(
+                  label: 'Latest release',
+                  foregroundColor: Colors.white,
+                  backgroundColor: Colors.white.withValues(alpha: 0.14),
+                ),
               ),
             ),
             if (isDownloaded)
@@ -457,6 +486,7 @@ class ShowCard extends ConsumerWidget {
               right: 18,
               bottom: 18,
               child: Container(
+                key: featuredContentKey(show.show),
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   color: Colors.black.withValues(alpha: 0.3),
@@ -495,10 +525,11 @@ class ShowCard extends ConsumerWidget {
                           foregroundColor: Colors.white,
                           backgroundColor: Colors.white.withValues(alpha: 0.12),
                         ),
-                        if (torrentDownloadState.torrentId != null)
+                        if (showTorrentDetails)
                           _buildInfoPill(
-                            label: torrentDownloadState.currentState.name
-                                .toUpperCase(),
+                            label: _torrentStateLabel(
+                              torrentDownloadState.currentState,
+                            ),
                             foregroundColor: Colors.white,
                             backgroundColor: torrentStateColor.withValues(
                               alpha: 0.28,
@@ -506,7 +537,7 @@ class ShowCard extends ConsumerWidget {
                           ),
                       ],
                     ),
-                    if (torrentDownloadState.torrentId != null) ...[
+                    if (showTorrentDetails) ...[
                       const SizedBox(height: 14),
                       Row(
                         children: [
@@ -629,6 +660,7 @@ class ShowCard extends ConsumerWidget {
     required bool isDownloading,
     required double progressFraction,
     required bool showProgress,
+    required bool showTorrentDetails,
     required TorrentDownloadState torrentDownloadState,
     required Color torrentStateColor,
     required int downloadRate,
@@ -639,6 +671,7 @@ class ShowCard extends ConsumerWidget {
     final theme = Theme.of(context);
 
     return Container(
+      key: standardCardKey(show.show),
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(26),
@@ -669,6 +702,7 @@ class ShowCard extends ConsumerWidget {
             children: [
               SizedBox(
                 width: 132,
+                height: 180,
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
@@ -743,9 +777,10 @@ class ShowCard extends ConsumerWidget {
                           ),
                         ),
                       ],
-                      if (torrentDownloadState.torrentId != null) ...[
+                      if (showTorrentDetails) ...[
                         const SizedBox(height: 14),
                         Container(
+                          key: standardStatusKey(show.show),
                           padding: const EdgeInsets.symmetric(
                             horizontal: 12,
                             vertical: 10,
@@ -769,14 +804,19 @@ class ShowCard extends ConsumerWidget {
                                     color: torrentStateColor,
                                   ),
                                   const SizedBox(width: 6),
-                                  Text(
-                                    torrentDownloadState.currentState.name
-                                        .toUpperCase(),
-                                    style: theme.textTheme.labelMedium
-                                        ?.copyWith(
-                                          color: torrentStateColor,
-                                          fontWeight: FontWeight.w700,
-                                        ),
+                                  Expanded(
+                                    child: Text(
+                                      _torrentStateLabel(
+                                        torrentDownloadState.currentState,
+                                      ),
+                                      style: theme.textTheme.labelMedium
+                                          ?.copyWith(
+                                            color: torrentStateColor,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -798,7 +838,9 @@ class ShowCard extends ConsumerWidget {
                         ),
                       ],
                       const Spacer(),
+                      const SizedBox(height: 16),
                       Row(
+                        key: standardActionsKey(show.show),
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           FilledButton.tonal(
@@ -913,6 +955,25 @@ class ShowCard extends ConsumerWidget {
     }
 
     return stats.join(' • ');
+  }
+
+  String _torrentStateLabel(TorrentState state) {
+    switch (state) {
+      case TorrentState.starting:
+        return 'STARTING';
+      case TorrentState.downloadingMetadata:
+        return 'GETTING INFO';
+      case TorrentState.downloading:
+        return 'DOWNLOADING';
+      case TorrentState.seeding:
+        return 'SEEDING';
+      case TorrentState.paused:
+        return 'PAUSED';
+      case TorrentState.error:
+        return 'ERROR';
+      case TorrentState.stopped:
+        return 'STOPPED';
+    }
   }
 
   IconData _downloadActionIcon({
