@@ -53,6 +53,12 @@ abstract class OnDeviceTextGenerator {
 class PlatformGeminiNanoService implements OnDeviceTextGenerator {
   const PlatformGeminiNanoService();
 
+  static const OnDeviceModelCatalog _unavailableCatalog = OnDeviceModelCatalog(
+    activeModel: null,
+    availableModels: <String>[],
+    featureStatus: null,
+  );
+
   static const MethodChannel _channel = MethodChannel(
     'com.leapwardkoex.tamashii/gemini_nano',
   );
@@ -60,11 +66,7 @@ class PlatformGeminiNanoService implements OnDeviceTextGenerator {
   @override
   Future<OnDeviceModelCatalog> getModelCatalog() async {
     if (!_isAndroidBuild) {
-      return const OnDeviceModelCatalog(
-        activeModel: null,
-        availableModels: <String>[],
-        featureStatus: null,
-      );
+      return _unavailableCatalog;
     }
 
     final Map<Object?, Object?>? result;
@@ -73,19 +75,16 @@ class PlatformGeminiNanoService implements OnDeviceTextGenerator {
         'getModelCatalog',
       );
     } on MissingPluginException {
-      return const OnDeviceModelCatalog(
-        activeModel: null,
-        availableModels: <String>[],
-        featureStatus: null,
-      );
+      return _unavailableCatalog;
+    } on PlatformException {
+      // Model discovery is optional. Native SDK setup/status failures mean the
+      // model cannot be used, so expose the normal fallback state instead of a
+      // platform stack trace in Settings.
+      return _unavailableCatalog;
     }
 
     if (result == null) {
-      return const OnDeviceModelCatalog(
-        activeModel: null,
-        availableModels: <String>[],
-        featureStatus: null,
-      );
+      return _unavailableCatalog;
     }
 
     return OnDeviceModelCatalog.fromMap(result);

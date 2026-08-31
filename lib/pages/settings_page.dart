@@ -23,8 +23,10 @@ class SettingsPage extends ConsumerWidget {
     final autoGen = ref.watch(autoGenerateFoldersProvider);
     final basePath = ref.watch(downloadBasePathProvider);
     final mapping = ref.watch(seriesFolderMappingProvider);
-    final modelCatalog = ref.watch(onDeviceModelCatalogProvider);
     final autoGenValue = autoGen.asData?.value;
+    final modelCatalog = autoGenValue == true
+        ? ref.watch(onDeviceModelCatalogProvider)
+        : null;
     final isAndroid =
         (platform ?? defaultTargetPlatform) == TargetPlatform.android;
     final allowMeteredDownloads = isAndroid
@@ -185,8 +187,9 @@ class SettingsPage extends ConsumerWidget {
         const Divider(),
 
         if (autoGenValue == true) ...[
-          modelCatalog.when(
+          modelCatalog!.when(
             data: (catalog) => ListTile(
+              key: const ValueKey<String>('onDeviceAiStatus'),
               title: const Text('On-device AI'),
               subtitle: Text(
                 catalog.availableModels.isEmpty
@@ -195,12 +198,16 @@ class SettingsPage extends ConsumerWidget {
               ),
             ),
             loading: () => const ListTile(
+              key: ValueKey<String>('onDeviceAiStatus'),
               title: Text('On-device AI'),
               subtitle: Text('Checking model availability...'),
             ),
-            error: (error, _) => ListTile(
-              title: const Text('On-device AI'),
-              subtitle: Text('Error: $error'),
+            error: (_, _) => const ListTile(
+              key: ValueKey<String>('onDeviceAiStatus'),
+              title: Text('On-device AI'),
+              subtitle: Text(
+                'Unavailable. Folder generation will fall back to plain series names.',
+              ),
             ),
           ),
           const Divider(),
