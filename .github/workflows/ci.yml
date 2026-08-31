@@ -10,6 +10,7 @@ permissions:
   contents: read
 
 env:
+  ANDROID_NDK_VERSION: '29.0.13113456'
   SAFE_TORRENT_DEFINE: TAMASHII_USE_TEST_TORRENT=true
 
 jobs:
@@ -30,6 +31,12 @@ jobs:
         with:
           distribution: zulu
           java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools ndk;${{ env.ANDROID_NDK_VERSION }}'
+          log-accepted-android-sdk-licenses: false
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -98,6 +105,12 @@ jobs:
           distribution: zulu
           java-version: '17'
 
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools ndk;${{ env.ANDROID_NDK_VERSION }}'
+          log-accepted-android-sdk-licenses: false
+
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -121,7 +134,9 @@ jobs:
             'storeFile=smoke-upload-keystore.jks' > android/key.properties
 
       - name: Build Android
-        run: flutter build apk --${{ matrix.mode }} --no-pub --dart-define=${{ env.SAFE_TORRENT_DEFINE }}
+        # Flutter must refresh its build-mode-specific Android plugin registrant;
+        # --no-pub can leave the dev-only integration_test plugin in release builds.
+        run: flutter build apk --${{ matrix.mode }} --dart-define=${{ env.SAFE_TORRENT_DEFINE }}
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -157,7 +172,8 @@ jobs:
           dart run tool/verify_simple_torrent_artifacts.dart
 
       - name: Build Windows
-        run: flutter build windows --${{ matrix.mode }} --no-pub --dart-define=${{ env.SAFE_TORRENT_DEFINE }}
+        # Keep pub enabled so Flutter refreshes build-mode-specific plugin registrants.
+        run: flutter build windows --${{ matrix.mode }} --dart-define=${{ env.SAFE_TORRENT_DEFINE }}
 
       - name: Upload Windows bundle
         uses: actions/upload-artifact@v4
