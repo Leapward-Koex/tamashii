@@ -54,13 +54,12 @@ class BaseFolderDirectoryLister {
       return <String>[];
     }
 
-    final entries =
-        await directory
-            .list(followLinks: false)
-            .where((entity) => entity is Directory)
-            .cast<Directory>()
-            .map((directory) => p.basename(directory.path))
-            .toList();
+    final entries = await directory
+        .list(followLinks: false)
+        .where((entity) => entity is Directory)
+        .cast<Directory>()
+        .map((directory) => p.basename(directory.path))
+        .toList();
 
     entries.sort((lhs, rhs) => lhs.toLowerCase().compareTo(rhs.toLowerCase()));
     return entries;
@@ -116,8 +115,8 @@ class SeriesFolderResolutionService {
 
       final seriesFolderName =
           existingSeriesFolders.contains(suggestion.seriesName)
-              ? suggestion.seriesName
-              : sanitizeFolderSegment(suggestion.seriesName);
+          ? suggestion.seriesName
+          : sanitizeFolderSegment(suggestion.seriesName);
       final seasonFolderName = normalizeUserSeasonFolder(
         suggestion.seasonFolder,
       );
@@ -183,10 +182,9 @@ SeriesFolderAiSuggestion? parseAiSuggestion(
       return null;
     }
 
-    final seriesName =
-        (decoded['series_name'] ?? decoded['seriesName'] ?? '')
-            .toString()
-            .trim();
+    final seriesName = (decoded['series_name'] ?? decoded['seriesName'] ?? '')
+        .toString()
+        .trim();
     final reason = (decoded['reason'] ?? '').toString().trim();
     final matchedExistingFolder =
         decoded['matched_existing_folder'] == true ||
@@ -220,12 +218,11 @@ String buildPath({
 }
 
 String sanitizeFolderSegment(String input) {
-  final sanitized =
-      input
-          .trim()
-          .replaceAll(RegExp(r'[^\w\s-]+'), '_')
-          .replaceAll(RegExp(r'\s+'), ' ')
-          .trim();
+  final sanitized = input
+      .trim()
+      .replaceAll(RegExp(r'[^\w\s-]+'), '_')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
   return sanitized.isEmpty ? 'Unknown Series' : sanitized;
 }
 

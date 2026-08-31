@@ -91,13 +91,16 @@ void main() {
     await tester.pump();
     await tester.pumpAndSettle();
 
-    final initialSearchHeight =
-        tester.getSize(find.byKey(HomePage.searchBarShellKey)).height;
+    final initialSearchHeight = tester
+        .getSize(find.byKey(HomePage.searchBarShellKey))
+        .height;
     final heroTransformFinder = find.byKey(
       ShowCard.featuredPosterTransformKey('Featured Show'),
     );
-    final initialHeroOffset =
-        tester.widget<Transform>(heroTransformFinder).transform.storage[13];
+    final initialHeroOffset = tester
+        .widget<Transform>(heroTransformFinder)
+        .transform
+        .storage[13];
 
     await tester.drag(
       find.byKey(HomePage.scrollViewKey),
@@ -105,10 +108,13 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final collapsedSearchHeight =
-        tester.getSize(find.byKey(HomePage.searchBarShellKey)).height;
-    final updatedHeroOffset =
-        tester.widget<Transform>(heroTransformFinder).transform.storage[13];
+    final collapsedSearchHeight = tester
+        .getSize(find.byKey(HomePage.searchBarShellKey))
+        .height;
+    final updatedHeroOffset = tester
+        .widget<Transform>(heroTransformFinder)
+        .transform
+        .storage[13];
 
     expect(collapsedSearchHeight, lessThan(initialSearchHeight));
     expect(updatedHeroOffset, greaterThan(initialHeroOffset));

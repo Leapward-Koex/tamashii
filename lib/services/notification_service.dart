@@ -14,9 +14,7 @@ class NotificationService {
         AndroidInitializationSettings('@mipmap/ic_launcher');
 
     const DarwinInitializationSettings initializationSettingsIOS =
-        DarwinInitializationSettings(
-          
-        );
+        DarwinInitializationSettings();
 
     const WindowsInitializationSettings initializationSettingsWindows =
         WindowsInitializationSettings(
@@ -33,7 +31,7 @@ class NotificationService {
           windows: initializationSettingsWindows,
         );
 
-    await _notifications.initialize(initializationSettings);
+    await _notifications.initialize(settings: initializationSettings);
     _initialized = true;
   }
 
@@ -70,10 +68,10 @@ class NotificationService {
     );
 
     await _notifications.show(
-      notificationId,
-      'Download Complete',
-      message,
-      notificationDetails,
+      id: notificationId,
+      title: 'Download Complete',
+      body: message,
+      notificationDetails: notificationDetails,
     );
   }
 }

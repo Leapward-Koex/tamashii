@@ -1,114 +1,78 @@
-// lib/services/permission_service.dart
-
-import 'package:permission_handler/permission_handler.dart';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
+import 'package:permission_handler/permission_handler.dart';
+
 class PermissionService {
-  /// Request storage permissions needed for torrent downloads
+  /// Requests Android's all-files access used by arbitrary download folders.
+  ///
+  /// iOS and desktop platforms rely on their native file picker/sandbox model
+  /// and do not expose Android's storage permission.
   static Future<bool> requestStoragePermissions() async {
-    try {
-      // For Android 11+ (API 30+), we need different permissions
-      if (Platform.isAndroid) {
-        return await _requestAndroidStoragePermissions();
-      } else if (Platform.isIOS) {
-        return await _requestIOSStoragePermissions();
-      }
-
-      return true; // For other platforms, assume permissions are granted
-    } catch (e) {
-      print('❌ Error requesting storage permissions: $e');
-      return false;
-    }
-  }
-
-  static Future<bool> _requestAndroidStoragePermissions() async {
-    Map<Permission, PermissionStatus> permissions = {};
-
-    // Get Android SDK version to determine which permissions to request
-    if (await _isAndroid11OrHigher()) {
-      // Android 11+ (API 30+) - Use scoped storage permissions
-      permissions = await [Permission.manageExternalStorage].request();
-    } else {
-      // Android 10 and below - Use legacy storage permissions
-      permissions =
-          await [Permission.storage, Permission.notification].request();
-    }
-
-    // Check if all permissions are granted
-    final bool allGranted = permissions.values.every(
-      (status) =>
-          status == PermissionStatus.granted ||
-          status == PermissionStatus.limited,
-    );
-
-    if (!allGranted) {
-      print('🔒 Storage permissions not fully granted:');
-      permissions.forEach((permission, status) {
-        print('  ${permission.toString()}: ${status.toString()}');
-      });
-    }
-
-    return allGranted;
-  }
-
-  static Future<bool> _requestIOSStoragePermissions() async {
-    // iOS handles file access differently - mainly through document picker
-    // Request photo library access if needed for downloads to photo library
-    final permissions =
-        await [Permission.storage, Permission.notification].request();
-
-    return permissions.values.every(
-      (status) =>
-          status == PermissionStatus.granted ||
-          status == PermissionStatus.limited,
-    );
-  }
-
-  static Future<bool> _isAndroid11OrHigher() async {
-    // This is a simplified check - in a real app you might want to use
-    // device_info_plus to get the exact API level
-    try {
-      await Permission.manageExternalStorage.status;
-      // If the permission exists, we're on Android 11+
+    if (!Platform.isAndroid) {
       return true;
-    } catch (e) {
-      // If the permission doesn't exist, we're on Android 10 or below
+    }
+
+    try {
+      final status = await Permission.manageExternalStorage.request();
+      return status.isGranted;
+    } catch (error) {
+      debugPrint('Error requesting all-files access: $error');
       return false;
     }
   }
 
-  /// Check current storage permission status
+  /// Checks Android all-files access without prompting.
   static Future<bool> hasStoragePermissions() async {
-    try {
-      if (Platform.isAndroid) {
-        if (await _isAndroid11OrHigher()) {
-          final storage = await Permission.storage.status;
-          final manageExternal = await Permission.manageExternalStorage.status;
-          return storage.isGranted &&
-              (manageExternal.isGranted || manageExternal.isLimited);
-        } else {
-          final storage = await Permission.storage.status;
-          return storage.isGranted;
-        }
-      } else if (Platform.isIOS) {
-        final storage = await Permission.storage.status;
-        return storage.isGranted || storage.isLimited;
-      }
+    if (!Platform.isAndroid) {
+      return true;
+    }
 
-      return true; // For other platforms
-    } catch (e) {
-      print('❌ Error checking storage permissions: $e');
+    try {
+      return (await Permission.manageExternalStorage.status).isGranted;
+    } catch (error) {
+      debugPrint('Error checking all-files access: $error');
       return false;
+    }
+  }
+
+  /// Returns an actionable error when [path] cannot hold a download.
+  ///
+  /// The probe is removed immediately. A missing selected directory is created
+  /// because libtorrent also expects its save root to exist before a start.
+  static Future<String?> validateDownloadDirectory(String path) async {
+    if (path.trim().isEmpty) {
+      return 'Choose a download folder before starting the torrent.';
+    }
+
+    final directory = Directory(path);
+    File? probe;
+    try {
+      await directory.create(recursive: true);
+      probe = File(
+        '${directory.path}${Platform.pathSeparator}'
+        '.tamashii-write-test-${DateTime.now().microsecondsSinceEpoch}',
+      );
+      await probe.writeAsBytes(const <int>[0], flush: true);
+      return null;
+    } on FileSystemException {
+      return 'Tamashii cannot write to "$path". Choose another folder or '
+          'grant all-files access in Android Settings.';
+    } finally {
+      if (probe != null && await probe.exists()) {
+        try {
+          await probe.delete();
+        } on FileSystemException {
+          // A failed cleanup does not change whether the directory is writable.
+        }
+      }
     }
   }
 
   /// Show permission rationale dialog
   static Future<bool> shouldShowPermissionRationale() async {
-    if (Platform.isAndroid) {
-      return await Permission.storage.shouldShowRequestRationale ||
-          await Permission.manageExternalStorage.shouldShowRequestRationale;
-    }
-    return false;
+    return Platform.isAndroid &&
+        await Permission.manageExternalStorage.shouldShowRequestRationale;
   }
 
   /// Open app settings for manual permission grant
@@ -121,8 +85,8 @@ class PermissionService {
     try {
       final status = await Permission.notification.request();
       return status.isGranted;
-    } catch (e) {
-      print('❌ Error requesting notification permission: $e');
+    } catch (error) {
+      debugPrint('Error requesting notification permission: $error');
       return false;
     }
   }

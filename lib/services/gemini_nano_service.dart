@@ -12,11 +12,10 @@ class OnDeviceModelCatalog {
     final available = map['availableModels'] as List<Object?>? ?? const [];
     return OnDeviceModelCatalog(
       activeModel: map['activeModel'] as String?,
-      availableModels:
-          available
-              .whereType<String>()
-              .where((item) => item.isNotEmpty)
-              .toList(),
+      availableModels: available
+          .whereType<String>()
+          .where((item) => item.isNotEmpty)
+          .toList(),
       featureStatus: (map['featureStatus'] as num?)?.toInt(),
     );
   }

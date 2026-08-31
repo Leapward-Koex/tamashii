@@ -1,8 +1,7 @@
-gradle-wrapper.jar
+# Keep the Gradle wrapper launchers and JAR under version control so Android
+# tasks work from a clean checkout.
 /.gradle
 /captures/
-/gradlew
-/gradlew.bat
 /local.properties
 GeneratedPluginRegistrant.java
 .cxx/

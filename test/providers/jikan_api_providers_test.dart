@@ -22,7 +22,6 @@ class FakeJikanApi extends JikanApi {
         titleEnglish: 'Cowboy Bebop',
         type: 'TV',
         episodes: 26,
-        imageUrl: '',
       ),
     ];
   }
@@ -57,7 +56,7 @@ void main() {
         final provider = searchJikanShowsProvider(' hero ');
         final subscription = container.listen(
           provider,
-          (_, __) {},
+          (_, _) {},
           fireImmediately: true,
         );
 

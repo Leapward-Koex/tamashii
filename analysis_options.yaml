@@ -2,7 +2,7 @@
 include: package:flutter_lints/flutter.yaml
 
 analyzer:
-  # Exclude generated files and build artifacts from analysis
+  # Keep generated output out of analysis while checking authored platform code.
   exclude:
     - 'build/**'
     - '.dart_tool/**'

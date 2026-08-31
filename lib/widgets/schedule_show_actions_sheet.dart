@@ -84,14 +84,12 @@ class ScheduleShowActionsSheet extends StatelessWidget {
                       contentPadding: const EdgeInsets.only(left: 56),
                       title: Text(_weekdayName(weekday)),
                       trailing: isCurrentDay ? const Icon(Icons.check) : null,
-                      onTap:
-                          isCurrentDay
-                              ? null
-                              : () {
-                                Navigator.of(
-                                  context,
-                                ).pop(ScheduleShowAction.changeDay(weekday));
-                              },
+                      onTap: isCurrentDay
+                          ? null
+                          : () {
+                              Navigator.of(context)
+                                  .pop(ScheduleShowAction.changeDay(weekday));
+                            },
                     );
                   }),
                 ),
@@ -119,6 +117,6 @@ class ScheduleShowActionsSheet extends StatelessWidget {
 }
 
 String _weekdayName(int weekday) {
-  final monday = DateTime.utc(2024, 1, 1);
+  final monday = DateTime.utc(2024);
   return DateFormat('EEEE').format(monday.add(Duration(days: weekday - 1)));
 }

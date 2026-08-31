@@ -4,9 +4,8 @@ String buildSeriesFolderPrompt({
   required String showTitle,
   required List<String> existingSeriesFolders,
 }) {
-  final encodedFolders = const JsonEncoder.withIndent(
-    '  ',
-  ).convert(existingSeriesFolders);
+  final encodedFolders = const JsonEncoder.withIndent('  ')
+      .convert(existingSeriesFolders);
 
   return '''
 You are helping choose a download folder for an anime or TV series.
@@ -37,5 +36,6 @@ $showTitle
 
 Existing series folders at the base path:
 $encodedFolders
-'''.trim();
+'''
+      .trim();
 }

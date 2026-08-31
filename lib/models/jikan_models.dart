@@ -1,3 +1,6 @@
+// Freezed copies these constructor annotations onto generated fields.
+// ignore_for_file: invalid_annotation_target
+
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'jikan_models.freezed.dart';

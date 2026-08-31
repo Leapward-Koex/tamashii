@@ -144,33 +144,26 @@ class SchedulePage extends HookConsumerWidget {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color:
-                        isSelected
-                            ? Theme.of(context).primaryColor
-                            : (isToday
-                                ? Theme.of(
-                                  context,
-                                ).primaryColor.withValues(alpha: 0.1)
-                                : Colors.transparent),
+                    color: isSelected
+                        ? Theme.of(context).primaryColor
+                        : (isToday
+                              ? Theme.of(context).primaryColor
+                                    .withValues(alpha: 0.1)
+                              : Colors.transparent),
                     borderRadius: BorderRadius.circular(16),
-                    border:
-                        isToday && !isSelected
-                            ? Border.all(color: Theme.of(context).primaryColor)
-                            : null,
+                    border: isToday && !isSelected
+                        ? Border.all(color: Theme.of(context).primaryColor)
+                        : null,
                   ),
                   child: Text(
                     dayName,
                     style: TextStyle(
-                      fontWeight:
-                          (isSelected || isToday)
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                      color:
-                          isSelected
-                              ? Theme.of(context).colorScheme.onPrimary
-                              : (isToday
-                                  ? Theme.of(context).primaryColor
-                                  : null),
+                      fontWeight: (isSelected || isToday)
+                          ? FontWeight.bold
+                          : FontWeight.normal,
+                      color: isSelected
+                          ? Theme.of(context).colorScheme.onPrimary
+                          : (isToday ? Theme.of(context).primaryColor : null),
                     ),
                   ),
                 ),
@@ -200,66 +193,63 @@ class SchedulePage extends HookConsumerWidget {
                     ),
                     const SizedBox(height: 8),
                     Expanded(
-                      child:
-                          dayShows.isEmpty
-                              ? Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.event_busy,
-                                      size: 48,
-                                      color: Colors.grey.shade400,
+                      child: dayShows.isEmpty
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.event_busy,
+                                    size: 48,
+                                    color: Colors.grey.shade400,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'No shows scheduled for $dayName',
+                                    style: TextStyle(
+                                      color: Colors.grey.shade600,
                                     ),
-                                    const SizedBox(height: 16),
-                                    Text(
-                                      'No shows scheduled for $dayName',
-                                      style: TextStyle(
-                                        color: Colors.grey.shade600,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              )
-                              : ListView.builder(
-                                itemCount: dayShows.length,
-                                itemBuilder: (context, i) {
-                                  final show = dayShows[i];
-                                  return Card(
-                                    margin: const EdgeInsets.symmetric(
-                                      vertical: 6.0,
-                                    ),
-                                    child: ListTile(
-                                      key: showTileKey(show.showName),
-                                      onTap: () => openActions(show),
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                            horizontal: 16.0,
-                                            vertical: 8.0,
-                                          ),
-                                      title: Text(
-                                        show.showName,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      subtitle:
-                                          show.isManualEntry
-                                              ? const Text('Manual entry')
-                                              : null,
-                                      trailing: const Icon(Icons.more_horiz),
-                                      leading: ClipRRect(
-                                        borderRadius: BorderRadius.circular(4),
-                                        child: ShowImage(
-                                          imageUrl: show.imageUrl,
-                                          width: 60,
-                                          height: 80,
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
+                                  ),
+                                ],
                               ),
+                            )
+                          : ListView.builder(
+                              itemCount: dayShows.length,
+                              itemBuilder: (context, i) {
+                                final show = dayShows[i];
+                                return Card(
+                                  margin: const EdgeInsets.symmetric(
+                                    vertical: 6.0,
+                                  ),
+                                  child: ListTile(
+                                    key: showTileKey(show.showName),
+                                    onTap: () => openActions(show),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 16.0,
+                                      vertical: 8.0,
+                                    ),
+                                    title: Text(
+                                      show.showName,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    subtitle: show.isManualEntry
+                                        ? const Text('Manual entry')
+                                        : null,
+                                    trailing: const Icon(Icons.more_horiz),
+                                    leading: ClipRRect(
+                                      borderRadius: BorderRadius.circular(4),
+                                      child: ShowImage(
+                                        imageUrl: show.imageUrl,
+                                        width: 60,
+                                        height: 80,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
                     ),
                   ],
                 ),
@@ -273,6 +263,6 @@ class SchedulePage extends HookConsumerWidget {
 }
 
 String _weekdayName(int weekday, {String pattern = 'EEEE'}) {
-  final monday = DateTime.utc(2024, 1, 1);
+  final monday = DateTime.utc(2024);
   return DateFormat(pattern).format(monday.add(Duration(days: weekday - 1)));
 }

@@ -13,8 +13,12 @@ import 'package:tamashii/widgets/show_image.dart';
 class AddScheduleShowSheet extends HookConsumerWidget {
   const AddScheduleShowSheet({super.key});
 
-  static const Key dayDropdownKey = ValueKey<String>('add-schedule-show-day-dropdown');
-  static const Key searchFieldKey = ValueKey<String>('add-schedule-show-search-field');
+  static const Key dayDropdownKey = ValueKey<String>(
+    'add-schedule-show-day-dropdown',
+  );
+  static const Key searchFieldKey = ValueKey<String>(
+    'add-schedule-show-search-field',
+  );
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -53,14 +57,25 @@ class AddScheduleShowSheet extends HookConsumerWidget {
       };
     }, [queryController]);
 
-    final searchResultsAsync = ref.watch(searchJikanShowsProvider(submittedQuery.value));
-    final watchingShows = ref.watch(bookmarkedSeriesProvider).value ?? const <BookmarkedShowInfo>[];
+    final searchResultsAsync = ref.watch(
+      searchJikanShowsProvider(submittedQuery.value),
+    );
+    final watchingShows =
+        ref.watch(bookmarkedSeriesProvider).value ??
+        const <BookmarkedShowInfo>[];
 
     return SafeArea(
       child: Padding(
-        padding: EdgeInsets.fromLTRB(16, 12, 16, MediaQuery.viewInsetsOf(context).bottom + 16),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          12,
+          16,
+          MediaQuery.viewInsetsOf(context).bottom + 16,
+        ),
         child: ConstrainedBox(
-          constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.85),
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * 0.85,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -68,21 +83,36 @@ class AddScheduleShowSheet extends HookConsumerWidget {
                 child: Container(
                   width: 40,
                   height: 4,
-                  decoration: BoxDecoration(color: Theme.of(context).colorScheme.outlineVariant, borderRadius: BorderRadius.circular(999)),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
-              Text('Add show', style: Theme.of(context).textTheme.headlineSmall),
+              Text(
+                'Add show',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
               const SizedBox(height: 8),
-              Text('Pick a day, search, and add a show to your watching schedule.', style: Theme.of(context).textTheme.bodyMedium),
+              Text(
+                'Pick a day, search, and add a show to your watching schedule.',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
               const SizedBox(height: 16),
               DropdownButtonFormField<int>(
                 key: dayDropdownKey,
-                value: selectedDay.value,
-                decoration: const InputDecoration(labelText: 'Day', border: OutlineInputBorder()),
+                initialValue: selectedDay.value,
+                decoration: const InputDecoration(
+                  labelText: 'Day',
+                  border: OutlineInputBorder(),
+                ),
                 items: List<DropdownMenuItem<int>>.generate(7, (index) {
                   final weekday = index + 1;
-                  return DropdownMenuItem<int>(value: weekday, child: Text(_weekdayName(weekday)));
+                  return DropdownMenuItem<int>(
+                    value: weekday,
+                    child: Text(_weekdayName(weekday)),
+                  );
                 }),
                 onChanged: (value) {
                   if (value != null) {
@@ -140,21 +170,33 @@ class _SearchResults extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (submittedQuery.isEmpty) {
-      return _SearchPlaceholder(icon: Icons.travel_explore, label: 'Search for a show to add it to ${_weekdayName(selectedDay)}.');
+      return _SearchPlaceholder(
+        icon: Icons.travel_explore,
+        label: 'Search for a show to add it to ${_weekdayName(selectedDay)}.',
+      );
     }
 
     if (pendingQuery.isNotEmpty && pendingQuery != submittedQuery) {
-      return _SearchPlaceholder(icon: Icons.hourglass_bottom, label: 'Search for a show to add it to ${_weekdayName(selectedDay)}.');
+      return _SearchPlaceholder(
+        icon: Icons.hourglass_bottom,
+        label: 'Search for a show to add it to ${_weekdayName(selectedDay)}.',
+      );
     }
 
     return resultsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, _) {
-        return _SearchPlaceholder(icon: Icons.error_outline, label: error.toString());
+        return _SearchPlaceholder(
+          icon: Icons.error_outline,
+          label: error.toString(),
+        );
       },
       data: (results) {
         if (results.isEmpty) {
-          return const _SearchPlaceholder(icon: Icons.search_off, label: 'No matching shows found.');
+          return const _SearchPlaceholder(
+            icon: Icons.search_off,
+            label: 'No matching shows found.',
+          );
         }
 
         return ListView.separated(
@@ -163,41 +205,51 @@ class _SearchResults extends ConsumerWidget {
           itemBuilder: (context, index) {
             final result = results[index];
             final showName = result.displayTitle;
-            final alreadyWatching = watchingShows.any((show) => show.showName == showName);
+            final alreadyWatching = watchingShows.any(
+              (show) => show.showName == showName,
+            );
 
             return ListTile(
               key: ValueKey<String>('jikan-search-result-${result.malId}'),
               enabled: !alreadyWatching,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 4,
+                vertical: 8,
+              ),
               leading: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: ShowImage(imageUrl: result.imageUrl, width: 44, height: 60),
+                child: ShowImage(
+                  imageUrl: result.imageUrl,
+                  width: 44,
+                  height: 60,
+                ),
               ),
               title: Text(showName),
               subtitle: Text(_searchSubtitle(result, alreadyWatching)),
-              trailing: Icon(alreadyWatching ? Icons.check_circle : Icons.add_circle_outline),
-              onTap:
-                  alreadyWatching
-                      ? null
-                      : () async {
-                        final added = await ref
-                            .read(bookmarkedSeriesProvider.notifier)
-                            .add(
-                              BookmarkedShowInfo(
-                                imageUrl: result.imageUrl,
-                                releaseDayOfWeek: selectedDay,
-                                showName: showName,
-                                jikanId: result.malId,
-                                source: BookmarkedShowSource.manual,
-                              ),
-                            );
+              trailing: Icon(
+                alreadyWatching ? Icons.check_circle : Icons.add_circle_outline,
+              ),
+              onTap: alreadyWatching
+                  ? null
+                  : () async {
+                      final added = await ref
+                          .read(bookmarkedSeriesProvider.notifier)
+                          .add(
+                            BookmarkedShowInfo(
+                              imageUrl: result.imageUrl,
+                              releaseDayOfWeek: selectedDay,
+                              showName: showName,
+                              jikanId: result.malId,
+                              source: BookmarkedShowSource.manual,
+                            ),
+                          );
 
-                        if (!context.mounted || !added) {
-                          return;
-                        }
+                      if (!context.mounted || !added) {
+                        return;
+                      }
 
-                        Navigator.of(context).pop(showName);
-                      },
+                      Navigator.of(context).pop(showName);
+                    },
             );
           },
         );
@@ -211,7 +263,8 @@ class _SearchResults extends ConsumerWidget {
     }
 
     final details = <String>[
-      if (result.type != null && result.type!.trim().isNotEmpty) result.type!.trim(),
+      if (result.type != null && result.type!.trim().isNotEmpty)
+        result.type!.trim(),
       if (result.episodes != null) '${result.episodes} eps',
     ];
 
@@ -237,7 +290,11 @@ class _SearchPlaceholder extends StatelessWidget {
         children: [
           Icon(icon, size: 40, color: Theme.of(context).colorScheme.outline),
           const SizedBox(height: 12),
-          Text(label, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyMedium),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
         ],
       ),
     );
@@ -245,6 +302,6 @@ class _SearchPlaceholder extends StatelessWidget {
 }
 
 String _weekdayName(int weekday) {
-  final monday = DateTime.utc(2024, 1, 1);
+  final monday = DateTime.utc(2024);
   return DateFormat('EEEE').format(monday.add(Duration(days: weekday - 1)));
 }

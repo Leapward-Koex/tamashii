@@ -14,8 +14,9 @@ _JikanAnimeSearchResult _$JikanAnimeSearchResultFromJson(
   titleEnglish: json['title_english'] as String?,
   type: json['type'] as String?,
   episodes: (json['episodes'] as num?)?.toInt(),
-  imageUrl:
-      json['images'] == null ? '' : _jikanImageUrlFromJson(json['images']),
+  imageUrl: json['images'] == null
+      ? ''
+      : _jikanImageUrlFromJson(json['images']),
 );
 
 Map<String, dynamic> _$JikanAnimeSearchResultToJson(

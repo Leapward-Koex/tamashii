@@ -1,6 +1,7 @@
 // lib/providers/cached_episodes_provider.dart
 
 import 'dart:convert';
+
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tamashii/models/show_models.dart';
@@ -53,29 +54,27 @@ class CachedEpisodesNotifier extends _$CachedEpisodesNotifier {
   /// Cache new episodes from bookmarked series
   Future<void> cacheNewBookmarkedEpisodes(List<ShowInfo> apiEpisodes) async {
     final bookmarkedSeries = await ref.read(bookmarkedSeriesProvider.future);
-    final bookmarkedNames =
-        bookmarkedSeries
-            .where((bookmark) => bookmark.showsOnHomePage)
-            .map((bookmark) => bookmark.showName)
-            .toSet();
+    final bookmarkedNames = bookmarkedSeries
+        .where((bookmark) => bookmark.showsOnHomePage)
+        .map((bookmark) => bookmark.showName)
+        .toSet();
 
     // Get current cached episodes, defaulting to empty list if null
     final stateValue = state.value;
     final currentCached = stateValue ?? <ShowInfo>[];
 
     // Find new episodes from bookmarked series
-    final newBookmarkedEpisodes =
-        apiEpisodes
-            .where(
-              (episode) =>
-                  bookmarkedNames.contains(episode.show) &&
-                  !currentCached.any(
-                    (cached) =>
-                        cached.show == episode.show &&
-                        cached.episode == episode.episode,
-                  ),
-            )
-            .toList();
+    final newBookmarkedEpisodes = apiEpisodes
+        .where(
+          (episode) =>
+              bookmarkedNames.contains(episode.show) &&
+              !currentCached.any(
+                (cached) =>
+                    cached.show == episode.show &&
+                    cached.episode == episode.episode,
+              ),
+        )
+        .toList();
 
     if (newBookmarkedEpisodes.isNotEmpty) {
       await _addEpisodesToCache(newBookmarkedEpisodes);
@@ -118,8 +117,9 @@ class CachedEpisodesNotifier extends _$CachedEpisodesNotifier {
   Future<void> removeSeriesFromCache(String seriesName) async {
     final stateValue = state.value;
     final currentCached = stateValue ?? <ShowInfo>[];
-    final filteredCache =
-        currentCached.where((episode) => episode.show != seriesName).toList();
+    final filteredCache = currentCached
+        .where((episode) => episode.show != seriesName)
+        .toList();
 
     state = AsyncValue.data(filteredCache);
     await _saveToStorage(filteredCache);
@@ -161,10 +161,9 @@ class CachedEpisodesNotifier extends _$CachedEpisodesNotifier {
       uniqueEpisodes[key] = episode;
     }
 
-    final List<String> jsonStrings =
-        uniqueEpisodes.values
-            .map((episode) => json.encode(episode.toJson()))
-            .toList();
+    final List<String> jsonStrings = uniqueEpisodes.values
+        .map((episode) => json.encode(episode.toJson()))
+        .toList();
 
     await preferences.setStringList(_storageKey, jsonStrings);
   }
@@ -250,8 +249,9 @@ Future<List<ShowInfo>> filteredCombinedEpisodes(
       return <ShowInfo>[];
     }
 
-    final bookmarkedNames =
-        homePageBookmarks.map((bookmark) => bookmark.showName).toSet();
+    final bookmarkedNames = homePageBookmarks
+        .map((bookmark) => bookmark.showName)
+        .toSet();
 
     // Get combined episodes and filter by bookmarked series
     final combinedEpisodes = await ref.watch(

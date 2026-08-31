@@ -14,18 +14,17 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: Builder(
-            builder:
-                (context) => Center(
-                  child: FilledButton(
-                    onPressed: () {
-                      runWithDownloadPreparationDialog<void>(
-                        context: context,
-                        action: () => operationCompleter.future,
-                      );
-                    },
-                    child: const Text('Start'),
-                  ),
-                ),
+            builder: (context) => Center(
+              child: FilledButton(
+                onPressed: () {
+                  runWithDownloadPreparationDialog<void>(
+                    context: context,
+                    action: () => operationCompleter.future,
+                  );
+                },
+                child: const Text('Start'),
+              ),
+            ),
           ),
         ),
       ),

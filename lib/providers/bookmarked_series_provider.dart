@@ -1,4 +1,5 @@
 import 'dart:convert';
+
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tamashii/models/show_models.dart';
@@ -49,8 +50,9 @@ class BookmarkedSeriesNotifier extends _$BookmarkedSeriesNotifier {
       return false;
     }
 
-    final List<BookmarkedShowInfo> updatedList =
-        currentList.where((s) => s.showName != showName).toList();
+    final List<BookmarkedShowInfo> updatedList = currentList
+        .where((s) => s.showName != showName)
+        .toList();
     state = AsyncValue.data(updatedList);
     await _save(updatedList);
     return true;
@@ -81,8 +83,9 @@ class BookmarkedSeriesNotifier extends _$BookmarkedSeriesNotifier {
 
   Future<void> _save(List<BookmarkedShowInfo> list) async {
     final SharedPreferences preferences = await SharedPreferences.getInstance();
-    final List<String> rawList =
-        list.map((e) => jsonEncode(e.toJson())).toList();
+    final List<String> rawList = list
+        .map((e) => jsonEncode(e.toJson()))
+        .toList();
     await preferences.setStringList(_storageKey, rawList);
   }
 }

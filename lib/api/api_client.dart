@@ -1,6 +1,7 @@
 // lib/api/subsplease_api.dart
 
 import 'dart:convert';
+
 import 'package:flutter/foundation.dart'; // for debugPrint
 import 'package:http/http.dart' as http;
 import 'package:html/parser.dart' show parse;
@@ -25,13 +26,12 @@ class SubsPleaseApi {
       if (response.statusCode == 200) {
         final Map<String, dynamic> raw =
             json.decode(response.body) as Map<String, dynamic>;
-        final List<ShowInfo> shows =
-            raw.values
-                .map(
-                  (dynamic entry) =>
-                      ShowInfo.fromJson(entry as Map<String, dynamic>),
-                )
-                .toList();
+        final List<ShowInfo> shows = raw.values
+            .map(
+              (dynamic entry) =>
+                  ShowInfo.fromJson(entry as Map<String, dynamic>),
+            )
+            .toList();
         debugPrint('Retrieved subsplease shows (${shows.length})');
         return shows;
       } else {
@@ -58,13 +58,12 @@ class SubsPleaseApi {
       if (response.statusCode == 200) {
         final Map<String, dynamic> raw =
             json.decode(response.body) as Map<String, dynamic>;
-        final List<ShowInfo> shows =
-            raw.values
-                .map(
-                  (dynamic entry) =>
-                      ShowInfo.fromJson(entry as Map<String, dynamic>),
-                )
-                .toList();
+        final List<ShowInfo> shows = raw.values
+            .map(
+              (dynamic entry) =>
+                  ShowInfo.fromJson(entry as Map<String, dynamic>),
+            )
+            .toList();
         return shows;
       } else {
         debugPrint(

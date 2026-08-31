@@ -10,7 +10,7 @@ import flutter_local_notifications
 import open_file_mac
 import path_provider_foundation
 import shared_preferences_foundation
-import simple_torrent
+import simple_torrent_macos
 import sqflite_darwin
 
 func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {

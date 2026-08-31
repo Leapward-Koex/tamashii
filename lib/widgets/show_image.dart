@@ -38,11 +38,10 @@ class ShowImage extends ConsumerWidget {
       width: width,
       height: height,
       fit: fit,
-      placeholder:
-          (context, url) => const Center(child: CircularProgressIndicator()),
-      errorWidget:
-          (context, url, error) =>
-              const Center(child: Icon(Icons.broken_image, size: 40)),
+      placeholder: (context, url) =>
+          const Center(child: CircularProgressIndicator()),
+      errorWidget: (context, url, error) =>
+          const Center(child: Icon(Icons.broken_image, size: 40)),
     );
   }
 

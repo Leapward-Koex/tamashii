@@ -1,50 +1,41 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:simple_torrent/simple_torrent.dart';
 
+import 'package:tamashii/config/torrent_config.dart';
 import 'package:tamashii/pages/home_page.dart';
 import 'package:tamashii/providers/api_cache_sync_provider.dart';
 import 'package:tamashii/providers/foreground_torrent_provider.dart';
 import 'package:tamashii/services/notification_service.dart';
-import 'package:tamashii/services/permission_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize simple_torrent with optimal configuration for anime downloading
-  try {
-    await SimpleTorrent.init(
-      config: const TorrentConfig(
-        maxTorrents: 30, // Allow up to 30 concurrent downloads
-        maxUploadRate: 1024, // 1 MB/s upload limit to be a good citizen
-        userAgent: 'Tamashii/1.0', // Custom user agent
-      ),
-    );
-    debugPrint('✅ SimpleTorrent initialized successfully');
-  } catch (e) {
-    debugPrint('❌ Failed to initialize SimpleTorrent: $e');
-    // Continue anyway, as the app might still work
+  // Android torrents belong to the foreground service's Flutter engine, which
+  // initializes its own native manager before accepting download commands.
+  if (!Platform.isAndroid) {
+    try {
+      await SimpleTorrent.init(config: tamashiiTorrentConfig);
+      debugPrint('SimpleTorrent initialized successfully');
+    } on SimpleTorrentException catch (error) {
+      debugPrint(
+        'SimpleTorrent initialization failed (${error.code.name}): '
+        '${error.message}',
+      );
+    } catch (error) {
+      debugPrint('SimpleTorrent initialization failed: $error');
+    }
   }
 
   // Initialize notification service for torrent completion notifications
   try {
     await NotificationService.initialize();
-    debugPrint('✅ Notification service initialized successfully');
-  } catch (e) {
-    debugPrint('❌ Failed to initialize notification service: $e');
-  }
-
-  // Request notification permission on app start
-  try {
-    final notificationGranted =
-        await PermissionService.requestNotificationPermission();
-    debugPrint(
-      '📱 Notification permission: ${notificationGranted ? 'granted' : 'denied'}',
-    );
-  } catch (e) {
-    debugPrint('❌ Failed to request notification permission: $e');
+    debugPrint('Notification service initialized successfully');
+  } catch (error) {
+    debugPrint('Failed to initialize notification service: $error');
   }
 
   runApp(const ProviderScope(child: TamashiiApp()));

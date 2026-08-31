@@ -13,6 +13,7 @@ import 'package:tamashii/providers/on_device_ai_provider.dart';
 import 'package:tamashii/providers/settings_provider.dart';
 import 'package:tamashii/providers/torrent_download_provider.dart';
 import 'package:tamashii/services/gemini_nano_service.dart';
+import 'package:tamashii/services/permission_service.dart';
 import 'package:tamashii/services/series_folder_resolution_service.dart';
 import 'package:tamashii/widgets/download_preparation_dialog.dart';
 import 'package:tamashii/widgets/glowing_progress_bar.dart';
@@ -20,12 +21,11 @@ import 'package:tamashii/widgets/series_folder_confirmation_dialog.dart';
 import 'package:tamashii/widgets/show_image.dart';
 import 'package:tamashii/widgets/staggered_reveal.dart';
 
-typedef SeriesFolderPlanBuilder =
-    Future<SeriesFolderResolutionPlan> Function({
-      required ShowInfo showInfo,
-      required String basePath,
-      required OnDeviceTextGenerator textGenerator,
-    });
+typedef SeriesFolderPlanBuilder = Future<SeriesFolderResolutionPlan> Function({
+  required ShowInfo showInfo,
+  required String basePath,
+  required OnDeviceTextGenerator textGenerator,
+});
 
 class ShowCard extends ConsumerWidget {
   const ShowCard({
@@ -51,9 +51,8 @@ class ShowCard extends ConsumerWidget {
     required String basePath,
     required OnDeviceTextGenerator textGenerator,
   }) {
-    return SeriesFolderResolutionService(
-      textGenerator: textGenerator,
-    ).plan(showTitle: showInfo.show, basePath: basePath);
+    return SeriesFolderResolutionService(textGenerator: textGenerator)
+        .plan(showTitle: showInfo.show, basePath: basePath);
   }
 
   String _formatBytes(int bytes) {
@@ -100,12 +99,11 @@ class ShowCard extends ConsumerWidget {
 
       final plan = await runWithDownloadPreparationDialog(
         context: context,
-        action:
-            () => seriesFolderPlanBuilder(
-              showInfo: showInfo,
-              basePath: currentBasePath,
-              textGenerator: textGenerator,
-            ),
+        action: () => seriesFolderPlanBuilder(
+          showInfo: showInfo,
+          basePath: currentBasePath,
+          textGenerator: textGenerator,
+        ),
       );
 
       if (!context.mounted) {
@@ -134,9 +132,8 @@ class ShowCard extends ConsumerWidget {
         if (!context.mounted) {
           return null;
         }
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error creating folder: $e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error creating folder: $e')));
         return null;
       }
     }
@@ -195,7 +192,7 @@ class ShowCard extends ConsumerWidget {
       torrentDownloadState.currentState,
     );
 
-    Future<void> handleDownloadPressed() async {
+    Future<void> performDownloadAction() async {
       if (isDownloading) {
         await ref
             .read(foregroundTorrentManagerProvider.notifier)
@@ -235,9 +232,8 @@ class ShowCard extends ConsumerWidget {
       }
 
       if (torrentDownloadState.isCompleted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Download completed.')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Download completed.')));
         return;
       }
 
@@ -291,6 +287,38 @@ class ShowCard extends ConsumerWidget {
       }
     }
 
+    Future<void> handleDownloadPressed() async {
+      try {
+        await performDownloadAction();
+      } on ForegroundNotificationPermissionException catch (error) {
+        if (!context.mounted) {
+          return;
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error.toString()),
+            action: const SnackBarAction(
+              label: 'Settings',
+              onPressed: PermissionService.openSettings,
+            ),
+          ),
+        );
+      } on ForegroundTorrentCommandException catch (error) {
+        if (!context.mounted) {
+          return;
+        }
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.toString())));
+      } catch (error) {
+        if (!context.mounted) {
+          return;
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Unable to update download: $error')),
+        );
+      }
+    }
+
     Future<void> handleBookmarkPressed() async {
       if (isBookmarked) {
         await bookmarkedNotifier.remove(show.show);
@@ -306,42 +334,43 @@ class ShowCard extends ConsumerWidget {
       );
     }
 
-    final cardBody =
-        featured
-            ? _buildFeaturedCard(
-              context: context,
-              isBookmarked: isBookmarked,
-              isDownloaded: isDownloaded,
-              isLoadingTorrent: isLoadingTorrent,
-              isPaused: isPaused,
-              isDownloading: isDownloading,
-              progressFraction: progressFraction,
-              showProgress: showProgress,
-              torrentDownloadState: torrentDownloadState,
-              torrentStateColor: torrentStateColor,
-              downloadRate: downloadRate,
-              uploadRate: uploadRate,
-              onDownloadPressed:
-                  isLoadingTorrent ? null : () => handleDownloadPressed(),
-              onBookmarkPressed: () => handleBookmarkPressed(),
-            )
-            : _buildStandardCard(
-              context: context,
-              isBookmarked: isBookmarked,
-              isDownloaded: isDownloaded,
-              isLoadingTorrent: isLoadingTorrent,
-              isPaused: isPaused,
-              isDownloading: isDownloading,
-              progressFraction: progressFraction,
-              showProgress: showProgress,
-              torrentDownloadState: torrentDownloadState,
-              torrentStateColor: torrentStateColor,
-              downloadRate: downloadRate,
-              uploadRate: uploadRate,
-              onDownloadPressed:
-                  isLoadingTorrent ? null : () => handleDownloadPressed(),
-              onBookmarkPressed: () => handleBookmarkPressed(),
-            );
+    final cardBody = featured
+        ? _buildFeaturedCard(
+            context: context,
+            isBookmarked: isBookmarked,
+            isDownloaded: isDownloaded,
+            isLoadingTorrent: isLoadingTorrent,
+            isPaused: isPaused,
+            isDownloading: isDownloading,
+            progressFraction: progressFraction,
+            showProgress: showProgress,
+            torrentDownloadState: torrentDownloadState,
+            torrentStateColor: torrentStateColor,
+            downloadRate: downloadRate,
+            uploadRate: uploadRate,
+            onDownloadPressed: isLoadingTorrent
+                ? null
+                : () => handleDownloadPressed(),
+            onBookmarkPressed: () => handleBookmarkPressed(),
+          )
+        : _buildStandardCard(
+            context: context,
+            isBookmarked: isBookmarked,
+            isDownloaded: isDownloaded,
+            isLoadingTorrent: isLoadingTorrent,
+            isPaused: isPaused,
+            isDownloading: isDownloading,
+            progressFraction: progressFraction,
+            showProgress: showProgress,
+            torrentDownloadState: torrentDownloadState,
+            torrentStateColor: torrentStateColor,
+            downloadRate: downloadRate,
+            uploadRate: uploadRate,
+            onDownloadPressed: isLoadingTorrent
+                ? null
+                : () => handleDownloadPressed(),
+            onBookmarkPressed: () => handleBookmarkPressed(),
+          );
 
     return StaggeredReveal(index: revealIndex, child: cardBody);
   }
@@ -468,9 +497,8 @@ class ShowCard extends ConsumerWidget {
                         ),
                         if (torrentDownloadState.torrentId != null)
                           _buildInfoPill(
-                            label:
-                                torrentDownloadState.currentState.name
-                                    .toUpperCase(),
+                            label: torrentDownloadState.currentState.name
+                                .toUpperCase(),
                             foregroundColor: Colors.white,
                             backgroundColor: torrentStateColor.withValues(
                               alpha: 0.28,
@@ -535,22 +563,21 @@ class ShowCard extends ConsumerWidget {
                                 borderRadius: BorderRadius.circular(18),
                               ),
                             ),
-                            icon:
-                                isLoadingTorrent
-                                    ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                    : Icon(
-                                      _downloadActionIcon(
-                                        isDownloading: isDownloading,
-                                        isPaused: isPaused,
-                                        isDownloaded: isDownloaded,
-                                      ),
+                            icon: isLoadingTorrent
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
                                     ),
+                                  )
+                                : Icon(
+                                    _downloadActionIcon(
+                                      isDownloading: isDownloading,
+                                      isPaused: isPaused,
+                                      isDownloaded: isDownloaded,
+                                    ),
+                                  ),
                             label: Text(
                               _downloadActionLabel(
                                 isLoadingTorrent: isLoadingTorrent,
@@ -568,10 +595,9 @@ class ShowCard extends ConsumerWidget {
                           style: FilledButton.styleFrom(
                             minimumSize: const Size(52, 52),
                             foregroundColor: Colors.white,
-                            backgroundColor:
-                                isBookmarked
-                                    ? Colors.white.withValues(alpha: 0.22)
-                                    : Colors.white.withValues(alpha: 0.12),
+                            backgroundColor: isBookmarked
+                                ? Colors.white.withValues(alpha: 0.22)
+                                : Colors.white.withValues(alpha: 0.12),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(18),
                             ),
@@ -784,22 +810,21 @@ class ShowCard extends ConsumerWidget {
                                 borderRadius: BorderRadius.circular(16),
                               ),
                             ),
-                            child:
-                                isLoadingTorrent
-                                    ? const SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                    : Icon(
-                                      _downloadActionIcon(
-                                        isDownloading: isDownloading,
-                                        isPaused: isPaused,
-                                        isDownloaded: isDownloaded,
-                                      ),
+                            child: isLoadingTorrent
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
                                     ),
+                                  )
+                                : Icon(
+                                    _downloadActionIcon(
+                                      isDownloading: isDownloading,
+                                      isPaused: isPaused,
+                                      isDownloaded: isDownloaded,
+                                    ),
+                                  ),
                           ),
                           const SizedBox(width: 8),
                           FilledButton.tonal(
@@ -807,10 +832,9 @@ class ShowCard extends ConsumerWidget {
                             style: FilledButton.styleFrom(
                               minimumSize: const Size(48, 48),
                               padding: const EdgeInsets.all(0),
-                              backgroundColor:
-                                  isBookmarked
-                                      ? theme.colorScheme.primaryContainer
-                                      : theme.colorScheme.surfaceContainerHigh,
+                              backgroundColor: isBookmarked
+                                  ? theme.colorScheme.primaryContainer
+                                  : theme.colorScheme.surfaceContainerHigh,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(16),
                               ),

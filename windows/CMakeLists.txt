@@ -57,6 +57,15 @@ add_subdirectory("runner")
 # them to the application.
 include(flutter/generated_plugins.cmake)
 
+# flutter_local_notifications_windows 3.1.1 uses ATL only for its CW2A UTF-8
+# conversion helper. ATL is an optional Visual Studio component and is not part
+# of Flutter's documented Windows toolchain, so provide the narrow compatibility
+# header in this repository until the upstream plugin removes that dependency.
+if(MSVC AND TARGET flutter_local_notifications_windows)
+  target_include_directories(flutter_local_notifications_windows PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/compat/flutter_local_notifications_windows")
+endif()
+
 
 # === Installation ===
 # Support files are copied into place next to the executable, so that it can

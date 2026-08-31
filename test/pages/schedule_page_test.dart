@@ -57,10 +57,9 @@ void main() {
       'auto_generate_folders': true,
       'download_base_path': '',
       'series_folder_mapping': '{}',
-      'bookmarked_series':
-          initialBookmarks
-              .map((bookmark) => jsonEncode(bookmark.toJson()))
-              .toList(),
+      'bookmarked_series': initialBookmarks
+          .map((bookmark) => jsonEncode(bookmark.toJson()))
+          .toList(),
       'downloaded_torrents': <String>[],
       'show_filter': 'all',
     });
@@ -98,7 +97,6 @@ void main() {
             titleEnglish: 'My Hero Academia',
             type: 'TV',
             episodes: 13,
-            imageUrl: '',
           ),
         ],
       },
@@ -261,10 +259,12 @@ void main() {
     await tester.tap(find.byKey(SchedulePage.showTileKey('My Hero Academia')));
     await tester.pumpAndSettle();
 
-    final changeDayLeft =
-        tester.getTopLeft(find.text('Change schedule day')).dx;
-    final removeLeft =
-        tester.getTopLeft(find.text('Remove from watching list')).dx;
+    final changeDayLeft = tester
+        .getTopLeft(find.text('Change schedule day'))
+        .dx;
+    final removeLeft = tester
+        .getTopLeft(find.text('Remove from watching list'))
+        .dx;
 
     expect(changeDayLeft, removeLeft);
   });

@@ -12,22 +12,21 @@ Future<T> runWithDownloadPreparationDialog<T>({
     showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder:
-          (_) => const AlertDialog(
-            title: Text('Preparing download'),
-            content: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-                SizedBox(width: 16),
-                Flexible(child: Text('Working out download folder...')),
-              ],
+      builder: (_) => const AlertDialog(
+        title: Text('Preparing download'),
+        content: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2),
             ),
-          ),
+            SizedBox(width: 16),
+            Flexible(child: Text('Working out download folder...')),
+          ],
+        ),
+      ),
     ),
   );
 

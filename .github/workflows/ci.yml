@@ -1,0 +1,164 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  FLUTTER_VERSION: '3.47.2'
+  SAFE_TORRENT_DEFINE: TAMASHII_USE_TEST_TORRENT=true
+
+jobs:
+  quality:
+    name: Analyze and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Git LFS filters
+        run: git lfs install
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Verify bundled torrent binaries
+        run: dart run tool/verify_simple_torrent_artifacts.dart
+
+      - name: Verify generated sources
+        run: |
+          dart run build_runner build --delete-conflicting-outputs
+          generated_status="$RUNNER_TEMP/generated-sources-status.txt"
+          git status --short --untracked-files=all -- \
+            ':(glob)**/*.g.dart' \
+            ':(glob)**/*.freezed.dart' > "$generated_status"
+          if test -s "$generated_status"; then
+            echo 'Generated Dart sources are not up to date:' >&2
+            cat "$generated_status" >&2
+            exit 1
+          fi
+
+      - name: Verify formatting
+        run: dart format --output=none --set-exit-if-changed .
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
+
+      - name: Analyze and test Android network-cost plugin
+        working-directory: plugins/tamashii_network_cost
+        run: |
+          flutter analyze
+          flutter test
+
+      - name: Test Android network-cost adapter
+        working-directory: android
+        # Bash does not depend on the checkout preserving gradlew's executable bit.
+        run: bash ./gradlew :tamashii_network_cost:testDebugUnitTest
+
+  android-smoke:
+    name: Android ${{ matrix.mode }} build
+    needs: quality
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [debug, release]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Git LFS filters
+        run: git lfs install
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Resolve and verify dependencies
+        run: |
+          flutter pub get
+          dart run tool/verify_simple_torrent_artifacts.dart
+
+      - name: Create smoke-test signing key
+        if: matrix.mode == 'release'
+        run: |
+          keytool -genkeypair -keystore android/smoke-upload-keystore.jks -storepass tamashii-smoke -keypass tamashii-smoke -alias smoke -keyalg RSA -keysize 2048 -validity 1 -dname "CN=Tamashii CI"
+          printf '%s\n' \
+            'storePassword=tamashii-smoke' \
+            'keyPassword=tamashii-smoke' \
+            'keyAlias=smoke' \
+            'storeFile=smoke-upload-keystore.jks' > android/key.properties
+
+      - name: Build Android
+        run: flutter build apk --${{ matrix.mode }} --dart-define=${{ env.SAFE_TORRENT_DEFINE }}
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-${{ matrix.mode }}
+          path: build/app/outputs/flutter-apk/app-${{ matrix.mode }}.apk
+          retention-days: 14
+
+  windows-smoke:
+    name: Windows ${{ matrix.mode }} build
+    needs: quality
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [debug, release]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Git LFS filters
+        run: git lfs install
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Resolve and verify dependencies
+        run: |
+          flutter pub get
+          dart run tool/verify_simple_torrent_artifacts.dart
+
+      - name: Build Windows
+        run: flutter build windows --${{ matrix.mode }} --dart-define=${{ env.SAFE_TORRENT_DEFINE }}
+
+      - name: Upload Windows bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-${{ matrix.mode }}
+          path: build/windows/x64/runner/${{ matrix.mode }}/
+          retention-days: 14

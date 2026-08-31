@@ -6,8 +6,8 @@ part 'filter_provider.g.dart';
 
 /// Enum for different filter types
 enum ShowFilter {
-  all,      // Show all series
-  saved,    // Show only bookmarked/saved series
+  all, // Show all series
+  saved, // Show only bookmarked/saved series
 }
 
 /// Provider that manages the current filter state and persists it
@@ -19,12 +19,12 @@ class ShowFilterNotifier extends _$ShowFilterNotifier {
   Future<ShowFilter> build() async {
     final SharedPreferences preferences = await SharedPreferences.getInstance();
     final String? filterString = preferences.getString(_storageKey);
-    
+
     // Default to showing all series
     if (filterString == null) {
       return ShowFilter.all;
     }
-    
+
     // Parse the stored filter
     switch (filterString) {
       case 'saved':
@@ -45,7 +45,9 @@ class ShowFilterNotifier extends _$ShowFilterNotifier {
   /// Toggle between all and saved filters
   Future<void> toggleFilter() async {
     final currentFilter = state.value ?? ShowFilter.all;
-    final newFilter = currentFilter == ShowFilter.all ? ShowFilter.saved : ShowFilter.all;
+    final newFilter = currentFilter == ShowFilter.all
+        ? ShowFilter.saved
+        : ShowFilter.all;
     await setFilter(newFilter);
   }
 }
@@ -60,7 +62,7 @@ extension ShowFilterExtension on ShowFilter {
         return 'Saved Series';
     }
   }
-  
+
   IconData get icon {
     switch (this) {
       case ShowFilter.all:

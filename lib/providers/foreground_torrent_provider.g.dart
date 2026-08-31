@@ -9,6 +9,67 @@ part of 'foreground_torrent_provider.dart';
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
 
+@ProviderFor(ForegroundTransferPolicyStatus)
+const foregroundTransferPolicyStatusProvider =
+    ForegroundTransferPolicyStatusProvider._();
+
+final class ForegroundTransferPolicyStatusProvider
+    extends
+        $NotifierProvider<
+          ForegroundTransferPolicyStatus,
+          TransferPolicySnapshot
+        > {
+  const ForegroundTransferPolicyStatusProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'foregroundTransferPolicyStatusProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$foregroundTransferPolicyStatusHash();
+
+  @$internal
+  @override
+  ForegroundTransferPolicyStatus create() => ForegroundTransferPolicyStatus();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(TransferPolicySnapshot value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<TransferPolicySnapshot>(value),
+    );
+  }
+}
+
+String _$foregroundTransferPolicyStatusHash() =>
+    r'c8e0d4a60c255c3c5b3316d5b99785ff9930beff';
+
+abstract class _$ForegroundTransferPolicyStatus
+    extends $Notifier<TransferPolicySnapshot> {
+  TransferPolicySnapshot build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final created = build();
+    final ref =
+        this.ref as $Ref<TransferPolicySnapshot, TransferPolicySnapshot>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<TransferPolicySnapshot, TransferPolicySnapshot>,
+              TransferPolicySnapshot,
+              Object?,
+              Object?
+            >;
+    element.handleValue(ref, created);
+  }
+}
+
 @ProviderFor(ForegroundTorrentManager)
 const foregroundTorrentManagerProvider = ForegroundTorrentManagerProvider._();
 
@@ -42,7 +103,7 @@ final class ForegroundTorrentManagerProvider
 }
 
 String _$foregroundTorrentManagerHash() =>
-    r'd6602f57affb5d7a1315c9d732002e5b339f19b7';
+    r'7f49d1cffa41b231684df4a2c408754539b1a0a8';
 
 abstract class _$ForegroundTorrentManager
     extends $Notifier<TorrentManagerState> {

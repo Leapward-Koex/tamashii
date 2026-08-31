@@ -104,7 +104,7 @@ void main() {
         bookmarkedSeriesProvider.notifier,
       );
       await bookmarkNotifier.add(
-        BookmarkedShowInfo(
+        const BookmarkedShowInfo(
           showName: 'Bookmarked Show',
           imageUrl: '',
           releaseDayOfWeek: 1,
@@ -171,7 +171,7 @@ void main() {
 
       // Set up bookmark
       await bookmarkNotifier.add(
-        BookmarkedShowInfo(
+        const BookmarkedShowInfo(
           showName: 'Long Running Show',
           imageUrl: '',
           releaseDayOfWeek: 1,

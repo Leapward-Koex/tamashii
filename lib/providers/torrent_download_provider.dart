@@ -1,9 +1,14 @@
 import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:simple_torrent/simple_torrent.dart';
-import 'package:tamashii/services/permission_service.dart';
+import 'package:tamashii/config/torrent_config.dart';
+import 'package:tamashii/config/torrent_download_config.dart';
 import 'package:tamashii/providers/downloaded_torrents_provider.dart';
+import 'package:tamashii/services/permission_service.dart';
+import 'package:tamashii/services/torrent_runtime.dart';
 
 part 'torrent_download_provider.g.dart';
 
@@ -93,10 +98,16 @@ class TorrentDownloadState {
 @Riverpod(keepAlive: true)
 class TorrentManager extends _$TorrentManager {
   final Map<int, StreamSubscription<TorrentStats>> _statsSubs = {};
+  final Map<int, Future<void>> _finaliseOperations = {};
+  final Set<int> _finalisedTorrentIds = {};
+  final Set<int> _stoppingTorrentIds = {};
   StreamSubscription<TorrentMetadata>? _metadataSub;
+  late TorrentRuntime _runtime;
 
   @override
   TorrentManagerState build() {
+    _runtime = ref.read(torrentRuntimeProvider);
+
     ref.onDispose(() {
       // Clean up all subscriptions
       for (final sub in _statsSubs.values) {
@@ -106,7 +117,7 @@ class TorrentManager extends _$TorrentManager {
     });
 
     // Listen to metadata updates for all torrents
-    _metadataSub = SimpleTorrent.metadataStream.listen((metadata) {
+    _metadataSub = _runtime.metadataStream.listen((metadata) {
       _handleMetadataUpdate(metadata);
     });
 
@@ -155,22 +166,33 @@ class TorrentManager extends _$TorrentManager {
         debugPrint('✅ Storage permissions granted');
       }
 
+      final directoryError = await PermissionService.validateDownloadDirectory(
+        path,
+      );
+      if (directoryError != null) {
+        throw FileSystemException(directoryError, path);
+      }
+
       // Use SimpleTorrentHelpers for enhanced functionality
-      final (id, statsStream) = await SimpleTorrentHelpers.startAndWatch(
-        magnet: magnetLink,
+      final (id, statsStream) = await _runtime.startAndWatch(
+        magnet: resolveTorrentMagnetUri(magnetLink),
         path: path,
         displayName: 'Anime Episode', // Could be customized per show
       );
 
+      // Native IDs are normally monotonic, but do not let an implementation
+      // that recycles IDs inherit completion state from an older torrent.
+      _finalisedTorrentIds.remove(id);
       _listenToTorrent(id, showId, statsStream, path);
       _update(showId, current.copyWith(torrentId: id, isLoading: false));
 
       debugPrint('🎬 Started torrent for $showId with ID: $id');
     } catch (e) {
-      debugPrint('❌ Failed to start torrent for $showId: $e');
+      final message = describeTorrentError(e);
+      debugPrint('❌ Failed to start torrent for $showId: $message');
       _update(
         showId,
-        current.copyWith(errorMessage: e.toString(), isLoading: false),
+        current.copyWith(errorMessage: message, isLoading: false),
       );
     }
   }
@@ -180,12 +202,15 @@ class TorrentManager extends _$TorrentManager {
     final current = state.torrents[showId];
     if (current?.torrentId != null && !(current?.isPaused ?? true)) {
       try {
-        await SimpleTorrent.pause(current!.torrentId!);
+        await _runtime.pause(current!.torrentId!);
         _update(showId, current.copyWith(isPaused: true));
         debugPrint('⏸️ Paused torrent for $showId');
       } catch (e) {
         debugPrint('❌ Failed to pause torrent for $showId: $e');
-        _update(showId, current!.copyWith(errorMessage: e.toString()));
+        _update(
+          showId,
+          current!.copyWith(errorMessage: describeTorrentError(e)),
+        );
       }
     }
   }
@@ -195,12 +220,15 @@ class TorrentManager extends _$TorrentManager {
     final current = state.torrents[showId];
     if (current?.torrentId != null && (current?.isPaused ?? false)) {
       try {
-        await SimpleTorrent.resume(current!.torrentId!);
+        await _runtime.resume(current!.torrentId!);
         _update(showId, current.copyWith(isPaused: false));
         debugPrint('▶️ Resumed torrent for $showId');
       } catch (e) {
         debugPrint('❌ Failed to resume torrent for $showId: $e');
-        _update(showId, current!.copyWith(errorMessage: e.toString()));
+        _update(
+          showId,
+          current!.copyWith(errorMessage: describeTorrentError(e)),
+        );
       }
     }
   }
@@ -219,15 +247,11 @@ class TorrentManager extends _$TorrentManager {
         final current = state.torrents[showId] ?? const TorrentDownloadState();
         _update(showId, current.copyWith(stats: stats));
 
-        // Auto-cleanup completed torrents
+        // Finalise removes the completed torrent from the native active set
+        // while retaining its downloaded files. The operation is single-flight
+        // because a seeding torrent can emit several 100% stats events.
         if (stats.progress >= 1.0) {
-          debugPrint('✅ Torrent completed for $showId');
-
-          // Persist downloaded info
-          ref.read(downloadedTorrentsProvider.notifier).addDownloaded(showId);
-
-          _statsSubs[torrentId]?.cancel();
-          _statsSubs.remove(torrentId);
+          unawaited(_finaliseCompletedTorrent(torrentId, showId));
         }
       },
       onError: (error) {
@@ -240,19 +264,110 @@ class TorrentManager extends _$TorrentManager {
     _statsSubs[torrentId] = sub;
   }
 
+  Future<void> _finaliseCompletedTorrent(int torrentId, String showId) {
+    if (_finalisedTorrentIds.contains(torrentId) ||
+        _stoppingTorrentIds.contains(torrentId)) {
+      return Future<void>.value();
+    }
+
+    final existing = _finaliseOperations[torrentId];
+    if (existing != null) {
+      return existing;
+    }
+
+    late final Future<void> operation;
+    operation = _performFinalise(torrentId, showId).whenComplete(() {
+      if (identical(_finaliseOperations[torrentId], operation)) {
+        _finaliseOperations.remove(torrentId);
+      }
+    });
+    _finaliseOperations[torrentId] = operation;
+    return operation;
+  }
+
+  Future<void> _performFinalise(int torrentId, String showId) async {
+    final current = state.torrents[showId];
+    if (current?.torrentId != torrentId || !current!.isCompleted) {
+      return;
+    }
+
+    try {
+      await _runtime.finalise(torrentId);
+    } catch (error) {
+      final latest = state.torrents[showId];
+      if (latest?.torrentId == torrentId) {
+        _update(
+          showId,
+          latest!.copyWith(
+            errorMessage:
+                'Failed to finalise download: ${describeTorrentError(error)}',
+          ),
+        );
+      }
+      debugPrint('❌ Failed to finalise torrent for $showId: $error');
+      return;
+    }
+
+    _finalisedTorrentIds.add(torrentId);
+    await _statsSubs[torrentId]?.cancel();
+    _statsSubs.remove(torrentId);
+
+    try {
+      // Record completion only after native finalisation has succeeded. This
+      // ensures a persisted "downloaded" marker never hides an active native
+      // torrent that failed to leave the session.
+      await ref.read(downloadedTorrentsProvider.notifier).addDownloaded(showId);
+
+      final latest = state.torrents[showId];
+      if (latest?.torrentId == torrentId) {
+        _update(showId, latest!.copyWith(clearError: true));
+      }
+      debugPrint('✅ Finalised completed torrent for $showId');
+    } catch (error) {
+      final latest = state.torrents[showId];
+      if (latest?.torrentId == torrentId) {
+        _update(
+          showId,
+          latest!.copyWith(
+            errorMessage:
+                'Download completed, but Tamashii could not save its '
+                'completion status: $error',
+          ),
+        );
+      }
+      debugPrint('❌ Failed to persist completion for $showId: $error');
+    }
+  }
+
   // Enhanced stop functionality with proper cleanup
   Future<void> stopDownload(String showId) async {
     final current = state.torrents[showId];
     if (current?.torrentId != null) {
+      final torrentId = current!.torrentId!;
+      if (!_stoppingTorrentIds.add(torrentId)) {
+        return;
+      }
+
       try {
-        await SimpleTorrent.cancel(current!.torrentId!);
-        _statsSubs[current.torrentId!]?.cancel();
-        _statsSubs.remove(current.torrentId!);
+        // If completion won the race, let finalise finish and retain the
+        // payload. Otherwise an explicit stop still cancels the active torrent.
+        await _finaliseOperations[torrentId];
+        if (!_finalisedTorrentIds.contains(torrentId)) {
+          await _runtime.cancel(torrentId);
+        }
+        await _statsSubs[torrentId]?.cancel();
+        _statsSubs.remove(torrentId);
+        _finalisedTorrentIds.remove(torrentId);
         _update(showId, const TorrentDownloadState());
         debugPrint('🛑 Stopped and removed torrent for $showId');
       } catch (e) {
         debugPrint('❌ Failed to stop torrent for $showId: $e');
-        _update(showId, current!.copyWith(errorMessage: e.toString()));
+        _update(
+          showId,
+          current.copyWith(errorMessage: describeTorrentError(e)),
+        );
+      } finally {
+        _stoppingTorrentIds.remove(torrentId);
       }
     }
   }
@@ -260,7 +375,7 @@ class TorrentManager extends _$TorrentManager {
   // Bulk operations using SimpleTorrentHelpers
   Future<void> pauseAllDownloads() async {
     try {
-      await SimpleTorrentHelpers.pauseAll();
+      await _runtime.pauseAll();
       // Update all active torrents to paused state
       final newTorrents = <String, TorrentDownloadState>{};
       for (final entry in state.torrents.entries) {
@@ -279,7 +394,7 @@ class TorrentManager extends _$TorrentManager {
 
   Future<void> resumeAllDownloads() async {
     try {
-      await SimpleTorrentHelpers.resumeAll();
+      await _runtime.resumeAll();
       // Update all paused torrents to resumed state
       final newTorrents = <String, TorrentDownloadState>{};
       for (final entry in state.torrents.entries) {

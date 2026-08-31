@@ -1,0 +1,24 @@
+name: tamashii_network_cost
+description: Private Android network-cost monitor for Tamashii.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: '>=3.13.2 <4.0.0'
+  flutter: '>=3.47.2'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: com.leapwardkoex.tamashii.network_cost
+        pluginClass: TamashiiNetworkCostPlugin

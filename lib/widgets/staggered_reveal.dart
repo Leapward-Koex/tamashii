@@ -17,14 +17,17 @@ class StaggeredReveal extends StatefulWidget {
   final Offset offset;
   final Widget child;
 
-  static Key fadeKeyForIndex(int index) => ValueKey<String>('staggered-reveal-fade-$index');
-  static Key slideKeyForIndex(int index) => ValueKey<String>('staggered-reveal-slide-$index');
+  static Key fadeKeyForIndex(int index) =>
+      ValueKey<String>('staggered-reveal-fade-$index');
+  static Key slideKeyForIndex(int index) =>
+      ValueKey<String>('staggered-reveal-slide-$index');
 
   @override
   State<StaggeredReveal> createState() => _StaggeredRevealState();
 }
 
-class _StaggeredRevealState extends State<StaggeredReveal> with SingleTickerProviderStateMixin {
+class _StaggeredRevealState extends State<StaggeredReveal>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late final Animation<double> _opacity;
   late final Animation<Offset> _slide;
@@ -60,7 +63,11 @@ class _StaggeredRevealState extends State<StaggeredReveal> with SingleTickerProv
     return FadeTransition(
       key: StaggeredReveal.fadeKeyForIndex(widget.index),
       opacity: _opacity,
-      child: SlideTransition(key: StaggeredReveal.slideKeyForIndex(widget.index), position: _slide, child: widget.child),
+      child: SlideTransition(
+        key: StaggeredReveal.slideKeyForIndex(widget.index),
+        position: _slide,
+        child: widget.child,
+      ),
     );
   }
 }

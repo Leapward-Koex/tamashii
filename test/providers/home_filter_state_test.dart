@@ -61,65 +61,62 @@ void main() {
       SharedPreferences.setMockInitialValues({});
     });
 
-    test(
-      'saved filter includes a show that was bookmarked from search even when latest is empty',
-      () async {
-        final searchedEpisode = createEpisode(
-          showName: 'Older Show',
-          episode: '12',
-          releaseDate: DateTime(2024, 5),
-        );
-        final container = createContainer(
-          FakeSubsPleaseApi(
-            latestEpisodes: const <ShowInfo>[],
-            searchEpisodesByTerm: <String, List<ShowInfo>>{
-              'Older Show': <ShowInfo>[searchedEpisode],
-            },
-          ),
-        );
-        addTearDown(container.dispose);
+    test('saved filter includes a show that was bookmarked from search even when latest is empty', () async {
+      final searchedEpisode = createEpisode(
+        showName: 'Older Show',
+        episode: '12',
+        releaseDate: DateTime(2024, 5),
+      );
+      final container = createContainer(
+        FakeSubsPleaseApi(
+          latestEpisodes: const <ShowInfo>[],
+          searchEpisodesByTerm: <String, List<ShowInfo>>{
+            'Older Show': <ShowInfo>[searchedEpisode],
+          },
+        ),
+      );
+      addTearDown(container.dispose);
 
-        await container.read(bookmarkedSeriesProvider.future);
+      await container.read(bookmarkedSeriesProvider.future);
 
-        final syncService = container.read(apiCacheSyncProvider);
-        syncService.initialize();
+      final syncService = container.read(apiCacheSyncProvider);
+      syncService.initialize();
 
-        final cacheSeeded = Completer<void>();
-        final subscription = container.listen(cachedEpisodesProvider, (
-          previous,
-          next,
-        ) {
-          final cachedShows = next.asData?.value ?? const <ShowInfo>[];
-          if (!cacheSeeded.isCompleted &&
-              cachedShows.any((episode) => episode.show == 'Older Show')) {
-            cacheSeeded.complete();
-          }
-        }, fireImmediately: true);
-        addTearDown(subscription.close);
+      final cacheSeeded = Completer<void>();
+      final subscription = container.listen(cachedEpisodesProvider, (
+        previous,
+        next,
+      ) {
+        final cachedShows = next.asData?.value ?? const <ShowInfo>[];
+        if (!cacheSeeded.isCompleted &&
+            cachedShows.any((episode) => episode.show == 'Older Show')) {
+          cacheSeeded.complete();
+        }
+      }, fireImmediately: true);
+      addTearDown(subscription.close);
 
-        await container
-            .read(bookmarkedSeriesProvider.notifier)
-            .add(
-              BookmarkedShowInfo(
-                showName: 'Older Show',
-                imageUrl: searchedEpisode.imageUrl,
-                releaseDayOfWeek: searchedEpisode.releaseDate.weekday,
-              ),
-            );
+      await container
+          .read(bookmarkedSeriesProvider.notifier)
+          .add(
+            BookmarkedShowInfo(
+              showName: 'Older Show',
+              imageUrl: searchedEpisode.imageUrl,
+              releaseDayOfWeek: searchedEpisode.releaseDate.weekday,
+            ),
+          );
 
-        await cacheSeeded.future.timeout(const Duration(seconds: 1));
+      await cacheSeeded.future.timeout(const Duration(seconds: 1));
 
-        await container.read(showFilterProvider.future);
-        await container
-            .read(showFilterProvider.notifier)
-            .setFilter(ShowFilter.saved);
-        final filteredShows = await container.read(
-          filteredCombinedEpisodesProvider('').future,
-        );
+      await container.read(showFilterProvider.future);
+      await container
+          .read(showFilterProvider.notifier)
+          .setFilter(ShowFilter.saved);
+      final filteredShows = await container.read(
+        filteredCombinedEpisodesProvider('').future,
+      );
 
-        expect(filteredShows.map((show) => show.show), contains('Older Show'));
-      },
-    );
+      expect(filteredShows.map((show) => show.show), contains('Older Show'));
+    });
 
     test('saved filter excludes manual schedule-only entries', () async {
       final trackedEpisode = createEpisode(

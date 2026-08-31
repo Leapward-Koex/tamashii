@@ -76,14 +76,14 @@ class ApiCacheSyncService {
       if (homePageBookmarks.isEmpty) {
         return;
       }
-      final bookmarkedNames =
-          homePageBookmarks.map((bookmark) => bookmark.showName).toSet();
+      final bookmarkedNames = homePageBookmarks
+          .map((bookmark) => bookmark.showName)
+          .toSet();
 
       final latestEpisodes = await _ref.read(latestShowsProvider.future);
-      final bookmarkedEpisodes =
-          latestEpisodes
-              .where((episode) => bookmarkedNames.contains(episode.show))
-              .toList();
+      final bookmarkedEpisodes = latestEpisodes
+          .where((episode) => bookmarkedNames.contains(episode.show))
+          .toList();
 
       if (bookmarkedEpisodes.isNotEmpty) {
         await _ref
@@ -93,10 +93,9 @@ class ApiCacheSyncService {
 
       final cachedEpisodes = await _ref.read(cachedEpisodesProvider.future);
       final cachedShows = cachedEpisodes.map((episode) => episode.show).toSet();
-      final missingBookmarks =
-          homePageBookmarks
-              .where((bookmark) => !cachedShows.contains(bookmark.showName))
-              .toSet();
+      final missingBookmarks = homePageBookmarks
+          .where((bookmark) => !cachedShows.contains(bookmark.showName))
+          .toSet();
 
       if (missingBookmarks.isNotEmpty) {
         await _backfillBookmarkedEpisodes(missingBookmarks);
@@ -114,12 +113,9 @@ class ApiCacheSyncService {
         final searchResults = await _ref.read(
           searchShowsProvider(series.showName).future,
         );
-        final matchingEpisodes =
-            searchResults
-                .where(
-                  (episode) => _sameShowName(episode.show, series.showName),
-                )
-                .toList();
+        final matchingEpisodes = searchResults
+            .where((episode) => _sameShowName(episode.show, series.showName))
+            .toList();
 
         if (matchingEpisodes.isEmpty) {
           continue;

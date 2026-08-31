@@ -102,13 +102,11 @@ class ShowInfo {
     }
 
     return ShowInfo(
-      downloads:
-          (json['downloads'] as List<dynamic>)
-              .map(
-                (dynamic e) =>
-                    ShowDownloadInfo.fromJson(e as Map<String, dynamic>),
-              )
-              .toList(),
+      downloads: (json['downloads'] as List<dynamic>)
+          .map(
+            (dynamic e) => ShowDownloadInfo.fromJson(e as Map<String, dynamic>),
+          )
+          .toList(),
       episode: json['episode'] as String,
       imageUrl: json['image_url'] as String,
       page: json['page'] as String,

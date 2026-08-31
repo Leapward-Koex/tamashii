@@ -50,14 +50,14 @@ void main() {
         bookmarkedSeriesProvider.notifier,
       );
       await bookmarkNotifier.add(
-        BookmarkedShowInfo(
+        const BookmarkedShowInfo(
           showName: 'Attack on Titan',
           imageUrl: '',
           releaseDayOfWeek: 1,
         ),
       );
       await bookmarkNotifier.add(
-        BookmarkedShowInfo(
+        const BookmarkedShowInfo(
           showName: 'One Piece',
           imageUrl: '',
           releaseDayOfWeek: 1,

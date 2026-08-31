@@ -95,14 +95,14 @@ void main() {
         bookmarkedSeriesProvider.notifier,
       );
       await bookmarkNotifier.add(
-        BookmarkedShowInfo(
+        const BookmarkedShowInfo(
           showName: 'Attack on Titan',
           imageUrl: '',
           releaseDayOfWeek: 1,
         ),
       );
       await bookmarkNotifier.add(
-        BookmarkedShowInfo(
+        const BookmarkedShowInfo(
           showName: 'One Piece',
           imageUrl: '',
           releaseDayOfWeek: 1,
@@ -150,7 +150,7 @@ void main() {
         bookmarkedSeriesProvider.notifier,
       );
       await bookmarkNotifier.add(
-        BookmarkedShowInfo(
+        const BookmarkedShowInfo(
           showName: 'Attack on Titan',
           imageUrl: '',
           releaseDayOfWeek: 1,
@@ -315,14 +315,14 @@ void main() {
 
       // Add bookmarks
       await bookmarkNotifier.add(
-        BookmarkedShowInfo(
+        const BookmarkedShowInfo(
           showName: 'Attack on Titan',
           imageUrl: '',
           releaseDayOfWeek: 1,
         ),
       );
       await bookmarkNotifier.add(
-        BookmarkedShowInfo(
+        const BookmarkedShowInfo(
           showName: 'One Piece',
           imageUrl: '',
           releaseDayOfWeek: 1,
@@ -342,7 +342,7 @@ void main() {
         bookmarkedSeriesProvider.notifier,
       );
       await bookmarkNotifier.add(
-        BookmarkedShowInfo(
+        const BookmarkedShowInfo(
           showName: 'Bookmarked Show',
           imageUrl: '',
           releaseDayOfWeek: 1,

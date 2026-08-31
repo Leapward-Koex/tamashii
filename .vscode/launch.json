@@ -7,19 +7,28 @@
         {
             "name": "tamashii",
             "request": "launch",
-            "type": "dart"
+            "type": "dart",
+            "toolArgs": [
+                "--dart-define=TAMASHII_USE_TEST_TORRENT=true"
+            ]
         },
         {
             "name": "tamashii (profile mode)",
             "request": "launch",
             "type": "dart",
-            "flutterMode": "profile"
+            "flutterMode": "profile",
+            "toolArgs": [
+                "--dart-define=TAMASHII_USE_TEST_TORRENT=true"
+            ]
         },
         {
             "name": "tamashii (release mode)",
             "request": "launch",
             "type": "dart",
-            "flutterMode": "release"
+            "flutterMode": "release",
+            "toolArgs": [
+                "--dart-define=TAMASHII_USE_TEST_TORRENT=true"
+            ]
         }
     ]
 }

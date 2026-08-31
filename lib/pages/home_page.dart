@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:async';
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -9,9 +10,11 @@ import 'package:tamashii/models/show_models.dart';
 import 'package:tamashii/pages/settings_page.dart';
 import 'package:tamashii/pages/schedule_page.dart';
 import 'package:tamashii/providers/filter_provider.dart';
+import 'package:tamashii/providers/foreground_torrent_provider.dart';
 import 'package:tamashii/providers/subsplease_api_providers.dart';
 import 'package:tamashii/widgets/add_schedule_show_sheet.dart';
 import 'package:tamashii/widgets/show_card.dart';
+import 'package:tamashii/widgets/transfer_policy_banner.dart';
 
 class HomePage extends HookConsumerWidget {
   const HomePage({super.key});
@@ -77,6 +80,9 @@ class HomePage extends HookConsumerWidget {
     }
 
     final selectedIndex = useState<int>(0);
+    final transferPolicy = defaultTargetPlatform == TargetPlatform.android
+        ? ref.watch(foregroundTransferPolicyStatusProvider)
+        : null;
     final pages = <Widget>[
       Stack(
         children: [
@@ -87,9 +93,8 @@ class HomePage extends HookConsumerWidget {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Theme.of(
-                      context,
-                    ).colorScheme.primaryContainer.withValues(alpha: 0.24),
+                    Theme.of(context).colorScheme.primaryContainer
+                        .withValues(alpha: 0.24),
                     Theme.of(context).colorScheme.surface,
                     Theme.of(context).colorScheme.surfaceContainerHighest
                         .withValues(alpha: 0.84),
@@ -162,10 +167,9 @@ class HomePage extends HookConsumerWidget {
                           child: AnimatedBuilder(
                             animation: scrollController,
                             builder: (context, _) {
-                              final scrollOffset =
-                                  scrollController.hasClients
-                                      ? scrollController.offset
-                                      : 0.0;
+                              final scrollOffset = scrollController.hasClients
+                                  ? scrollController.offset
+                                  : 0.0;
                               return ShowCard(
                                 show: shows.first,
                                 featured: true,
@@ -173,7 +177,6 @@ class HomePage extends HookConsumerWidget {
                                   scrollOffset * 0.18,
                                   28.0,
                                 ),
-                                revealIndex: 0,
                               );
                             },
                           ),
@@ -206,19 +209,25 @@ class HomePage extends HookConsumerWidget {
             child: AnimatedBuilder(
               animation: scrollController,
               builder: (context, _) {
-                final scrollOffset =
-                    scrollController.hasClients ? scrollController.offset : 0.0;
+                final scrollOffset = scrollController.hasClients
+                    ? scrollController.offset
+                    : 0.0;
                 final progress = (scrollOffset / 140).clamp(0.0, 1.0);
-                final searchBarHeight =
-                    lerpDouble(
-                      searchBarMaxHeight,
-                      searchBarMinHeight,
-                      progress,
-                    )!;
-                final horizontalPadding =
-                    lerpDouble(searchBarOuterPadding, 10, progress)!;
-                final verticalPadding =
-                    lerpDouble(searchBarOuterPadding, 8, progress)!;
+                final searchBarHeight = lerpDouble(
+                  searchBarMaxHeight,
+                  searchBarMinHeight,
+                  progress,
+                )!;
+                final horizontalPadding = lerpDouble(
+                  searchBarOuterPadding,
+                  10,
+                  progress,
+                )!;
+                final verticalPadding = lerpDouble(
+                  searchBarOuterPadding,
+                  8,
+                  progress,
+                )!;
                 final blur = lerpDouble(18, 8, progress)!;
                 final radius = lerpDouble(24, 18, progress)!;
                 final theme = Theme.of(context);
@@ -249,14 +258,13 @@ class HomePage extends HookConsumerWidget {
                             ),
                             borderRadius: BorderRadius.circular(radius),
                             border: Border.all(
-                              color:
-                                  Color.lerp(
-                                    Colors.white.withValues(alpha: 0.18),
-                                    theme.colorScheme.outlineVariant.withValues(
-                                      alpha: 0.34,
-                                    ),
-                                    progress,
-                                  )!,
+                              color: Color.lerp(
+                                Colors.white.withValues(alpha: 0.18),
+                                theme.colorScheme.outlineVariant.withValues(
+                                  alpha: 0.34,
+                                ),
+                                progress,
+                              )!,
                             ),
                             boxShadow: [
                               BoxShadow(
@@ -305,55 +313,58 @@ class HomePage extends HookConsumerWidget {
         elevation: 0,
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
-        actions:
-            selectedIndex.value == 0
-                ? [
-                  IconButton(
-                    icon: Icon(currentFilter.icon),
-                    tooltip: currentFilter.displayName,
-                    onPressed: () async {
-                      await ref
-                          .read(showFilterProvider.notifier)
-                          .toggleFilter();
-                    },
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.refresh),
-                    tooltip: 'Refresh',
-                    onPressed: () {
-                      refreshKey.currentState?.show();
-                    },
-                  ),
-                ]
-                : null,
+        actions: selectedIndex.value == 0
+            ? [
+                IconButton(
+                  icon: Icon(currentFilter.icon),
+                  tooltip: currentFilter.displayName,
+                  onPressed: () async {
+                    await ref.read(showFilterProvider.notifier).toggleFilter();
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  tooltip: 'Refresh',
+                  onPressed: () {
+                    refreshKey.currentState?.show();
+                  },
+                ),
+              ]
+            : null,
       ),
-      body: IndexedStack(index: selectedIndex.value, children: pages),
-      floatingActionButton:
-          selectedIndex.value == 1
-              ? FloatingActionButton(
-                key: scheduleAddFabKey,
-                onPressed: () async {
-                  final addedShowName = await showModalBottomSheet<String>(
-                    context: context,
-                    isScrollControlled: true,
-                    builder: (_) => const AddScheduleShowSheet(),
-                  );
+      body: Column(
+        children: [
+          TransferPolicyBanner(snapshot: transferPolicy),
+          Expanded(
+            child: IndexedStack(index: selectedIndex.value, children: pages),
+          ),
+        ],
+      ),
+      floatingActionButton: selectedIndex.value == 1
+          ? FloatingActionButton(
+              key: scheduleAddFabKey,
+              onPressed: () async {
+                final addedShowName = await showModalBottomSheet<String>(
+                  context: context,
+                  isScrollControlled: true,
+                  builder: (_) => const AddScheduleShowSheet(),
+                );
 
-                  if (!context.mounted || addedShowName == null) {
-                    return;
-                  }
+                if (!context.mounted || addedShowName == null) {
+                  return;
+                }
 
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Added "$addedShowName" to your watching list.',
-                      ),
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Added "$addedShowName" to your watching list.',
                     ),
-                  );
-                },
-                child: const Icon(Icons.add),
-              )
-              : null,
+                  ),
+                );
+              },
+              child: const Icon(Icons.add),
+            )
+          : null,
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: selectedIndex.value,
         onTap: (i) => selectedIndex.value = i,

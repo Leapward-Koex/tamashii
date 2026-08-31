@@ -1,9 +1,15 @@
 import 'dart:async';
 import 'dart:convert';
+
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tamashii/services/transfer_policy.dart';
 
 part 'settings_provider.g.dart';
+
+// Construct on demand so every read reaches the current platform store and
+// background-engine/test platform instances are never captured accidentally.
+SharedPreferencesAsync get _preferences => SharedPreferencesAsync();
 
 /// Whether to auto-generate subfolders for each series.
 @riverpod
@@ -12,15 +18,13 @@ class AutoGenerateFolders extends _$AutoGenerateFolders {
 
   @override
   Future<bool> build() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_key) ?? true;
+    return await _preferences.getBool(_key) ?? true;
   }
 
   /// Toggle auto-generate setting.
   Future<void> setAutoGenerate(bool value) async {
     state = AsyncValue.data(value);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_key, value);
+    await _preferences.setBool(_key, value);
   }
 }
 
@@ -31,15 +35,13 @@ class DownloadBasePath extends _$DownloadBasePath {
 
   @override
   Future<String> build() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_key) ?? '';
+    return await _preferences.getString(_key) ?? '';
   }
 
   /// Set the base download folder.
   Future<void> setBasePath(String path) async {
     state = AsyncValue.data(path);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_key, path);
+    await _preferences.setString(_key, path);
   }
 }
 
@@ -50,8 +52,7 @@ class SeriesFolderMapping extends _$SeriesFolderMapping {
 
   @override
   Future<Map<String, String>> build() async {
-    final prefs = await SharedPreferences.getInstance();
-    final jsonString = prefs.getString(_key);
+    final jsonString = await _preferences.getString(_key);
     if (jsonString != null && jsonString.isNotEmpty) {
       final Map<String, dynamic> raw =
           json.decode(jsonString) as Map<String, dynamic>;
@@ -65,8 +66,7 @@ class SeriesFolderMapping extends _$SeriesFolderMapping {
     final current = state.value ?? <String, String>{};
     final updated = {...current, series: path};
     state = AsyncValue.data(updated);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_key, json.encode(updated));
+    await _preferences.setString(_key, json.encode(updated));
   }
 
   /// Remove mapping for a series and persist.
@@ -75,7 +75,38 @@ class SeriesFolderMapping extends _$SeriesFolderMapping {
     if (!current.containsKey(series)) return;
     final updated = Map<String, String>.from(current)..remove(series);
     state = AsyncValue.data(updated);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_key, json.encode(updated));
+    await _preferences.setString(_key, json.encode(updated));
+  }
+}
+
+/// Whether downloads may continue on networks Android marks as metered.
+@Riverpod(keepAlive: true)
+class AllowMeteredDownloads extends _$AllowMeteredDownloads {
+  @override
+  Future<bool> build() async {
+    return await _preferences.getBool(allowMeteredDownloadsPreferenceKey) ??
+        false;
+  }
+
+  Future<void> setAllowed(bool value) async {
+    await _preferences.setBool(allowMeteredDownloadsPreferenceKey, value);
+    state = AsyncValue.data(value);
+  }
+}
+
+/// Whether downloads may continue over an Android cellular transport.
+///
+/// This is intentionally separate from Android's metered-network flag because
+/// a VPN can otherwise obscure whether its underlying network is cellular.
+@Riverpod(keepAlive: true)
+class AllowMobileData extends _$AllowMobileData {
+  @override
+  Future<bool> build() async {
+    return await _preferences.getBool(allowMobileDataPreferenceKey) ?? false;
+  }
+
+  Future<void> setAllowed(bool value) async {
+    await _preferences.setBool(allowMobileDataPreferenceKey, value);
+    state = AsyncValue.data(value);
   }
 }

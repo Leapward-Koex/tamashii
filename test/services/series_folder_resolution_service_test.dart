@@ -77,8 +77,7 @@ void main() {
               featureStatus: 3,
             ),
             response: const OnDeviceGenerationResponse(
-              text:
-                  '{"series_name":"My Existing Series","season_folder":"Season 4","matched_existing_folder":true,"reason":"Clear sequel."}',
+              text: '{"series_name":"My Existing Series","season_folder":"Season 4","matched_existing_folder":true,"reason":"Clear sequel."}',
               modelUsed: 'gemini-nano',
             ),
           ),
