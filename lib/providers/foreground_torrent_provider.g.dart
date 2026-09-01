@@ -47,7 +47,7 @@ final class ForegroundTransferPolicyStatusProvider
 }
 
 String _$foregroundTransferPolicyStatusHash() =>
-    r'c8e0d4a60c255c3c5b3316d5b99785ff9930beff';
+    r'6195288008d3da9567cb77fcb2515cb7b21b4cc8';
 
 abstract class _$ForegroundTransferPolicyStatus
     extends $Notifier<TransferPolicySnapshot> {
@@ -103,7 +103,7 @@ final class ForegroundTorrentManagerProvider
 }
 
 String _$foregroundTorrentManagerHash() =>
-    r'dcdc4c6ec6a7ade7491796a600d1a73a02e7d872';
+    r'146678a601da9835b33eb5164c5258d4b9138d63';
 
 abstract class _$ForegroundTorrentManager
     extends $Notifier<TorrentManagerState> {
