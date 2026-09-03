@@ -73,7 +73,7 @@ final class DownloadQueueProvider
   }
 }
 
-String _$downloadQueueHash() => r'd8edbfabf48dc5682e4b77499ecf683c9df0ce4a';
+String _$downloadQueueHash() => r'a0be7fdc4e494d904e522d2a69d69b72d8e8d034';
 
 @ProviderFor(downloadQueueControls)
 const downloadQueueControlsProvider = DownloadQueueControlsProvider._();

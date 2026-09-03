@@ -41,7 +41,7 @@ final class TorrentManagerProvider
   }
 }
 
-String _$torrentManagerHash() => r'b0cda591564c43f0ffc13d0fdebfc02f0665f6e5';
+String _$torrentManagerHash() => r'3e68305847f7c6b96ee95e042ab04c89ad78e29c';
 
 abstract class _$TorrentManager extends $Notifier<TorrentManagerState> {
   TorrentManagerState build();
