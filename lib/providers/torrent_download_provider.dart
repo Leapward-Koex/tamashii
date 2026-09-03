@@ -380,7 +380,10 @@ class TorrentManager extends _$TorrentManager {
       final newTorrents = <String, TorrentDownloadState>{};
       for (final entry in state.torrents.entries) {
         if (entry.value.torrentId != null && !entry.value.isCompleted) {
-          newTorrents[entry.key] = entry.value.copyWith(isPaused: true);
+          newTorrents[entry.key] = entry.value.copyWith(
+            isPaused: true,
+            clearError: true,
+          );
         } else {
           newTorrents[entry.key] = entry.value;
         }
@@ -389,6 +392,7 @@ class TorrentManager extends _$TorrentManager {
       debugPrint('⏸️ Paused all active downloads');
     } catch (e) {
       debugPrint('❌ Failed to pause all downloads: $e');
+      rethrow;
     }
   }
 
@@ -399,7 +403,10 @@ class TorrentManager extends _$TorrentManager {
       final newTorrents = <String, TorrentDownloadState>{};
       for (final entry in state.torrents.entries) {
         if (entry.value.isPaused) {
-          newTorrents[entry.key] = entry.value.copyWith(isPaused: false);
+          newTorrents[entry.key] = entry.value.copyWith(
+            isPaused: false,
+            clearError: true,
+          );
         } else {
           newTorrents[entry.key] = entry.value;
         }
@@ -408,6 +415,7 @@ class TorrentManager extends _$TorrentManager {
       debugPrint('▶️ Resumed all paused downloads');
     } catch (e) {
       debugPrint('❌ Failed to resume all downloads: $e');
+      rethrow;
     }
   }
 

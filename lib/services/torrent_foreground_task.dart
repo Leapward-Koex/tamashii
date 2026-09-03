@@ -6,6 +6,8 @@ import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:simple_torrent/simple_torrent.dart';
 import 'package:tamashii/config/torrent_config.dart';
 import 'package:tamashii/config/torrent_download_config.dart';
+import 'package:tamashii/models/download_transfer_metrics.dart';
+import 'package:tamashii/services/download_transfer_metrics.dart';
 import 'package:tamashii/services/foreground_service_lifecycle.dart';
 import 'package:tamashii/services/transfer_policy.dart';
 import 'package:tamashii_network_cost/tamashii_network_cost.dart';
@@ -28,6 +30,8 @@ class TorrentTaskHandler extends TaskHandler {
   final Map<String, TorrentStats> _currentStats = {};
   final Map<String, TorrentMetadata> _currentMetadata = {};
   final Map<String, bool> _completedTorrents = {};
+  final Set<String> _pausedTorrents = {};
+  final Map<String, String> _torrentErrors = {};
   final Set<String> _finalisingTorrents = {};
   Future<void> _commandQueue = Future<void>.value();
   TransferPolicyController? _transferPolicyController;
@@ -94,7 +98,9 @@ class TorrentTaskHandler extends TaskHandler {
   }
 
   void _updateNotificationWithProgress() {
-    final activeTorrents = _torrentIds.length;
+    final report = _buildTransferReport();
+    final summary = report.summary;
+    final activeTorrents = summary.trackedCount;
 
     if (_transferPolicy.suspended) {
       FlutterForegroundTask.updateService(
@@ -114,16 +120,8 @@ class TorrentTaskHandler extends TaskHandler {
       return;
     }
 
-    // Check if all torrents are completed (no longer downloading)
-    final completedCount = _completedTorrents.values
-        .where((completed) => completed)
-        .length;
-    final downloadingCount = _currentStats.values
-        .where((stats) => stats.progress < 1.0)
-        .length;
-
-    if (completedCount == activeTorrents &&
-        downloadingCount == 0 &&
+    if (summary.completedCount == activeTorrents &&
+        summary.liveCount == 0 &&
         activeTorrents > 0) {
       // All torrents finished downloading - show completion notification briefly then stop
       FlutterForegroundTask.updateService(
@@ -141,46 +139,64 @@ class TorrentTaskHandler extends TaskHandler {
       return;
     }
 
-    // Calculate overall progress and speeds for active downloads
-    double totalProgress = 0;
-    int totalDownloadRate = 0;
-    int totalUploadRate = 0;
-
-    for (final entry in _currentStats.entries) {
-      final stats = entry.value;
-      totalProgress += stats.progress;
-      totalDownloadRate += stats.downloadRate;
-      totalUploadRate += stats.uploadRate;
-    }
-
-    if (_currentStats.isNotEmpty) {
-      final avgProgress =
-          (totalProgress / _currentStats.length) *
-          100; // Convert to percentage for display
-      final downloadSpeed = _formatBytes(totalDownloadRate);
-      final uploadSpeed = _formatBytes(totalUploadRate);
-
-      final String title =
-          'Tamashii - ${avgProgress.toStringAsFixed(1)}% Complete';
+    if (summary.liveCount > 0) {
+      final progressLabel =
+          '${(summary.progressFraction * 100).toStringAsFixed(1)}%'
+          '${summary.progressIsEstimated ? ' estimated' : ''}';
+      final title = 'Tamashii - $progressLabel Complete';
       String text;
 
-      if (downloadingCount > 0) {
+      if (summary.downloadingCount > 0) {
         text =
-            '$downloadingCount downloading • ↓$downloadSpeed/s • ↑$uploadSpeed/s';
+            '${summary.downloadingCount} downloading • '
+            '↓${DownloadTransferFormatters.formatRate(summary.downloadRate)} '
+            '• ↑${DownloadTransferFormatters.formatRate(summary.uploadRate)}';
+        if (summary.eta != null) {
+          text += ' • ETA ${DownloadTransferFormatters.formatEta(summary.eta)}';
+        }
+      } else if (summary.preparingCount > 0) {
+        text = '${summary.preparingCount} preparing download(s)';
+      } else if (summary.pausedCount > 0) {
+        text = '${summary.pausedCount} download(s) paused';
+      } else if (summary.failedCount > 0) {
+        text = '${summary.failedCount} download(s) need attention';
       } else {
-        text = 'Seeding $activeTorrents torrent(s) • ↑$uploadSpeed/s';
+        text = 'Managing $activeTorrents torrent(s)';
       }
 
       FlutterForegroundTask.updateService(
         notificationTitle: title,
         notificationText: text,
       );
-    } else {
-      FlutterForegroundTask.updateService(
-        notificationTitle: 'Tamashii - Torrent Service',
-        notificationText: 'Managing $activeTorrents torrent(s)',
-      );
     }
+  }
+
+  DownloadTransferReport _buildTransferReport() {
+    // Errors can occur before a native torrent ID is allocated (for example,
+    // while resolving a magnet) and after it reaches 100% (during finalise).
+    // Include every tracking map so the notification sees the same failed
+    // transfer states that the app UI receives over the service channel.
+    final torrentKeys = <String>{
+      ..._torrentIds.keys,
+      ..._currentStats.keys,
+      ..._currentMetadata.keys,
+      ..._completedTorrents.keys,
+      ..._torrentErrors.keys,
+    };
+    return DownloadTransferMetrics.build(
+      torrentKeys.map(
+        (torrentKey) => DownloadTransferSnapshot(
+          key: torrentKey,
+          stats: _currentStats[torrentKey],
+          metadata: _currentMetadata[torrentKey],
+          isCompleted: _completedTorrents[torrentKey] ?? false,
+          isPaused: _pausedTorrents.contains(torrentKey),
+          isPreparing: _currentStats[torrentKey] == null,
+          isPolicyBlocked: _transferPolicy.suspended,
+          errorMessage: _torrentErrors[torrentKey],
+        ),
+      ),
+    );
   }
 
   @override
@@ -212,6 +228,8 @@ class TorrentTaskHandler extends TaskHandler {
     _currentStats.clear();
     _currentMetadata.clear();
     _completedTorrents.clear();
+    _pausedTorrents.clear();
+    _torrentErrors.clear();
     _finalisingTorrents.clear();
     FlutterForegroundTask.sendDataToMain({
       'type': 'service_stopped',
@@ -235,9 +253,9 @@ class TorrentTaskHandler extends TaskHandler {
   @override
   void onNotificationButtonPressed(String id) {
     if (id == 'pause_all') {
-      _enqueueCommand(_pauseAllTorrents);
+      _enqueueCommand(() => _pauseAllTorrents());
     } else if (id == 'resume_all') {
-      _enqueueCommand(_resumeAllTorrents);
+      _enqueueCommand(() => _resumeAllTorrents());
     }
   }
 
@@ -284,6 +302,12 @@ class TorrentTaskHandler extends TaskHandler {
       case 'remove_download':
         await _removeDownload(command);
         break;
+      case 'pause_all_downloads':
+        await _pauseAllTorrents(requestId: command['requestId'] as int?);
+        break;
+      case 'resume_all_downloads':
+        await _resumeAllTorrents(requestId: command['requestId'] as int?);
+        break;
       case 'get_torrent_state':
         await _getTorrentState(command);
         break;
@@ -319,7 +343,7 @@ class TorrentTaskHandler extends TaskHandler {
           DateTime.now(),
           requestId: command['requestId'] as int?,
         );
-        await _broadcastTorrentStates();
+        await _broadcastTorrentStates(isServiceSnapshot: true);
         break;
       case 'set_test_network_status':
         if (!networkPolicyTestHookEnabled) {
@@ -383,6 +407,8 @@ class TorrentTaskHandler extends TaskHandler {
 
       // Initialize tracking
       _completedTorrents[torrentKey] = false;
+      _pausedTorrents.remove(torrentKey);
+      _torrentErrors.remove(torrentKey);
 
       // Listen to stats updates
       _listenToTorrent(id, torrentKey, statsStream);
@@ -418,6 +444,8 @@ class TorrentTaskHandler extends TaskHandler {
       }
 
       await SimpleTorrent.pause(torrentId);
+      _pausedTorrents.add(torrentKey);
+      _torrentErrors.remove(torrentKey);
 
       FlutterForegroundTask.sendDataToMain({
         'type': 'download_paused',
@@ -451,6 +479,8 @@ class TorrentTaskHandler extends TaskHandler {
       }
 
       await SimpleTorrent.resume(torrentId);
+      _pausedTorrents.remove(torrentKey);
+      _torrentErrors.remove(torrentKey);
 
       FlutterForegroundTask.sendDataToMain({
         'type': 'download_resumed',
@@ -492,6 +522,8 @@ class TorrentTaskHandler extends TaskHandler {
       _currentStats.remove(torrentKey);
       _currentMetadata.remove(torrentKey);
       _completedTorrents.remove(torrentKey);
+      _pausedTorrents.remove(torrentKey);
+      _torrentErrors.remove(torrentKey);
       _finalisingTorrents.remove(torrentKey);
 
       FlutterForegroundTask.sendDataToMain({
@@ -570,6 +602,7 @@ class TorrentTaskHandler extends TaskHandler {
       (stats) {
         // Store current stats for notification updates
         _currentStats[torrentKey] = stats;
+        _torrentErrors.remove(torrentKey);
 
         // Track completion status
         _completedTorrents[torrentKey] = stats.progress >= 1.0;
@@ -635,7 +668,7 @@ class TorrentTaskHandler extends TaskHandler {
     }
   }
 
-  Future<void> _broadcastTorrentStates() async {
+  Future<void> _broadcastTorrentStates({bool isServiceSnapshot = false}) async {
     final Map<String, dynamic> allStates = {};
     final torrentEntries = Map<String, int>.of(_torrentIds).entries.toList();
     final completedTorrents = Map<String, bool>.of(_completedTorrents);
@@ -648,26 +681,37 @@ class TorrentTaskHandler extends TaskHandler {
         continue;
       }
 
+      TorrentInfo? info;
       try {
-        final TorrentInfo info = await SimpleTorrent.getTorrentInfo(torrentId);
-
-        allStates[torrentKey] = {
-          'torrentId': torrentId,
-          'info': _serializeTorrentInfo(info),
-        };
+        info = await SimpleTorrent.getTorrentInfo(torrentId);
       } catch (e) {
-        // Torrent might have been removed
-        print('Error getting state for $torrentKey: $e');
+        // Metadata can still be arriving while a valid transfer is being
+        // tracked. Keep its rich snapshot instead of making a reattached UI
+        // incorrectly report it as failed just because this legacy field is
+        // temporarily unavailable.
+        print('Error getting legacy state for $torrentKey: $e');
       }
+
+      allStates[torrentKey] = {
+        'torrentId': torrentId,
+        'info': _serializeTorrentInfo(info),
+        'stats': _currentStats[torrentKey]?.toMap(),
+        'metadata': _currentMetadata[torrentKey]?.toMap(),
+        'isPaused': _pausedTorrents.contains(torrentKey),
+        'errorMessage': _torrentErrors[torrentKey],
+      };
     }
 
-    if (allStates.isNotEmpty) {
-      FlutterForegroundTask.sendDataToMain({
-        'type': 'bulk_torrent_states',
-        'states': allStates,
-        'timestamp': DateTime.now().millisecondsSinceEpoch,
-      });
-    }
+    // Send empty authoritative snapshots too: a reattached UI needs to know
+    // that an earlier live transfer no longer belongs to this service rather
+    // than retaining a stale downloading card.
+    FlutterForegroundTask.sendDataToMain({
+      'type': 'bulk_torrent_states',
+      'serviceInstanceId': _serviceInstanceId,
+      'states': allStates,
+      'isServiceSnapshot': isServiceSnapshot,
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+    });
   }
 
   Future<void> _stopServiceIfStillComplete(int generation) async {
@@ -686,36 +730,84 @@ class TorrentTaskHandler extends TaskHandler {
     unawaited(FlutterForegroundTask.stopService());
   }
 
-  Future<void> _pauseAllTorrents() async {
+  Future<void> _pauseAllTorrents({int? requestId}) async {
+    final torrentKeys = _incompleteTorrentKeys();
     try {
       await SimpleTorrentHelpers.pauseAll();
+      _pausedTorrents.addAll(torrentKeys);
+      for (final torrentKey in torrentKeys) {
+        _torrentErrors.remove(torrentKey);
+      }
       FlutterForegroundTask.sendDataToMain({
         'type': 'all_paused',
+        'torrentKeys': torrentKeys,
+        'requestId': requestId,
+        'serviceInstanceId': _serviceInstanceId,
         'success': true,
       });
+      _updateNotificationWithProgress();
     } catch (e) {
       print('Error pausing all torrents: $e');
+      _sendError(
+        'all downloads',
+        'Failed to pause all downloads: ${describeTorrentError(e)}',
+        requestId: requestId,
+        isBulkCommand: true,
+      );
     }
   }
 
-  Future<void> _resumeAllTorrents() async {
+  Future<void> _resumeAllTorrents({int? requestId}) async {
+    final torrentKeys = _incompleteTorrentKeys();
     try {
       await SimpleTorrentHelpers.resumeAll();
+      _pausedTorrents.removeAll(torrentKeys);
+      for (final torrentKey in torrentKeys) {
+        _torrentErrors.remove(torrentKey);
+      }
       FlutterForegroundTask.sendDataToMain({
         'type': 'all_resumed',
+        'torrentKeys': torrentKeys,
+        'requestId': requestId,
+        'serviceInstanceId': _serviceInstanceId,
         'success': true,
       });
+      _updateNotificationWithProgress();
     } catch (e) {
       print('Error resuming all torrents: $e');
+      _sendError(
+        'all downloads',
+        'Failed to resume all downloads: ${describeTorrentError(e)}',
+        requestId: requestId,
+        isBulkCommand: true,
+      );
     }
   }
 
-  void _sendError(String torrentKey, String message, {int? requestId}) {
+  List<String> _incompleteTorrentKeys() {
+    return _torrentIds.keys
+        .where((torrentKey) => !(_completedTorrents[torrentKey] ?? false))
+        .toList(growable: false);
+  }
+
+  void _sendError(
+    String torrentKey,
+    String message, {
+    int? requestId,
+    bool isBulkCommand = false,
+  }) {
+    // Bulk command failures are surfaced through their request-correlated
+    // response. They do not belong to a real torrent row or notification
+    // report entry.
+    if (!isBulkCommand) {
+      _torrentErrors[torrentKey] = message;
+    }
     FlutterForegroundTask.sendDataToMain({
       'type': 'error',
       'torrentKey': torrentKey,
       'message': message,
       'requestId': requestId,
+      'isBulkCommand': isBulkCommand,
       'serviceInstanceId': _serviceInstanceId,
       'success': false,
     });
@@ -828,14 +920,5 @@ class TorrentTaskHandler extends TaskHandler {
     });
 
     print('🎉 Showing completion notification for: $displayName');
-  }
-
-  String _formatBytes(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    if (bytes < 1024 * 1024 * 1024) {
-      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-    }
-    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
 }

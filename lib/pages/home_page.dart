@@ -7,8 +7,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:tamashii/models/show_models.dart';
+import 'package:tamashii/pages/download_queue_page.dart';
 import 'package:tamashii/pages/settings_page.dart';
 import 'package:tamashii/pages/schedule_page.dart';
+import 'package:tamashii/providers/download_queue_provider.dart';
 import 'package:tamashii/providers/filter_provider.dart';
 import 'package:tamashii/providers/foreground_torrent_provider.dart';
 import 'package:tamashii/providers/subsplease_api_providers.dart';
@@ -25,6 +27,9 @@ class HomePage extends HookConsumerWidget {
   );
   static const Key scheduleAddFabKey = ValueKey<String>(
     'schedule-add-show-fab',
+  );
+  static const Key downloadsButtonKey = ValueKey<String>(
+    'home-downloads-button',
   );
 
   @override
@@ -83,6 +88,10 @@ class HomePage extends HookConsumerWidget {
     final transferPolicy = defaultTargetPlatform == TargetPlatform.android
         ? ref.watch(foregroundTransferPolicyStatusProvider)
         : null;
+    final activeDownloadCount = ref
+        .watch(downloadQueueProvider)
+        .summary
+        .activeCount;
     final pages = <Widget>[
       Stack(
         children: [
@@ -315,6 +324,22 @@ class HomePage extends HookConsumerWidget {
         surfaceTintColor: Colors.transparent,
         actions: selectedIndex.value == 0
             ? [
+                IconButton(
+                  key: downloadsButtonKey,
+                  icon: Badge(
+                    isLabelVisible: activeDownloadCount > 0,
+                    label: Text('$activeDownloadCount'),
+                    child: const Icon(Icons.download_outlined),
+                  ),
+                  tooltip: 'Downloads',
+                  onPressed: () {
+                    Navigator.of(context).push<void>(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const DownloadQueuePage(),
+                      ),
+                    );
+                  },
+                ),
                 IconButton(
                   icon: Icon(currentFilter.icon),
                   tooltip: currentFilter.displayName,

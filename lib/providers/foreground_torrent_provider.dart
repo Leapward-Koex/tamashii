@@ -12,6 +12,7 @@ import 'package:tamashii/providers/torrent_download_provider.dart';
 import 'package:tamashii/services/foreground_service_lifecycle.dart';
 import 'package:tamashii/services/notification_service.dart';
 import 'package:tamashii/services/permission_service.dart';
+import 'package:tamashii/services/download_transfer_metrics.dart';
 import 'package:tamashii/services/torrent_foreground_task.dart';
 import 'package:tamashii/services/transfer_policy.dart';
 import 'package:tamashii_network_cost/tamashii_network_cost.dart';
@@ -365,6 +366,14 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
       _isServiceRunning = false;
       _serviceReadyCompleter = null;
       _expectedServiceReadyRequestId = null;
+      // Intentional safety stops retire the task instance before its delayed
+      // `service_stopped` message can arrive. Mark unfinished rows here so a
+      // failed restrictive-policy update cannot leave stale "downloading"
+      // cards behind.
+      _markIncompleteDownloadsAsFailed(
+        'The background download service stopped before this download '
+        'finished. Partial files have been kept.',
+      );
       _failPendingTestQueries(
         StateError('Torrent service stopped before the query completed.'),
       );
@@ -800,6 +809,42 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
     );
   }
 
+  /// Pauses every incomplete foreground transfer.
+  ///
+  /// Android delegates this to the foreground task and waits for a
+  /// request-correlated acknowledgement, so the live Downloads UI does not
+  /// optimistically claim that work stopped before the native engine agrees.
+  Future<void> pauseAllDownloads() async {
+    if (!Platform.isAndroid) {
+      await ref.read(torrentManagerProvider.notifier).pauseAllDownloads();
+      return;
+    }
+
+    await _sendBulkTorrentCommand(
+      type: 'pause_all_downloads',
+      operation: 'pause all downloads',
+      expectedResponseType: 'all_paused',
+    );
+  }
+
+  /// Resumes every manually paused incomplete foreground transfer.
+  ///
+  /// A transfer can remain visibly waiting for network access after this
+  /// succeeds when the independent network-transfer policy is currently
+  /// suspending native traffic.
+  Future<void> resumeAllDownloads() async {
+    if (!Platform.isAndroid) {
+      await ref.read(torrentManagerProvider.notifier).resumeAllDownloads();
+      return;
+    }
+
+    await _sendBulkTorrentCommand(
+      type: 'resume_all_downloads',
+      operation: 'resume all downloads',
+      expectedResponseType: 'all_resumed',
+    );
+  }
+
   Future<void> removeDownload(String torrentKey) async {
     if (!Platform.isAndroid) {
       await ref.read(torrentManagerProvider.notifier).stopDownload(torrentKey);
@@ -844,6 +889,43 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
       throw ForegroundTorrentCommandException(
         operation: operation,
         torrentKey: torrentKey,
+        message: 'the foreground service did not acknowledge the command',
+      );
+    } finally {
+      if (identical(_pendingTorrentCommands[requestId], pending)) {
+        _pendingTorrentCommands.remove(requestId);
+      }
+    }
+  }
+
+  Future<void> _sendBulkTorrentCommand({
+    required String type,
+    required String operation,
+    required String expectedResponseType,
+  }) async {
+    // Keep bulk controls behind the same attach/restart barrier as individual
+    // controls. This turns a dead task into an actionable error instead of a
+    // UI-only pause/resume state.
+    await _startForegroundServiceIfNeeded();
+
+    final requestId = _nextServiceRequestId++;
+    final pending = _PendingTorrentCommand(
+      operation: operation,
+      torrentKey: 'all downloads',
+      expectedResponseType: expectedResponseType,
+    );
+    _pendingTorrentCommands[requestId] = pending;
+    FlutterForegroundTask.sendDataToTask({
+      'type': type,
+      'requestId': requestId,
+    });
+
+    try {
+      await pending.completer.future.timeout(const Duration(seconds: 15));
+    } on TimeoutException {
+      throw ForegroundTorrentCommandException(
+        operation: operation,
+        torrentKey: 'all downloads',
         message: 'the foreground service did not acknowledge the command',
       );
     } finally {
@@ -898,16 +980,6 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
     final newTorrents = Map<String, TorrentDownloadState>.from(state.torrents);
     newTorrents[torrentKey] = newState;
     state = state.copyWith(torrents: newTorrents);
-  }
-
-  // Helper method to format bytes for display
-  String _formatBytes(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    if (bytes < 1024 * 1024 * 1024) {
-      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-    }
-    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
 
   // Method to handle data from the foreground service
@@ -971,9 +1043,22 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
 
         case 'all_paused':
         case 'all_resumed':
-          print(
-            '📢 ${type == 'all_paused' ? 'All torrents paused' : 'All torrents resumed'}',
-          );
+          final bulkServiceInstanceId = message['serviceInstanceId'];
+          if (bulkServiceInstanceId is String &&
+              !_serviceInstanceTracker.acceptsMessage(bulkServiceInstanceId)) {
+            print('⏭️ Ignoring bulk acknowledgement from a stale service');
+            break;
+          }
+          final bulkRequestId = message['requestId'];
+          if (bulkRequestId is int) {
+            final pending = _pendingTorrentCommands[bulkRequestId];
+            if (pending == null || pending.expectedResponseType != type) {
+              print('⏭️ Ignoring a stale bulk command acknowledgement');
+              break;
+            }
+          }
+          _handleBulkTorrentStatusUpdate(message);
+          _completeTorrentCommand(message);
           break;
 
         case 'error':
@@ -1019,6 +1104,10 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
           _isServiceRunning = false;
           _serviceReadyCompleter = null;
           _expectedServiceReadyRequestId = null;
+          _markIncompleteDownloadsAsFailed(
+            'The background download service stopped before this download '
+            'finished. Partial files have been kept.',
+          );
           final policyCompleter = _policyUpdateCompleter;
           if (policyCompleter != null && !policyCompleter.isCompleted) {
             policyCompleter.completeError(error);
@@ -1109,11 +1198,11 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
 
     switch (type) {
       case 'download_paused':
-        newState = currentState.copyWith(isPaused: true);
+        newState = currentState.copyWith(isPaused: true, clearError: true);
         print('⏸️ Download paused for $torrentKey');
         break;
       case 'download_resumed':
-        newState = currentState.copyWith(isPaused: false);
+        newState = currentState.copyWith(isPaused: false, clearError: true);
         print('▶️ Download resumed for $torrentKey');
         break;
       case 'download_removed':
@@ -1144,7 +1233,7 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
     // Recreate TorrentStats from serialized data using fromMap()
     try {
       final stats = TorrentStats.fromMap(statsData);
-      final newState = currentState.copyWith(stats: stats);
+      final newState = currentState.copyWith(stats: stats, clearError: true);
 
       _updateTorrentState(torrentKey, newState);
 
@@ -1160,7 +1249,7 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
 
       // Log the stats for debugging
       print(
-        '📊 Stats update for $torrentKey: ${(stats.progress * 100).toStringAsFixed(1)}% (${_formatBytes(stats.downloadRate)}/s) - State: ${stats.state.name}',
+        '📊 Stats update for $torrentKey: ${(stats.progress * 100).toStringAsFixed(1)}% (${DownloadTransferFormatters.formatRate(stats.downloadRate)}) - State: ${stats.state.name}',
       );
     } catch (e) {
       print('❌ Failed to recreate TorrentStats from serialized data: $e');
@@ -1190,24 +1279,81 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
   }
 
   void _handleBulkStates(Map<String, dynamic> data) {
-    final Map<String, dynamic>? states = data['states'];
-    if (states == null) return;
+    final serviceInstanceId = data['serviceInstanceId'];
+    if (serviceInstanceId is String &&
+        !_serviceInstanceTracker.acceptsMessage(serviceInstanceId)) {
+      print('⏭️ Ignoring a snapshot from a stale torrent service');
+      return;
+    }
+
+    final rawStates = data['states'];
+    if (rawStates is! Map) return;
+    final states = Map<String, dynamic>.from(rawStates);
 
     final Map<String, TorrentDownloadState> newTorrents = Map.from(
       state.torrents,
     );
+    final snapshotTorrentKeys = <String>{};
 
     for (final entry in states.entries) {
       final String torrentKey = entry.key;
-      final Map<String, dynamic> stateData = entry.value;
+      if (entry.value is! Map) {
+        continue;
+      }
+      final stateData = Map<String, dynamic>.from(entry.value as Map);
       final int? torrentId = stateData['torrentId'];
+      final isPaused = stateData['isPaused'];
+      final errorMessage = stateData['errorMessage'];
 
       if (torrentId != null) {
+        snapshotTorrentKeys.add(torrentKey);
         final currentState =
             newTorrents[torrentKey] ?? const TorrentDownloadState();
-        // Update with current torrent ID if it's different
-        if (currentState.torrentId != torrentId) {
-          newTorrents[torrentKey] = currentState.copyWith(torrentId: torrentId);
+
+        TorrentStats? stats;
+        final rawStats = stateData['stats'];
+        if (rawStats is Map) {
+          try {
+            stats = TorrentStats.fromMap(Map<String, dynamic>.from(rawStats));
+          } catch (error) {
+            print('❌ Ignoring malformed stats in service snapshot: $error');
+          }
+        }
+
+        TorrentMetadata? metadata;
+        final rawMetadata = stateData['metadata'];
+        if (rawMetadata is Map) {
+          try {
+            metadata = TorrentMetadata.fromMap(
+              Map<String, dynamic>.from(rawMetadata),
+            );
+          } catch (error) {
+            print('❌ Ignoring malformed metadata in service snapshot: $error');
+          }
+        }
+
+        // A service snapshot is authoritative for the active transfer. It
+        // restores a reopened UI with every field needed by the Downloads page
+        // rather than requiring future stream events to trickle in.
+        newTorrents[torrentKey] = TorrentDownloadState(
+          torrentId: torrentId,
+          stats: stats,
+          metadata: metadata,
+          isPaused: isPaused is bool ? isPaused : currentState.isPaused,
+          errorMessage: errorMessage is String ? errorMessage : null,
+        );
+      }
+    }
+
+    // A state response sent during service attachment is a full snapshot. If
+    // an earlier UI state names a still-incomplete torrent absent from it, the
+    // native manager no longer owns that transfer; retain its partial payload
+    // but make the failure visible instead of leaving a stale live card.
+    if (data['isServiceSnapshot'] == true) {
+      for (final entry in newTorrents.entries.toList()) {
+        if (!snapshotTorrentKeys.contains(entry.key) &&
+            _isIncompleteLiveTransfer(entry.value)) {
+          newTorrents[entry.key] = _stoppedTransferFailure(entry.value);
         }
       }
     }
@@ -1215,9 +1361,78 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
     state = state.copyWith(torrents: newTorrents);
   }
 
+  void _handleBulkTorrentStatusUpdate(Map<String, dynamic> data) {
+    final type = data['type'];
+    final rawTorrentKeys = data['torrentKeys'];
+    if ((type != 'all_paused' && type != 'all_resumed') ||
+        rawTorrentKeys is! List) {
+      return;
+    }
+
+    final newTorrents = Map<String, TorrentDownloadState>.from(state.torrents);
+    final isPaused = type == 'all_paused';
+    for (final value in rawTorrentKeys) {
+      if (value is! String) {
+        continue;
+      }
+      final currentState = newTorrents[value];
+      if (currentState == null || currentState.isCompleted) {
+        continue;
+      }
+      newTorrents[value] = currentState.copyWith(
+        isPaused: isPaused,
+        clearError: true,
+      );
+    }
+    state = state.copyWith(torrents: newTorrents);
+  }
+
+  bool _isIncompleteLiveTransfer(TorrentDownloadState torrent) {
+    return !torrent.isCompleted &&
+        (torrent.torrentId != null || torrent.isLoading);
+  }
+
+  TorrentDownloadState _stoppedTransferFailure(TorrentDownloadState torrent) {
+    return TorrentDownloadState(
+      stats: torrent.stats,
+      metadata: torrent.metadata,
+      errorMessage:
+          'The background download service stopped before this download '
+          'finished. Partial files have been kept.',
+    );
+  }
+
+  void _markIncompleteDownloadsAsFailed(String message) {
+    final newTorrents = Map<String, TorrentDownloadState>.from(state.torrents);
+    var changed = false;
+    for (final entry in newTorrents.entries.toList()) {
+      if (!_isIncompleteLiveTransfer(entry.value)) {
+        continue;
+      }
+      newTorrents[entry.key] = TorrentDownloadState(
+        stats: entry.value.stats,
+        metadata: entry.value.metadata,
+        errorMessage: message,
+      );
+      changed = true;
+    }
+    if (changed) {
+      state = state.copyWith(torrents: newTorrents);
+    }
+  }
+
   void _handleError(Map<String, dynamic> data) {
     final String? torrentKey = data['torrentKey'];
     final String? message = data['message'];
+
+    // Bulk commands are represented by a request acknowledgement rather than
+    // a fake torrent entry. Their caller receives the correlated exception and
+    // can surface it in the page snackbar without adding an "all downloads"
+    // row to the live transfer report.
+    if (data['isBulkCommand'] == true) {
+      print('❌ Bulk torrent command failed: $message');
+      return;
+    }
 
     if (torrentKey != null && message != null) {
       final currentState =

@@ -3,8 +3,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tamashii/api/api_client.dart';
+import 'package:tamashii/models/download_transfer_metrics.dart';
 import 'package:tamashii/models/show_models.dart';
+import 'package:tamashii/pages/download_queue_page.dart';
 import 'package:tamashii/pages/home_page.dart';
+import 'package:tamashii/providers/download_queue_provider.dart';
 import 'package:tamashii/providers/subsplease_api_providers.dart';
 import 'package:tamashii/providers/torrent_download_provider.dart';
 import 'package:tamashii/widgets/show_card.dart';
@@ -120,5 +123,83 @@ void main() {
     expect(updatedHeroOffset, greaterThan(initialHeroOffset));
     expect(find.text('Featured Show'), findsWidgets);
     expect(find.text('Second Show'), findsOneWidget);
+  });
+
+  testWidgets('home opens Downloads and badges active transfers', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'auto_generate_folders': true,
+      'download_base_path': '',
+      'series_folder_mapping': '{}',
+      'bookmarked_series': <String>[],
+      'downloaded_torrents': <String>[],
+      'show_filter': 'all',
+    });
+    const report = DownloadTransferReport(
+      items: <DownloadTransferItem>[
+        DownloadTransferItem(
+          key: 'episode-1',
+          displayName: 'Episode 1',
+          status: DownloadTransferStatus.downloading,
+          progressFraction: 0.25,
+        ),
+        DownloadTransferItem(
+          key: 'episode-2',
+          displayName: 'Episode 2',
+          status: DownloadTransferStatus.preparing,
+          progressFraction: 0,
+        ),
+      ],
+      summary: DownloadTransferSummary(
+        trackedCount: 2,
+        liveCount: 2,
+        completedCount: 0,
+        activeCount: 2,
+        downloadingCount: 1,
+        preparingCount: 1,
+        pausedCount: 0,
+        waitingForNetworkCount: 0,
+        failedCount: 0,
+        progressFraction: 0.125,
+        progressIsEstimated: true,
+        downloadRate: 0,
+        uploadRate: 0,
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          subsPleaseApiProvider.overrideWithValue(
+            FakeSubsPleaseApi(latestEpisodes: const <ShowInfo>[]),
+          ),
+          torrentManagerProvider.overrideWithValue(const TorrentManagerState()),
+          downloadQueueProvider.overrideWithValue(report),
+        ],
+        child: MaterialApp(
+          theme: ThemeData(useMaterial3: true),
+          home: const HomePage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(HomePage.downloadsButtonKey), findsOneWidget);
+    final badge = tester.widget<Badge>(
+      find.descendant(
+        of: find.byKey(HomePage.downloadsButtonKey),
+        matching: find.byType(Badge),
+      ),
+    );
+    expect(badge.isLabelVisible, isTrue);
+    expect(find.text('2'), findsOneWidget);
+
+    await tester.tap(find.byKey(HomePage.downloadsButtonKey));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(DownloadQueuePage), findsOneWidget);
+    expect(find.text('Downloads'), findsOneWidget);
+    expect(find.text('Episode 1'), findsOneWidget);
   });
 }

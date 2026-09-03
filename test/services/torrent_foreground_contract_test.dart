@@ -232,7 +232,7 @@ void main() {
     final notificationUpdate = _between(
       taskSource,
       'void _updateNotificationWithProgress()',
-      '// Check if all torrents are completed',
+      'DownloadTransferReport _buildTransferReport()',
     );
 
     expect(
@@ -248,6 +248,72 @@ void main() {
       'if (activeTorrents == 0)',
     ]);
   });
+
+  test('notification and live UI share the transfer metrics projection', () {
+    expect(taskSource, contains('DownloadTransferMetrics.build('));
+    expect(taskSource, contains('DownloadTransferSnapshot('));
+    expect(
+      taskSource,
+      contains('DownloadTransferFormatters.formatRate(summary.downloadRate)'),
+    );
+    expect(
+      taskSource,
+      contains('DownloadTransferFormatters.formatEta(summary.eta)'),
+    );
+    expect(taskSource, isNot(contains('double totalProgress = 0')));
+    expect(taskSource, isNot(contains('String _formatBytes(')));
+  });
+
+  test('bulk controls use correlated acknowledgements and affected keys', () {
+    expect(providerSource, contains('Future<void> pauseAllDownloads()'));
+    expect(providerSource, contains('Future<void> resumeAllDownloads()'));
+    expect(providerSource, contains("type: 'pause_all_downloads'"));
+    expect(providerSource, contains("type: 'resume_all_downloads'"));
+    expect(providerSource, contains("expectedResponseType: 'all_paused'"));
+    expect(providerSource, contains("expectedResponseType: 'all_resumed'"));
+    expect(taskSource, contains("case 'pause_all_downloads':"));
+    expect(taskSource, contains("case 'resume_all_downloads':"));
+    expect(taskSource, contains("'torrentKeys': torrentKeys"));
+    expect(taskSource, contains("'requestId': requestId"));
+    expect(providerSource, contains('_handleBulkTorrentStatusUpdate(message)'));
+    expect(providerSource, contains('data[\'isBulkCommand\'] == true'));
+  });
+
+  test(
+    'service attachment hydrates rich states and rejects stale live work',
+    () {
+      final serviceSnapshot = _between(
+        taskSource,
+        'Future<void> _broadcastTorrentStates',
+        'Future<void> _stopServiceIfStillComplete',
+      );
+      expect(
+        serviceSnapshot,
+        contains("'stats': _currentStats[torrentKey]?.toMap()"),
+      );
+      expect(
+        serviceSnapshot,
+        contains("'metadata': _currentMetadata[torrentKey]?.toMap()"),
+      );
+      expect(
+        serviceSnapshot,
+        contains("'isPaused': _pausedTorrents.contains(torrentKey)"),
+      );
+      expect(
+        serviceSnapshot,
+        contains("'isServiceSnapshot': isServiceSnapshot"),
+      );
+      expect(
+        taskSource,
+        contains('await _broadcastTorrentStates(isServiceSnapshot: true)'),
+      );
+      expect(providerSource, contains('TorrentStats.fromMap('));
+      expect(providerSource, contains('TorrentMetadata.fromMap('));
+      expect(providerSource, contains("data['isServiceSnapshot'] == true"));
+      expect(providerSource, contains('_markIncompleteDownloadsAsFailed('));
+      expect(providerSource, contains('_stoppedTransferFailure('));
+    },
+  );
 
   test('Android route changes fail closed until fresh capabilities arrive', () {
     final onAvailable = _between(

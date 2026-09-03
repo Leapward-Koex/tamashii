@@ -163,6 +163,21 @@ void main() {
       );
     },
   );
+
+  test('bulk pause propagates native failures for page feedback', () async {
+    final manager = container.read(torrentManagerProvider.notifier);
+    await manager.startDownload('show-4', _magnet, downloadDirectory.path);
+    runtime.onPauseAll = () async {
+      throw StateError('native bulk pause failed');
+    };
+
+    await expectLater(manager.pauseAllDownloads(), throwsA(isA<StateError>()));
+
+    expect(
+      container.read(torrentManagerProvider).torrents['show-4']?.errorMessage,
+      isNull,
+    );
+  });
 }
 
 const String _magnet =
@@ -198,6 +213,7 @@ class FakeTorrentRuntime implements TorrentRuntime {
   final List<int> finalisedIds = <int>[];
   final List<int> cancelledIds = <int>[];
   Future<void> Function(int id)? onFinalise;
+  Future<void> Function()? onPauseAll;
 
   bool get hasStatsListener => _stats.hasListener;
 
@@ -231,7 +247,9 @@ class FakeTorrentRuntime implements TorrentRuntime {
   Future<void> pause(int id) async {}
 
   @override
-  Future<void> pauseAll() async {}
+  Future<void> pauseAll() async {
+    await onPauseAll?.call();
+  }
 
   @override
   Future<void> resume(int id) async {}
