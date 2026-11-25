@@ -10,12 +10,12 @@ part of 'subsplease_api_providers.dart';
 // ignore_for_file: type=lint, type=warning
 
 @ProviderFor(subsPleaseApi)
-const subsPleaseApiProvider = SubsPleaseApiProvider._();
+final subsPleaseApiProvider = SubsPleaseApiProvider._();
 
 final class SubsPleaseApiProvider
     extends $FunctionalProvider<SubsPleaseApi, SubsPleaseApi, SubsPleaseApi>
     with $Provider<SubsPleaseApi> {
-  const SubsPleaseApiProvider._()
+  SubsPleaseApiProvider._()
     : super(
         from: null,
         argument: null,
@@ -51,7 +51,7 @@ final class SubsPleaseApiProvider
 String _$subsPleaseApiHash() => r'5e916012b526cb15eae6eb53e409dfacc05ba54b';
 
 @ProviderFor(latestShows)
-const latestShowsProvider = LatestShowsProvider._();
+final latestShowsProvider = LatestShowsProvider._();
 
 final class LatestShowsProvider
     extends
@@ -61,7 +61,7 @@ final class LatestShowsProvider
           FutureOr<List<ShowInfo>>
         >
     with $FutureModifier<List<ShowInfo>>, $FutureProvider<List<ShowInfo>> {
-  const LatestShowsProvider._()
+  LatestShowsProvider._()
     : super(
         from: null,
         argument: null,
@@ -90,7 +90,7 @@ final class LatestShowsProvider
 String _$latestShowsHash() => r'55bbb87dbf9a7fcb5cee4e819c3dc4c25c16d8aa';
 
 @ProviderFor(searchShows)
-const searchShowsProvider = SearchShowsFamily._();
+final searchShowsProvider = SearchShowsFamily._();
 
 final class SearchShowsProvider
     extends
@@ -100,7 +100,7 @@ final class SearchShowsProvider
           FutureOr<List<ShowInfo>>
         >
     with $FutureModifier<List<ShowInfo>>, $FutureProvider<List<ShowInfo>> {
-  const SearchShowsProvider._({
+  SearchShowsProvider._({
     required SearchShowsFamily super.from,
     required String super.argument,
   }) : super(
@@ -148,7 +148,7 @@ String _$searchShowsHash() => r'7eb8ebb488f21c1d3c09dbd809a7fcebc8cc2ea3';
 
 final class SearchShowsFamily extends $Family
     with $FunctionalFamilyOverride<FutureOr<List<ShowInfo>>, String> {
-  const SearchShowsFamily._()
+  SearchShowsFamily._()
     : super(
         retry: null,
         name: r'searchShowsProvider',
@@ -165,7 +165,7 @@ final class SearchShowsFamily extends $Family
 }
 
 @ProviderFor(filteredShows)
-const filteredShowsProvider = FilteredShowsFamily._();
+final filteredShowsProvider = FilteredShowsFamily._();
 
 final class FilteredShowsProvider
     extends
@@ -175,7 +175,7 @@ final class FilteredShowsProvider
           FutureOr<List<ShowInfo>>
         >
     with $FutureModifier<List<ShowInfo>>, $FutureProvider<List<ShowInfo>> {
-  const FilteredShowsProvider._({
+  FilteredShowsProvider._({
     required FilteredShowsFamily super.from,
     required String super.argument,
   }) : super(
@@ -223,7 +223,7 @@ String _$filteredShowsHash() => r'7bed9373efd283c4f71db6e38eb71ca2d95370a1';
 
 final class FilteredShowsFamily extends $Family
     with $FunctionalFamilyOverride<FutureOr<List<ShowInfo>>, String> {
-  const FilteredShowsFamily._()
+  FilteredShowsFamily._()
     : super(
         retry: null,
         name: r'filteredShowsProvider',
@@ -240,12 +240,12 @@ final class FilteredShowsFamily extends $Family
 }
 
 @ProviderFor(showSynopsis)
-const showSynopsisProvider = ShowSynopsisFamily._();
+final showSynopsisProvider = ShowSynopsisFamily._();
 
 final class ShowSynopsisProvider
     extends $FunctionalProvider<AsyncValue<String?>, String?, FutureOr<String?>>
     with $FutureModifier<String?>, $FutureProvider<String?> {
-  const ShowSynopsisProvider._({
+  ShowSynopsisProvider._({
     required ShowSynopsisFamily super.from,
     required String super.argument,
   }) : super(
@@ -292,7 +292,7 @@ String _$showSynopsisHash() => r'628c445a90cbee14311e9e9efd9e2061d45ffe19';
 
 final class ShowSynopsisFamily extends $Family
     with $FunctionalFamilyOverride<FutureOr<String?>, String> {
-  const ShowSynopsisFamily._()
+  ShowSynopsisFamily._()
     : super(
         retry: null,
         name: r'showSynopsisProvider',

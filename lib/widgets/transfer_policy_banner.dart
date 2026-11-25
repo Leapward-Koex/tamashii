@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:tamashii/services/transfer_policy.dart';
 
 /// Displays session-wide suspension separately from per-download pause state.

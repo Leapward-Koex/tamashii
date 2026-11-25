@@ -3,6 +3,7 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class NotificationService {
+  static const _androidIcon = 'ic_download_done';
   static final FlutterLocalNotificationsPlugin _notifications =
       FlutterLocalNotificationsPlugin();
   static bool _initialized = false;
@@ -11,7 +12,7 @@ class NotificationService {
     if (_initialized) return;
 
     const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+        AndroidInitializationSettings(_androidIcon);
 
     const DarwinInitializationSettings initializationSettingsIOS =
         DarwinInitializationSettings();
@@ -35,24 +36,22 @@ class NotificationService {
     _initialized = true;
   }
 
-  static Future<void> showTorrentCompletionNotification({
-    required String torrentName,
-    required String message,
+  static Future<void> showDownloadCompletion({
+    required String torrentKey,
+    required String displayName,
+    required int completedCount,
   }) async {
     await initialize();
-
-    // Use a unique ID based on the torrent name
-    final int notificationId = torrentName.hashCode;
 
     const AndroidNotificationDetails androidNotificationDetails =
         AndroidNotificationDetails(
           'torrent_completion',
           'Torrent Completions',
-          channelDescription:
-              'Notifications when individual torrents complete downloading',
+          channelDescription: 'Notifications for finished downloads',
           importance: Importance.high,
           priority: Priority.high,
-          icon: '@mipmap/ic_launcher',
+          icon: _androidIcon,
+          tag: 'torrent_completion',
         );
 
     const DarwinNotificationDetails iosNotificationDetails =
@@ -67,10 +66,11 @@ class NotificationService {
       iOS: iosNotificationDetails,
     );
 
+    final isBatch = completedCount > 1;
     await _notifications.show(
-      id: notificationId,
-      title: 'Download Complete',
-      body: message,
+      id: torrentKey.hashCode,
+      title: isBatch ? 'Downloads complete' : 'Download complete',
+      body: isBatch ? 'All $completedCount downloads finished.' : displayName,
       notificationDetails: notificationDetails,
     );
   }

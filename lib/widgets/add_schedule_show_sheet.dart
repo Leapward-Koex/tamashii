@@ -1,17 +1,22 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:tamashii/models/jikan_models.dart';
+import 'package:tamashii/models/tenrai_models.dart';
 import 'package:tamashii/models/show_models.dart';
 import 'package:tamashii/providers/bookmarked_series_provider.dart';
-import 'package:tamashii/providers/jikan_api_providers.dart';
+import 'package:tamashii/providers/tenrai_api_providers.dart';
 import 'package:tamashii/widgets/show_image.dart';
 
 class AddScheduleShowSheet extends HookConsumerWidget {
-  const AddScheduleShowSheet({super.key});
+  const AddScheduleShowSheet({super.key}) : showToMatch = null;
+
+  const AddScheduleShowSheet.match({
+    super.key,
+    required BookmarkedShowInfo show,
+  }) : showToMatch = show;
 
   static const Key dayDropdownKey = ValueKey<String>(
     'add-schedule-show-day-dropdown',
@@ -20,49 +25,105 @@ class AddScheduleShowSheet extends HookConsumerWidget {
     'add-schedule-show-search-field',
   );
 
+  final BookmarkedShowInfo? showToMatch;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final queryController = useTextEditingController();
-    final selectedDay = useState<int>(DateTime.now().weekday);
-    final pendingQuery = useState<String>('');
-    final submittedQuery = useState<String>('');
-    final debounceTimerRef = useRef<Timer?>(null);
+    final existingShow = showToMatch;
+    final initialQuery = existingShow?.showName ?? '';
+    final queryController = useTextEditingController(text: initialQuery);
+    final selectedDay = useState(
+      existingShow?.releaseDayOfWeek ?? DateTime.now().weekday,
+    );
+    final pendingQuery = useState(initialQuery);
+    final submittedQuery = useState(initialQuery);
+    final debounceTimer = useRef<Timer?>(null);
+    final isSaving = useState(false);
+    final saveError = useState<String?>(null);
 
-    void runSearch([String? rawQuery]) {
-      debounceTimerRef.value?.cancel();
-      final trimmedQuery = (rawQuery ?? queryController.text).trim();
-      pendingQuery.value = trimmedQuery;
-      submittedQuery.value = trimmedQuery;
+    void runSearch(String query) {
+      debounceTimer.value?.cancel();
+      submittedQuery.value = query.trim();
     }
 
     useEffect(() {
-      void listener() {
-        final trimmedQuery = queryController.text.trim();
-        pendingQuery.value = trimmedQuery;
-        debounceTimerRef.value?.cancel();
-        if (trimmedQuery.isEmpty) {
-          submittedQuery.value = '';
+      void onQueryChanged() {
+        final title = queryController.text.trim();
+        if (title == pendingQuery.value) {
           return;
         }
 
-        debounceTimerRef.value = Timer(const Duration(seconds: 2), () {
-          runSearch(trimmedQuery);
-        });
+        pendingQuery.value = title;
+        saveError.value = null;
+        debounceTimer.value?.cancel();
+        if (title.isEmpty) {
+          runSearch(title);
+          return;
+        }
+
+        debounceTimer.value = Timer(
+          const Duration(seconds: 2),
+          () => runSearch(title),
+        );
       }
 
-      queryController.addListener(listener);
+      queryController.addListener(onQueryChanged);
       return () {
-        queryController.removeListener(listener);
-        debounceTimerRef.value?.cancel();
+        queryController.removeListener(onQueryChanged);
+        debounceTimer.value?.cancel();
       };
     }, [queryController]);
 
-    final searchResultsAsync = ref.watch(
-      searchJikanShowsProvider(submittedQuery.value),
-    );
-    final watchingShows =
-        ref.watch(bookmarkedSeriesProvider).value ??
-        const <BookmarkedShowInfo>[];
+    final searchProvider = searchTenraiShowsProvider(submittedQuery.value);
+    final searchResults = ref.watch(searchProvider);
+    final bookmarks = ref.watch(bookmarkedSeriesProvider);
+    final canSave = !isSaving.value && bookmarks.hasValue;
+
+    Future<void> save(String title, {TenraiAnimeSearchResult? match}) async {
+      if (isSaving.value) {
+        return;
+      }
+      isSaving.value = true;
+      saveError.value = null;
+      try {
+        final notifier = ref.read(bookmarkedSeriesProvider.notifier);
+        final saved = existingShow == null
+            ? await notifier.add(
+                BookmarkedShowInfo(
+                  imageUrl: match?.imageUrl ?? '',
+                  releaseDayOfWeek: selectedDay.value,
+                  showName: title,
+                  malId: match?.malId,
+                  source: BookmarkedShowSource.manual,
+                ),
+              )
+            : await notifier.matchManualEntry(
+                existingShow.showName,
+                malId: match!.malId,
+                imageUrl: match.imageUrl,
+              );
+
+        if (!context.mounted) {
+          return;
+        }
+        if (saved) {
+          Navigator.of(context).pop(title);
+          return;
+        }
+
+        saveError.value = existingShow == null
+            ? 'This show is already on your schedule.'
+            : 'The show could not be matched. It may already be on your schedule.';
+      } catch (_) {
+        if (context.mounted) {
+          saveError.value = 'Unable to save your schedule. Please try again.';
+        }
+      } finally {
+        if (context.mounted) {
+          isSaving.value = false;
+        }
+      }
+    }
 
     return SafeArea(
       child: Padding(
@@ -76,8 +137,9 @@ class AddScheduleShowSheet extends HookConsumerWidget {
           constraints: BoxConstraints(
             maxHeight: MediaQuery.sizeOf(context).height * 0.85,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: ListView(
+            padding: EdgeInsets.zero,
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             children: [
               Center(
                 child: Container(
@@ -91,58 +153,84 @@ class AddScheduleShowSheet extends HookConsumerWidget {
               ),
               const SizedBox(height: 16),
               Text(
-                'Add show',
+                existingShow == null ? 'Add show' : 'Match with Tenrai',
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Pick a day, search, and add a show to your watching schedule.',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
               const SizedBox(height: 16),
-              DropdownButtonFormField<int>(
-                key: dayDropdownKey,
-                initialValue: selectedDay.value,
-                decoration: const InputDecoration(
-                  labelText: 'Day',
-                  border: OutlineInputBorder(),
+              if (existingShow == null) ...[
+                DropdownButtonFormField<int>(
+                  key: dayDropdownKey,
+                  initialValue: selectedDay.value,
+                  decoration: const InputDecoration(
+                    labelText: 'Day',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: List<DropdownMenuItem<int>>.generate(7, (index) {
+                    final weekday = index + 1;
+                    return DropdownMenuItem<int>(
+                      value: weekday,
+                      child: Text(_weekdayName(weekday)),
+                    );
+                  }),
+                  onChanged: isSaving.value
+                      ? null
+                      : (value) {
+                          if (value != null) {
+                            selectedDay.value = value;
+                          }
+                        },
                 ),
-                items: List<DropdownMenuItem<int>>.generate(7, (index) {
-                  final weekday = index + 1;
-                  return DropdownMenuItem<int>(
-                    value: weekday,
-                    child: Text(_weekdayName(weekday)),
-                  );
-                }),
-                onChanged: (value) {
-                  if (value != null) {
-                    selectedDay.value = value;
-                  }
-                },
-              ),
-              const SizedBox(height: 12),
+                const SizedBox(height: 12),
+              ],
               TextField(
                 key: searchFieldKey,
                 controller: queryController,
-                autofocus: true,
+                autofocus: existingShow == null,
+                enabled: !isSaving.value,
                 textInputAction: TextInputAction.search,
                 onSubmitted: runSearch,
                 decoration: const InputDecoration(
-                  labelText: 'Search',
-                  hintText: 'Type a show title',
+                  labelText: 'Show title',
                   prefixIcon: Icon(Icons.search),
                   border: OutlineInputBorder(),
                 ),
               ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: _SearchResults(
-                  pendingQuery: pendingQuery.value,
-                  submittedQuery: submittedQuery.value,
-                  resultsAsync: searchResultsAsync,
-                  selectedDay: selectedDay.value,
-                  watchingShows: watchingShows,
+              if (existingShow == null && pendingQuery.value.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed: canSave ? () => save(pendingQuery.value) : null,
+                    icon: const Icon(Icons.edit_outlined),
+                    label: const Text('Add by title'),
+                  ),
                 ),
+              ],
+              if (saveError.value case final error?)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      error,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 12),
+              _SearchResults(
+                waitingForQuery:
+                    submittedQuery.value.isEmpty ||
+                    pendingQuery.value != submittedQuery.value,
+                results: searchResults,
+                selectedDay: selectedDay.value,
+                matching: existingShow != null,
+                canSave: canSave,
+                watchingShows: bookmarks.value ?? const [],
+                onRetry: () => ref.invalidate(searchProvider),
+                onSelect: (result) => save(result.displayTitle, match: result),
               ),
             ],
           ),
@@ -152,150 +240,133 @@ class AddScheduleShowSheet extends HookConsumerWidget {
   }
 }
 
-class _SearchResults extends ConsumerWidget {
+class _SearchResults extends StatelessWidget {
   const _SearchResults({
-    required this.pendingQuery,
-    required this.submittedQuery,
-    required this.resultsAsync,
+    required this.waitingForQuery,
+    required this.results,
     required this.selectedDay,
+    required this.matching,
+    required this.canSave,
     required this.watchingShows,
+    required this.onRetry,
+    required this.onSelect,
   });
 
-  final String pendingQuery;
-  final String submittedQuery;
-  final AsyncValue<List<JikanAnimeSearchResult>> resultsAsync;
+  final bool waitingForQuery;
+  final AsyncValue<List<TenraiAnimeSearchResult>> results;
   final int selectedDay;
+  final bool matching;
+  final bool canSave;
   final List<BookmarkedShowInfo> watchingShows;
+  final VoidCallback onRetry;
+  final ValueChanged<TenraiAnimeSearchResult> onSelect;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    if (submittedQuery.isEmpty) {
-      return _SearchPlaceholder(
-        icon: Icons.travel_explore,
-        label: 'Search for a show to add it to ${_weekdayName(selectedDay)}.',
+  Widget build(BuildContext context) {
+    if (waitingForQuery) {
+      return _SearchStatus(
+        label: matching
+            ? 'Search Tenrai for the matching show.'
+            : 'Search for a show to add it to ${_weekdayName(selectedDay)}.',
       );
     }
 
-    if (pendingQuery.isNotEmpty && pendingQuery != submittedQuery) {
-      return _SearchPlaceholder(
-        icon: Icons.hourglass_bottom,
-        label: 'Search for a show to add it to ${_weekdayName(selectedDay)}.',
-      );
-    }
-
-    return resultsAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, _) {
-        return _SearchPlaceholder(
-          icon: Icons.error_outline,
-          label: error.toString(),
-        );
-      },
-      data: (results) {
-        if (results.isEmpty) {
-          return const _SearchPlaceholder(
-            icon: Icons.search_off,
-            label: 'No matching shows found.',
-          );
+    return results.when(
+      skipLoadingOnRefresh: false,
+      loading: () => const _SearchStatus(
+        label: 'Searching Tenrai…',
+        leading: SizedBox.square(
+          dimension: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      ),
+      error: (error, _) => _SearchStatus(
+        label: error.toString(),
+        action: TextButton(onPressed: onRetry, child: const Text('Retry')),
+      ),
+      data: (matches) {
+        if (matches.isEmpty) {
+          return const _SearchStatus(label: 'No matching shows found.');
         }
 
-        return ListView.separated(
-          itemCount: results.length,
-          separatorBuilder: (_, _) => const Divider(height: 1),
-          itemBuilder: (context, index) {
-            final result = results[index];
-            final showName = result.displayTitle;
-            final alreadyWatching = watchingShows.any(
-              (show) => show.showName == showName,
-            );
+        return Column(
+          children: ListTile.divideTiles(
+            context: context,
+            tiles: matches.map((result) {
+              final showName = result.displayTitle;
+              final alreadyWatching = watchingShows.any(
+                (show) =>
+                    show.malId == result.malId ||
+                    (!matching &&
+                        show.showName.trim().toLowerCase() ==
+                            showName.trim().toLowerCase()),
+              );
 
-            return ListTile(
-              key: ValueKey<String>('jikan-search-result-${result.malId}'),
-              enabled: !alreadyWatching,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 4,
-                vertical: 8,
-              ),
-              leading: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: ShowImage(
-                  imageUrl: result.imageUrl,
-                  width: 44,
-                  height: 60,
+              return ListTile(
+                key: ValueKey<String>('tenrai-search-result-${result.malId}'),
+                enabled: canSave && !alreadyWatching,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 4,
+                  vertical: 8,
                 ),
-              ),
-              title: Text(showName),
-              subtitle: Text(_searchSubtitle(result, alreadyWatching)),
-              trailing: Icon(
-                alreadyWatching ? Icons.check_circle : Icons.add_circle_outline,
-              ),
-              onTap: alreadyWatching
-                  ? null
-                  : () async {
-                      final added = await ref
-                          .read(bookmarkedSeriesProvider.notifier)
-                          .add(
-                            BookmarkedShowInfo(
-                              imageUrl: result.imageUrl,
-                              releaseDayOfWeek: selectedDay,
-                              showName: showName,
-                              jikanId: result.malId,
-                              source: BookmarkedShowSource.manual,
-                            ),
-                          );
-
-                      if (!context.mounted || !added) {
-                        return;
-                      }
-
-                      Navigator.of(context).pop(showName);
-                    },
-            );
-          },
+                leading: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: ShowImage(
+                    imageUrl: result.imageUrl,
+                    width: 44,
+                    height: 60,
+                  ),
+                ),
+                title: Text(showName),
+                subtitle: Text(_searchSubtitle(result, alreadyWatching)),
+                trailing: Icon(
+                  alreadyWatching
+                      ? Icons.check_circle
+                      : matching
+                      ? Icons.link
+                      : Icons.add_circle_outline,
+                ),
+                onTap: canSave && !alreadyWatching
+                    ? () => onSelect(result)
+                    : null,
+              );
+            }),
+          ).toList(),
         );
       },
     );
   }
 
-  String _searchSubtitle(JikanAnimeSearchResult result, bool alreadyWatching) {
+  String _searchSubtitle(TenraiAnimeSearchResult result, bool alreadyWatching) {
     if (alreadyWatching) {
       return 'Already in your watching list';
     }
 
     final details = <String>[
-      if (result.type != null && result.type!.trim().isNotEmpty)
-        result.type!.trim(),
-      if (result.episodes != null) '${result.episodes} eps',
+      if (result.type case final type? when type.trim().isNotEmpty) type.trim(),
+      if (result.episodes case final episodes?) '$episodes eps',
+      if (!matching) _weekdayName(selectedDay),
     ];
-
-    if (details.isEmpty) {
-      return 'Add to ${_weekdayName(selectedDay)}';
-    }
-
-    return '${details.join(' • ')} • ${_weekdayName(selectedDay)}';
+    return details.isEmpty ? 'Match this show' : details.join(' • ');
   }
 }
 
-class _SearchPlaceholder extends StatelessWidget {
-  const _SearchPlaceholder({required this.icon, required this.label});
+class _SearchStatus extends StatelessWidget {
+  const _SearchStatus({required this.label, this.leading, this.action});
 
-  final IconData icon;
   final String label;
+  final Widget? leading;
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 40, color: Theme.of(context).colorScheme.outline),
-          const SizedBox(height: 12),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-        ],
+    return Semantics(
+      liveRegion: true,
+      child: ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: leading,
+        title: Text(label),
+        trailing: action,
       ),
     );
   }

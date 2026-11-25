@@ -58,7 +58,7 @@ jobs:
 
       - name: Verify generated sources
         run: |
-          dart run build_runner build --delete-conflicting-outputs
+          dart run build_runner build
           generated_status="$RUNNER_TEMP/generated-sources-status.txt"
           git status --short --untracked-files=all -- \
             ':(glob)**/*.g.dart' \

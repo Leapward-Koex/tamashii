@@ -1,14 +1,17 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:intl/intl.dart';
 import 'package:tamashii/models/show_models.dart';
 
-enum ScheduleShowActionType { remove, changeDay }
+enum ScheduleShowActionType { remove, changeDay, match }
 
 class ScheduleShowAction {
   const ScheduleShowAction._({required this.type, this.releaseDayOfWeek});
 
   static const ScheduleShowAction remove = ScheduleShowAction._(
     type: ScheduleShowActionType.remove,
+  );
+  static const ScheduleShowAction match = ScheduleShowAction._(
+    type: ScheduleShowActionType.match,
   );
 
   factory ScheduleShowAction.changeDay(int releaseDayOfWeek) {
@@ -30,6 +33,9 @@ class ScheduleShowActionsSheet extends StatelessWidget {
   );
   static const Key changeDayButtonKey = ValueKey<String>(
     'schedule-show-change-day-button',
+  );
+  static const Key matchButtonKey = ValueKey<String>(
+    'schedule-show-match-button',
   );
 
   static Key dayButtonKey(int weekday) =>
@@ -70,6 +76,15 @@ class ScheduleShowActionsSheet extends StatelessWidget {
                     '${_weekdayName(show.releaseDayOfWeek)} • ${show.isManualEntry ? 'Manual entry' : 'Watching list'}',
                   ),
                 ),
+                if (show.isManualEntry && show.malId == null)
+                  ListTile(
+                    key: matchButtonKey,
+                    leading: const Icon(Icons.link),
+                    title: const Text('Match with Tenrai'),
+                    onTap: () {
+                      Navigator.of(context).pop(ScheduleShowAction.match);
+                    },
+                  ),
                 ExpansionTile(
                   key: changeDayButtonKey,
                   leading: const Icon(Icons.edit_calendar_outlined),

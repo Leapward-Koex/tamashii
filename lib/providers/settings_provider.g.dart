@@ -11,13 +11,13 @@ part of 'settings_provider.dart';
 /// Whether to auto-generate subfolders for each series.
 
 @ProviderFor(AutoGenerateFolders)
-const autoGenerateFoldersProvider = AutoGenerateFoldersProvider._();
+final autoGenerateFoldersProvider = AutoGenerateFoldersProvider._();
 
 /// Whether to auto-generate subfolders for each series.
 final class AutoGenerateFoldersProvider
     extends $AsyncNotifierProvider<AutoGenerateFolders, bool> {
   /// Whether to auto-generate subfolders for each series.
-  const AutoGenerateFoldersProvider._()
+  AutoGenerateFoldersProvider._()
     : super(
         from: null,
         argument: null,
@@ -45,8 +45,7 @@ abstract class _$AutoGenerateFolders extends $AsyncNotifier<bool> {
   FutureOr<bool> build();
   @$mustCallSuper
   @override
-  void runBuild() {
-    final created = build();
+  WhenComplete runBuild() {
     final ref = this.ref as $Ref<AsyncValue<bool>, bool>;
     final element =
         ref.element
@@ -56,20 +55,20 @@ abstract class _$AutoGenerateFolders extends $AsyncNotifier<bool> {
               Object?,
               Object?
             >;
-    element.handleValue(ref, created);
+    return element.handleCreate(ref, build);
   }
 }
 
 /// The base folder path where series subfolders are created.
 
 @ProviderFor(DownloadBasePath)
-const downloadBasePathProvider = DownloadBasePathProvider._();
+final downloadBasePathProvider = DownloadBasePathProvider._();
 
 /// The base folder path where series subfolders are created.
 final class DownloadBasePathProvider
     extends $AsyncNotifierProvider<DownloadBasePath, String> {
   /// The base folder path where series subfolders are created.
-  const DownloadBasePathProvider._()
+  DownloadBasePathProvider._()
     : super(
         from: null,
         argument: null,
@@ -96,8 +95,7 @@ abstract class _$DownloadBasePath extends $AsyncNotifier<String> {
   FutureOr<String> build();
   @$mustCallSuper
   @override
-  void runBuild() {
-    final created = build();
+  WhenComplete runBuild() {
     final ref = this.ref as $Ref<AsyncValue<String>, String>;
     final element =
         ref.element
@@ -107,20 +105,20 @@ abstract class _$DownloadBasePath extends $AsyncNotifier<String> {
               Object?,
               Object?
             >;
-    element.handleValue(ref, created);
+    return element.handleCreate(ref, build);
   }
 }
 
 /// Mapping of series → custom folder path for episodes.
 
 @ProviderFor(SeriesFolderMapping)
-const seriesFolderMappingProvider = SeriesFolderMappingProvider._();
+final seriesFolderMappingProvider = SeriesFolderMappingProvider._();
 
 /// Mapping of series → custom folder path for episodes.
 final class SeriesFolderMappingProvider
     extends $AsyncNotifierProvider<SeriesFolderMapping, Map<String, String>> {
   /// Mapping of series → custom folder path for episodes.
-  const SeriesFolderMappingProvider._()
+  SeriesFolderMappingProvider._()
     : super(
         from: null,
         argument: null,
@@ -149,8 +147,7 @@ abstract class _$SeriesFolderMapping
   FutureOr<Map<String, String>> build();
   @$mustCallSuper
   @override
-  void runBuild() {
-    final created = build();
+  WhenComplete runBuild() {
     final ref =
         this.ref as $Ref<AsyncValue<Map<String, String>>, Map<String, String>>;
     final element =
@@ -161,20 +158,20 @@ abstract class _$SeriesFolderMapping
               Object?,
               Object?
             >;
-    element.handleValue(ref, created);
+    return element.handleCreate(ref, build);
   }
 }
 
 /// Whether downloads may continue on networks Android marks as metered.
 
 @ProviderFor(AllowMeteredDownloads)
-const allowMeteredDownloadsProvider = AllowMeteredDownloadsProvider._();
+final allowMeteredDownloadsProvider = AllowMeteredDownloadsProvider._();
 
 /// Whether downloads may continue on networks Android marks as metered.
 final class AllowMeteredDownloadsProvider
     extends $AsyncNotifierProvider<AllowMeteredDownloads, bool> {
   /// Whether downloads may continue on networks Android marks as metered.
-  const AllowMeteredDownloadsProvider._()
+  AllowMeteredDownloadsProvider._()
     : super(
         from: null,
         argument: null,
@@ -202,8 +199,7 @@ abstract class _$AllowMeteredDownloads extends $AsyncNotifier<bool> {
   FutureOr<bool> build();
   @$mustCallSuper
   @override
-  void runBuild() {
-    final created = build();
+  WhenComplete runBuild() {
     final ref = this.ref as $Ref<AsyncValue<bool>, bool>;
     final element =
         ref.element
@@ -213,7 +209,7 @@ abstract class _$AllowMeteredDownloads extends $AsyncNotifier<bool> {
               Object?,
               Object?
             >;
-    element.handleValue(ref, created);
+    return element.handleCreate(ref, build);
   }
 }
 
@@ -223,7 +219,7 @@ abstract class _$AllowMeteredDownloads extends $AsyncNotifier<bool> {
 /// a VPN can otherwise obscure whether its underlying network is cellular.
 
 @ProviderFor(AllowMobileData)
-const allowMobileDataProvider = AllowMobileDataProvider._();
+final allowMobileDataProvider = AllowMobileDataProvider._();
 
 /// Whether downloads may continue over an Android cellular transport.
 ///
@@ -235,7 +231,7 @@ final class AllowMobileDataProvider
   ///
   /// This is intentionally separate from Android's metered-network flag because
   /// a VPN can otherwise obscure whether its underlying network is cellular.
-  const AllowMobileDataProvider._()
+  AllowMobileDataProvider._()
     : super(
         from: null,
         argument: null,
@@ -265,8 +261,7 @@ abstract class _$AllowMobileData extends $AsyncNotifier<bool> {
   FutureOr<bool> build();
   @$mustCallSuper
   @override
-  void runBuild() {
-    final created = build();
+  WhenComplete runBuild() {
     final ref = this.ref as $Ref<AsyncValue<bool>, bool>;
     final element =
         ref.element
@@ -276,6 +271,6 @@ abstract class _$AllowMobileData extends $AsyncNotifier<bool> {
               Object?,
               Object?
             >;
-    element.handleValue(ref, created);
+    return element.handleCreate(ref, build);
   }
 }

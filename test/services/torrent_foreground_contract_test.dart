@@ -52,7 +52,7 @@ void main() {
     expect(taskSource, contains('_commandQueue.then((_) => command())'));
     expect(taskSource, contains('await _commandQueue;'));
     expect(taskSource, contains('Map<String, int>.of(_torrentIds)'));
-    expect(taskSource, contains('Map<String, bool>.of(_completedTorrents)'));
+    expect(taskSource, contains('Set<String>.of(_completedTorrents)'));
   });
 
   test('repeat and service-state events refresh the transfer policy', () {
@@ -115,6 +115,22 @@ void main() {
 
     expect(onDestroy, isNot(contains('await SimpleTorrent.cancel')));
     expect(taskSource, contains('await SimpleTorrent.finalise(torrentId)'));
+  });
+
+  test('the service posts completion before shutdown without the UI', () {
+    final finalise = _between(
+      taskSource,
+      'Future<void> _finaliseCompletedTorrent',
+      'Future<void> _broadcastTorrentStates',
+    );
+    _expectOrdered(finalise, <String>[
+      'await SimpleTorrent.finalise(torrentId)',
+      '_completedTorrents.add(torrentKey)',
+      'await NotificationService.showDownloadCompletion(',
+      '_updateNotificationWithProgress();',
+    ]);
+    expect(providerSource, isNot(contains('NotificationService.')));
+    expect(taskSource, isNot(contains('show_completion_notification')));
   });
 
   test('test hooks are compile-time gated and query native state', () {

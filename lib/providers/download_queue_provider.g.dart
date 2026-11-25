@@ -16,7 +16,7 @@ part of 'download_queue_provider.dart';
 /// [DownloadTransferMetrics], so the page cannot drift from the notification.
 
 @ProviderFor(downloadQueue)
-const downloadQueueProvider = DownloadQueueProvider._();
+final downloadQueueProvider = DownloadQueueProvider._();
 
 /// Exposes the same normalized transfer report used by the foreground
 /// notification to the downloads UI.
@@ -39,7 +39,7 @@ final class DownloadQueueProvider
   /// This intentionally only adapts UI manager state. Classification, totals,
   /// progress, rate, ETA, and formatting rules all live in
   /// [DownloadTransferMetrics], so the page cannot drift from the notification.
-  const DownloadQueueProvider._()
+  DownloadQueueProvider._()
     : super(
         from: null,
         argument: null,
@@ -76,7 +76,7 @@ final class DownloadQueueProvider
 String _$downloadQueueHash() => r'a0be7fdc4e494d904e522d2a69d69b72d8e8d034';
 
 @ProviderFor(downloadQueueControls)
-const downloadQueueControlsProvider = DownloadQueueControlsProvider._();
+final downloadQueueControlsProvider = DownloadQueueControlsProvider._();
 
 final class DownloadQueueControlsProvider
     extends
@@ -86,7 +86,7 @@ final class DownloadQueueControlsProvider
           DownloadQueueControls
         >
     with $Provider<DownloadQueueControls> {
-  const DownloadQueueControlsProvider._()
+  DownloadQueueControlsProvider._()
     : super(
         from: null,
         argument: null,

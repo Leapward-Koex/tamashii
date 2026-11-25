@@ -9,6 +9,7 @@ import 'package:tamashii/config/torrent_download_config.dart';
 import 'package:tamashii/models/download_transfer_metrics.dart';
 import 'package:tamashii/services/download_transfer_metrics.dart';
 import 'package:tamashii/services/foreground_service_lifecycle.dart';
+import 'package:tamashii/services/notification_service.dart';
 import 'package:tamashii/services/transfer_policy.dart';
 import 'package:tamashii_network_cost/tamashii_network_cost.dart';
 
@@ -29,7 +30,7 @@ class TorrentTaskHandler extends TaskHandler {
   // Track current torrent states for notification updates
   final Map<String, TorrentStats> _currentStats = {};
   final Map<String, TorrentMetadata> _currentMetadata = {};
-  final Map<String, bool> _completedTorrents = {};
+  final Set<String> _completedTorrents = {};
   final Set<String> _pausedTorrents = {};
   final Map<String, String> _torrentErrors = {};
   final Set<String> _finalisingTorrents = {};
@@ -102,6 +103,16 @@ class TorrentTaskHandler extends TaskHandler {
     final summary = report.summary;
     final activeTorrents = summary.trackedCount;
 
+    if (_allTrackedTorrentsCompleted) {
+      _completionStopController.schedule(
+        delay: const Duration(seconds: 5),
+        onElapsed: (generation) {
+          _enqueueCommand(() => _stopServiceIfStillComplete(generation));
+        },
+      );
+      return;
+    }
+
     if (_transferPolicy.suspended) {
       FlutterForegroundTask.updateService(
         notificationTitle: 'Tamashii - Downloads paused',
@@ -116,25 +127,6 @@ class TorrentTaskHandler extends TaskHandler {
       FlutterForegroundTask.updateService(
         notificationTitle: 'Tamashii - Torrent Service',
         notificationText: 'Ready for downloads',
-      );
-      return;
-    }
-
-    if (summary.completedCount == activeTorrents &&
-        summary.liveCount == 0 &&
-        activeTorrents > 0) {
-      // All torrents finished downloading - show completion notification briefly then stop
-      FlutterForegroundTask.updateService(
-        notificationTitle: 'Tamashii - Downloads Complete! 🎉',
-        notificationText: 'All $activeTorrents torrent(s) finished downloading',
-      );
-
-      // Stop the service after a short delay to let user see the completion message
-      _completionStopController.schedule(
-        delay: const Duration(seconds: 5),
-        onElapsed: (generation) {
-          _enqueueCommand(() => _stopServiceIfStillComplete(generation));
-        },
       );
       return;
     }
@@ -180,7 +172,7 @@ class TorrentTaskHandler extends TaskHandler {
       ..._torrentIds.keys,
       ..._currentStats.keys,
       ..._currentMetadata.keys,
-      ..._completedTorrents.keys,
+      ..._completedTorrents,
       ..._torrentErrors.keys,
     };
     return DownloadTransferMetrics.build(
@@ -189,7 +181,7 @@ class TorrentTaskHandler extends TaskHandler {
           key: torrentKey,
           stats: _currentStats[torrentKey],
           metadata: _currentMetadata[torrentKey],
-          isCompleted: _completedTorrents[torrentKey] ?? false,
+          isCompleted: _completedTorrents.contains(torrentKey),
           isPaused: _pausedTorrents.contains(torrentKey),
           isPreparing: _currentStats[torrentKey] == null,
           isPolicyBlocked: _transferPolicy.suspended,
@@ -406,7 +398,10 @@ class TorrentTaskHandler extends TaskHandler {
       _torrentIds[torrentKey] = id;
 
       // Initialize tracking
-      _completedTorrents[torrentKey] = false;
+      _completedTorrents.remove(torrentKey);
+      _finalisingTorrents.remove(torrentKey);
+      _currentStats.remove(torrentKey);
+      _currentMetadata.remove(torrentKey);
       _pausedTorrents.remove(torrentKey);
       _torrentErrors.remove(torrentKey);
 
@@ -604,9 +599,6 @@ class TorrentTaskHandler extends TaskHandler {
         _currentStats[torrentKey] = stats;
         _torrentErrors.remove(torrentKey);
 
-        // Track completion status
-        _completedTorrents[torrentKey] = stats.progress >= 1.0;
-
         FlutterForegroundTask.sendDataToMain({
           'type': 'stats_update',
           'torrentKey': torrentKey,
@@ -647,37 +639,51 @@ class TorrentTaskHandler extends TaskHandler {
       // Finalise removes the torrent from the native active set while
       // deliberately retaining the completed payload.
       await SimpleTorrent.finalise(torrentId);
-      _showTorrentCompletionNotification(torrentKey);
-
       await _statsSubs[torrentId]?.cancel();
       _statsSubs.remove(torrentId);
-
-      // Check if all torrents are now complete.
-      final allComplete = _completedTorrents.values.every(
-        (completed) => completed,
-      );
-      if (allComplete && _torrentIds.isNotEmpty) {
-        _updateNotificationWithProgress();
-      }
     } catch (error) {
       _finalisingTorrents.remove(torrentKey);
       _sendError(
         torrentKey,
         'Failed to finalise download: ${describeTorrentError(error)}',
       );
+      return;
     }
+
+    _finalisingTorrents.remove(torrentKey);
+    _completedTorrents.add(torrentKey);
+    FlutterForegroundTask.sendDataToMain({
+      'type': 'download_finalised',
+      'torrentKey': torrentKey,
+      'serviceInstanceId': _serviceInstanceId,
+    });
+
+    try {
+      // This engine remains alive in the background. The separate Android
+      // notification stays visible after the foreground service is stopped.
+      await NotificationService.showDownloadCompletion(
+        torrentKey: torrentKey,
+        displayName: _currentMetadata[torrentKey]?.name ?? torrentKey,
+        completedCount: _allTrackedTorrentsCompleted
+            ? _completedTorrents.length
+            : 1,
+      );
+    } catch (error) {
+      print('Failed to show download completion notification: $error');
+    }
+    _updateNotificationWithProgress();
   }
 
   Future<void> _broadcastTorrentStates({bool isServiceSnapshot = false}) async {
     final Map<String, dynamic> allStates = {};
     final torrentEntries = Map<String, int>.of(_torrentIds).entries.toList();
-    final completedTorrents = Map<String, bool>.of(_completedTorrents);
+    final completedTorrents = Set<String>.of(_completedTorrents);
 
     for (final entry in torrentEntries) {
       final String torrentKey = entry.key;
       final int torrentId = entry.value;
 
-      if (completedTorrents[torrentKey] ?? false) {
+      if (completedTorrents.contains(torrentKey)) {
         continue;
       }
 
@@ -714,13 +720,15 @@ class TorrentTaskHandler extends TaskHandler {
     });
   }
 
+  bool get _allTrackedTorrentsCompleted =>
+      _torrentIds.isNotEmpty &&
+      _torrentErrors.isEmpty &&
+      _torrentIds.keys.every(_completedTorrents.contains);
+
   Future<void> _stopServiceIfStillComplete(int generation) async {
     if (!_completionStopController.isCurrent(generation) ||
         !_serviceReady ||
-        _torrentIds.isEmpty ||
-        !_torrentIds.keys.every(
-          (torrentKey) => _completedTorrents[torrentKey] ?? false,
-        )) {
+        !_allTrackedTorrentsCompleted) {
       return;
     }
 
@@ -786,7 +794,7 @@ class TorrentTaskHandler extends TaskHandler {
 
   List<String> _incompleteTorrentKeys() {
     return _torrentIds.keys
-        .where((torrentKey) => !(_completedTorrents[torrentKey] ?? false))
+        .where((torrentKey) => !_completedTorrents.contains(torrentKey))
         .toList(growable: false);
   }
 
@@ -904,21 +912,5 @@ class TorrentTaskHandler extends TaskHandler {
   Map<String, dynamic>? _serializeTorrentInfo(TorrentInfo? info) {
     if (info == null) return null;
     return {'toString': info.toString()};
-  }
-
-  void _showTorrentCompletionNotification(String torrentKey) {
-    // Get the metadata for display name
-    final metadata = _currentMetadata[torrentKey];
-    final displayName = metadata?.name ?? torrentKey;
-
-    // Show a separate completion notification for this specific torrent
-    FlutterForegroundTask.sendDataToMain({
-      'type': 'show_completion_notification',
-      'torrentKey': torrentKey,
-      'displayName': displayName,
-      'message': 'Download completed: $displayName',
-    });
-
-    print('🎉 Showing completion notification for: $displayName');
   }
 }

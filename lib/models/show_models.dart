@@ -1,5 +1,8 @@
 // lib/models/show_models.dart
 
+// Freezed copies the JSON key annotation onto the generated field.
+// ignore_for_file: invalid_annotation_target
+
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:intl/intl.dart';
 
@@ -147,7 +150,8 @@ abstract class BookmarkedShowInfo with _$BookmarkedShowInfo {
     required String imageUrl,
     required int releaseDayOfWeek,
     required String showName,
-    int? jikanId,
+    // Older installs save MyAnimeList IDs under this key.
+    @JsonKey(name: 'jikanId') int? malId,
     @Default(BookmarkedShowSource.subsplease) BookmarkedShowSource source,
   }) = _BookmarkedShowInfo;
 

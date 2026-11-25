@@ -11,13 +11,13 @@ part of 'filter_provider.dart';
 /// Provider that manages the current filter state and persists it
 
 @ProviderFor(ShowFilterNotifier)
-const showFilterProvider = ShowFilterNotifierProvider._();
+final showFilterProvider = ShowFilterNotifierProvider._();
 
 /// Provider that manages the current filter state and persists it
 final class ShowFilterNotifierProvider
     extends $AsyncNotifierProvider<ShowFilterNotifier, ShowFilter> {
   /// Provider that manages the current filter state and persists it
-  const ShowFilterNotifierProvider._()
+  ShowFilterNotifierProvider._()
     : super(
         from: null,
         argument: null,
@@ -45,8 +45,7 @@ abstract class _$ShowFilterNotifier extends $AsyncNotifier<ShowFilter> {
   FutureOr<ShowFilter> build();
   @$mustCallSuper
   @override
-  void runBuild() {
-    final created = build();
+  WhenComplete runBuild() {
     final ref = this.ref as $Ref<AsyncValue<ShowFilter>, ShowFilter>;
     final element =
         ref.element
@@ -56,6 +55,6 @@ abstract class _$ShowFilterNotifier extends $AsyncNotifier<ShowFilter> {
               Object?,
               Object?
             >;
-    element.handleValue(ref, created);
+    return element.handleCreate(ref, build);
   }
 }

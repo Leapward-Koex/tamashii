@@ -1,11 +1,14 @@
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:simple_torrent/simple_torrent.dart';
 import 'package:tamashii/models/show_models.dart';
+import 'package:tamashii/providers/foreground_torrent_provider.dart';
 import 'package:tamashii/providers/torrent_download_provider.dart';
 import 'package:tamashii/widgets/glowing_progress_bar.dart';
 import 'package:tamashii/widgets/show_card.dart';
@@ -40,6 +43,55 @@ const TorrentStats _completedStats = TorrentStats(
 );
 
 void main() {
+  for (final isDownloaded in [false, true]) {
+    testWidgets(
+      '${isDownloaded ? 'Rechecking' : 'Downloading'} chooses the highest quality',
+      (tester) async {
+        final manager = _RecordingForegroundTorrentManager();
+        await _pumpShowCard(
+          tester,
+          showName: _standardShowName,
+          torrentState: isDownloaded
+              ? const TorrentDownloadState(
+                  torrentId: 41,
+                  stats: _completedStats,
+                )
+              : const TorrentDownloadState(),
+          isDownloaded: isDownloaded,
+          downloads: [
+            ShowDownloadInfo(resolution: ShowResolution.r480, magnet: '480'),
+            ShowDownloadInfo(resolution: ShowResolution.r1080, magnet: '1080'),
+            ShowDownloadInfo(resolution: ShowResolution.r720, magnet: '720'),
+          ],
+          manager: manager,
+        );
+
+        final action = isDownloaded ? Icons.replay : Icons.download_rounded;
+        await tester.tap(find.byIcon(action));
+        await tester.pumpAndSettle();
+
+        expect(manager.magnets, ['1080']);
+      },
+    );
+  }
+
+  testWidgets('recheck reports unavailable download links', (tester) async {
+    final manager = _RecordingForegroundTorrentManager();
+    await _pumpShowCard(
+      tester,
+      showName: _standardShowName,
+      torrentState: const TorrentDownloadState(),
+      isDownloaded: true,
+      manager: manager,
+    );
+
+    await tester.tap(find.byIcon(Icons.replay));
+    await tester.pumpAndSettle();
+
+    expect(find.text('No download links available.'), findsOneWidget);
+    expect(manager.magnets, isEmpty);
+  });
+
   testWidgets('standard card keeps transfer details clear of its actions', (
     WidgetTester tester,
   ) async {
@@ -74,6 +126,28 @@ void main() {
       findsOneWidget,
     );
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('active standard card shows the progress track at zero', (
+    WidgetTester tester,
+  ) async {
+    await _pumpShowCard(
+      tester,
+      showName: _standardShowName,
+      torrentState: const TorrentDownloadState(torrentId: 41),
+    );
+
+    expect(find.byType(GlowingProgressBar), findsOneWidget);
+    expect(
+      tester
+          .getSize(
+            find.byKey(
+              const ValueKey<String>('show-progress-fill-Layout Test Show-12'),
+            ),
+          )
+          .width,
+      0,
+    );
   });
 
   testWidgets('completed standard card drops stale transfer details', (
@@ -174,23 +248,28 @@ Future<void> _pumpShowCard(
   bool featured = false,
   bool isDownloaded = false,
   Size surfaceSize = const Size(390, 760),
+  List<ShowDownloadInfo> downloads = const [],
+  _RecordingForegroundTorrentManager? manager,
 }) async {
   await tester.binding.setSurfaceSize(surfaceSize);
   addTearDown(() => tester.binding.setSurfaceSize(null));
 
   final torrentKey = '$showName-$_episode';
-  SharedPreferences.setMockInitialValues(<String, Object>{
+  final preferences = <String, Object>{
     'auto_generate_folders': true,
     'download_base_path': '',
-    'series_folder_mapping': '{}',
+    'series_folder_mapping': jsonEncode({showName: '/shows'}),
     'bookmarked_series': <String>[],
     'downloaded_torrents': jsonEncode(
       isDownloaded ? <String>[torrentKey] : <String>[],
     ),
-  });
+  };
+  SharedPreferences.setMockInitialValues(preferences);
+  SharedPreferencesAsyncPlatform.instance =
+      InMemorySharedPreferencesAsync.withData(preferences);
 
   final show = ShowInfo(
-    downloads: const <ShowDownloadInfo>[],
+    downloads: downloads,
     episode: _episode,
     imageUrl: '',
     page: 'layout-test-show',
@@ -203,6 +282,8 @@ Future<void> _pumpShowCard(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        if (manager != null)
+          foregroundTorrentManagerProvider.overrideWith(() => manager),
         torrentManagerProvider.overrideWithValue(
           TorrentManagerState(
             torrents: <String, TorrentDownloadState>{torrentKey: torrentState},
@@ -220,4 +301,20 @@ Future<void> _pumpShowCard(
     ),
   );
   await tester.pumpAndSettle();
+}
+
+class _RecordingForegroundTorrentManager extends ForegroundTorrentManager {
+  final magnets = <String>[];
+
+  @override
+  TorrentManagerState build() => const TorrentManagerState();
+
+  @override
+  Future<void> startDownload(
+    String torrentKey,
+    String magnetUri,
+    String downloadPath,
+  ) async {
+    magnets.add(magnetUri);
+  }
 }

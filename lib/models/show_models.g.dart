@@ -11,7 +11,7 @@ _BookmarkedShowInfo _$BookmarkedShowInfoFromJson(Map<String, dynamic> json) =>
       imageUrl: json['imageUrl'] as String,
       releaseDayOfWeek: (json['releaseDayOfWeek'] as num).toInt(),
       showName: json['showName'] as String,
-      jikanId: (json['jikanId'] as num?)?.toInt(),
+      malId: (json['jikanId'] as num?)?.toInt(),
       source:
           $enumDecodeNullable(_$BookmarkedShowSourceEnumMap, json['source']) ??
           BookmarkedShowSource.subsplease,
@@ -22,7 +22,7 @@ Map<String, dynamic> _$BookmarkedShowInfoToJson(_BookmarkedShowInfo instance) =>
       'imageUrl': instance.imageUrl,
       'releaseDayOfWeek': instance.releaseDayOfWeek,
       'showName': instance.showName,
-      'jikanId': instance.jikanId,
+      'jikanId': instance.malId,
       'source': _$BookmarkedShowSourceEnumMap[instance.source]!,
     };
 

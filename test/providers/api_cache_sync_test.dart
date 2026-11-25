@@ -3,10 +3,25 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tamashii/api/api_client.dart';
 import 'package:tamashii/models/show_models.dart';
 import 'package:tamashii/providers/api_cache_sync_provider.dart';
 import 'package:tamashii/providers/cached_episodes_provider.dart';
 import 'package:tamashii/providers/bookmarked_series_provider.dart';
+import 'package:tamashii/providers/subsplease_api_providers.dart';
+
+class _RecordingApi extends SubsPleaseApi {
+  final searchedTitles = <String>[];
+
+  @override
+  Future<List<ShowInfo>> getLatestShowList() async => [];
+
+  @override
+  Future<List<ShowInfo>> getShowsFromSearch(String searchTerm) async {
+    searchedTitles.add(searchTerm);
+    return [];
+  }
+}
 
 void main() {
   group('ApiCacheSyncService', () {
@@ -64,6 +79,7 @@ void main() {
         ),
       );
 
+      await container.read(cachedEpisodesProvider.future);
       final cachedNotifier = container.read(cachedEpisodesProvider.notifier);
 
       // Simulate API episodes
@@ -126,5 +142,44 @@ void main() {
       syncService.initialize();
       syncService.initialize();
     });
+
+    test(
+      'does not backfill episodes when adding or matching a manual show',
+      () async {
+        final api = _RecordingApi();
+        final manualContainer = ProviderContainer(
+          overrides: [subsPleaseApiProvider.overrideWithValue(api)],
+        );
+        addTearDown(manualContainer.dispose);
+        manualContainer.read(apiCacheSyncProvider).initialize();
+        await manualContainer.read(bookmarkedSeriesProvider.future);
+        final notifier = manualContainer.read(
+          bookmarkedSeriesProvider.notifier,
+        );
+
+        expect(
+          await notifier.add(
+            const BookmarkedShowInfo(
+              showName: 'Frieren',
+              imageUrl: '',
+              releaseDayOfWeek: DateTime.monday,
+              source: BookmarkedShowSource.manual,
+            ),
+          ),
+          isTrue,
+        );
+        expect(
+          await notifier.matchManualEntry(
+            'Frieren',
+            malId: 52991,
+            imageUrl: '',
+          ),
+          isTrue,
+        );
+        await manualContainer.pump();
+
+        expect(api.searchedTitles, isEmpty);
+      },
+    );
   });
 }

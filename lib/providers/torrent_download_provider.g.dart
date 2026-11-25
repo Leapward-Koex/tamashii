@@ -10,11 +10,11 @@ part of 'torrent_download_provider.dart';
 // ignore_for_file: type=lint, type=warning
 
 @ProviderFor(TorrentManager)
-const torrentManagerProvider = TorrentManagerProvider._();
+final torrentManagerProvider = TorrentManagerProvider._();
 
 final class TorrentManagerProvider
     extends $NotifierProvider<TorrentManager, TorrentManagerState> {
-  const TorrentManagerProvider._()
+  TorrentManagerProvider._()
     : super(
         from: null,
         argument: null,
@@ -47,8 +47,7 @@ abstract class _$TorrentManager extends $Notifier<TorrentManagerState> {
   TorrentManagerState build();
   @$mustCallSuper
   @override
-  void runBuild() {
-    final created = build();
+  WhenComplete runBuild() {
     final ref = this.ref as $Ref<TorrentManagerState, TorrentManagerState>;
     final element =
         ref.element
@@ -58,12 +57,12 @@ abstract class _$TorrentManager extends $Notifier<TorrentManagerState> {
               Object?,
               Object?
             >;
-    element.handleValue(ref, created);
+    return element.handleCreate(ref, build);
   }
 }
 
 @ProviderFor(torrentForShow)
-const torrentForShowProvider = TorrentForShowFamily._();
+final torrentForShowProvider = TorrentForShowFamily._();
 
 final class TorrentForShowProvider
     extends
@@ -73,7 +72,7 @@ final class TorrentForShowProvider
           TorrentDownloadState
         >
     with $Provider<TorrentDownloadState> {
-  const TorrentForShowProvider._({
+  TorrentForShowProvider._({
     required TorrentForShowFamily super.from,
     required String super.argument,
   }) : super(
@@ -129,7 +128,7 @@ String _$torrentForShowHash() => r'a52b771af4ba67a95a1c7d63f01a827259c77c44';
 
 final class TorrentForShowFamily extends $Family
     with $FunctionalFamilyOverride<TorrentDownloadState, String> {
-  const TorrentForShowFamily._()
+  TorrentForShowFamily._()
     : super(
         retry: null,
         name: r'torrentForShowProvider',

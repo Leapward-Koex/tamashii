@@ -11,13 +11,13 @@ part of 'cached_episodes_provider.dart';
 /// Manages cached episodes from bookmarked series
 
 @ProviderFor(CachedEpisodesNotifier)
-const cachedEpisodesProvider = CachedEpisodesNotifierProvider._();
+final cachedEpisodesProvider = CachedEpisodesNotifierProvider._();
 
 /// Manages cached episodes from bookmarked series
 final class CachedEpisodesNotifierProvider
     extends $AsyncNotifierProvider<CachedEpisodesNotifier, List<ShowInfo>> {
   /// Manages cached episodes from bookmarked series
-  const CachedEpisodesNotifierProvider._()
+  CachedEpisodesNotifierProvider._()
     : super(
         from: null,
         argument: null,
@@ -37,7 +37,7 @@ final class CachedEpisodesNotifierProvider
 }
 
 String _$cachedEpisodesNotifierHash() =>
-    r'a908eb3439a3537183fddf80864845e0eecf12ae';
+    r'3bd05fc2c1aa9bc1d45cc28f64be5de2a005e204';
 
 /// Manages cached episodes from bookmarked series
 
@@ -45,8 +45,7 @@ abstract class _$CachedEpisodesNotifier extends $AsyncNotifier<List<ShowInfo>> {
   FutureOr<List<ShowInfo>> build();
   @$mustCallSuper
   @override
-  void runBuild() {
-    final created = build();
+  WhenComplete runBuild() {
     final ref = this.ref as $Ref<AsyncValue<List<ShowInfo>>, List<ShowInfo>>;
     final element =
         ref.element
@@ -56,14 +55,14 @@ abstract class _$CachedEpisodesNotifier extends $AsyncNotifier<List<ShowInfo>> {
               Object?,
               Object?
             >;
-    element.handleValue(ref, created);
+    return element.handleCreate(ref, build);
   }
 }
 
 /// Combined provider that merges API data with cached episodes
 
 @ProviderFor(combinedEpisodes)
-const combinedEpisodesProvider = CombinedEpisodesFamily._();
+final combinedEpisodesProvider = CombinedEpisodesFamily._();
 
 /// Combined provider that merges API data with cached episodes
 
@@ -76,7 +75,7 @@ final class CombinedEpisodesProvider
         >
     with $FutureModifier<List<ShowInfo>>, $FutureProvider<List<ShowInfo>> {
   /// Combined provider that merges API data with cached episodes
-  const CombinedEpisodesProvider._({
+  CombinedEpisodesProvider._({
     required CombinedEpisodesFamily super.from,
     required String super.argument,
   }) : super(
@@ -126,7 +125,7 @@ String _$combinedEpisodesHash() => r'b3afc4340ae526296fa0bc9f9fb201897f197e19';
 
 final class CombinedEpisodesFamily extends $Family
     with $FunctionalFamilyOverride<FutureOr<List<ShowInfo>>, String> {
-  const CombinedEpisodesFamily._()
+  CombinedEpisodesFamily._()
     : super(
         retry: null,
         name: r'combinedEpisodesProvider',
@@ -147,7 +146,7 @@ final class CombinedEpisodesFamily extends $Family
 /// Filtered combined episodes provider (replaces the existing filteredShows)
 
 @ProviderFor(filteredCombinedEpisodes)
-const filteredCombinedEpisodesProvider = FilteredCombinedEpisodesFamily._();
+final filteredCombinedEpisodesProvider = FilteredCombinedEpisodesFamily._();
 
 /// Filtered combined episodes provider (replaces the existing filteredShows)
 
@@ -160,7 +159,7 @@ final class FilteredCombinedEpisodesProvider
         >
     with $FutureModifier<List<ShowInfo>>, $FutureProvider<List<ShowInfo>> {
   /// Filtered combined episodes provider (replaces the existing filteredShows)
-  const FilteredCombinedEpisodesProvider._({
+  FilteredCombinedEpisodesProvider._({
     required FilteredCombinedEpisodesFamily super.from,
     required String super.argument,
   }) : super(
@@ -212,7 +211,7 @@ String _$filteredCombinedEpisodesHash() =>
 
 final class FilteredCombinedEpisodesFamily extends $Family
     with $FunctionalFamilyOverride<FutureOr<List<ShowInfo>>, String> {
-  const FilteredCombinedEpisodesFamily._()
+  FilteredCombinedEpisodesFamily._()
     : super(
         retry: null,
         name: r'filteredCombinedEpisodesProvider',

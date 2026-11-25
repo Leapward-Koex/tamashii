@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
-class GlowingProgressBar extends StatefulWidget {
+class GlowingProgressBar extends StatelessWidget {
   const GlowingProgressBar({
     super.key,
     required this.progress,
@@ -16,76 +16,63 @@ class GlowingProgressBar extends StatefulWidget {
   final Color? backgroundColor;
   final Key? fillKey;
 
-  @override
-  State<GlowingProgressBar> createState() => _GlowingProgressBarState();
-}
-
-class _GlowingProgressBarState extends State<GlowingProgressBar> {
-  static const _animationDuration = Duration(milliseconds: 260);
-
-  double _normalizedProgress(double progress) {
-    if (!progress.isFinite) return 0;
-    return progress.clamp(0.0, 1.0);
-  }
+  static const _animationDuration = Duration(milliseconds: 240);
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final targetProgress = _normalizedProgress(widget.progress);
-    final borderRadius = BorderRadius.circular(widget.height * 2);
-    final progressColor = widget.color ?? colorScheme.primary;
-    final accentColor = Color.lerp(progressColor, colorScheme.tertiary, 0.34)!;
+    final targetProgress = progress.isFinite ? progress.clamp(0.0, 1.0) : 0.0;
+    final borderRadius = BorderRadius.circular(height / 2);
+    final progressColor = color ?? colorScheme.primary;
     final trackColor =
-        widget.backgroundColor ??
+        backgroundColor ??
         colorScheme.surfaceContainerHighest.withValues(alpha: 0.72);
+    final fill = DecoratedBox(
+      key: fillKey,
+      decoration: BoxDecoration(
+        borderRadius: borderRadius,
+        gradient: LinearGradient(
+          begin: AlignmentDirectional.centerStart,
+          end: AlignmentDirectional.centerEnd,
+          stops: const [0, 0.72, 1],
+          colors: [
+            Color.lerp(progressColor, Colors.black, 0.08)!,
+            progressColor,
+            Color.lerp(progressColor, colorScheme.tertiary, 0.28)!,
+          ],
+        ),
+      ),
+    );
+
+    Widget alignFill(double fraction, Widget? child) {
+      return FractionallySizedBox(
+        alignment: AlignmentDirectional.centerStart,
+        widthFactor: fraction,
+        heightFactor: 1,
+        child: child,
+      );
+    }
 
     return Semantics(
+      label: 'Download progress',
       value: '${(targetProgress * 100).round()}%',
-      child: ClipRRect(
-        borderRadius: borderRadius,
-        child: Container(
-          height: widget.height,
-          color: trackColor,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final fillWidth = constraints.maxWidth * targetProgress;
-
-              return Stack(
-                fit: StackFit.expand,
-                children: [
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: ClipRRect(
-                      borderRadius: borderRadius,
-                      child: AnimatedContainer(
-                        key: widget.fillKey,
-                        duration: _animationDuration,
-                        curve: Curves.easeOutCubic,
-                        width: fillWidth,
-                        height: widget.height,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              Color.lerp(progressColor, Colors.black, 0.08)!,
-                              progressColor,
-                              accentColor,
-                            ],
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: progressColor.withValues(alpha: 0.22),
-                              blurRadius: 8,
-                              spreadRadius: 1,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              );
-            },
+      child: SizedBox(
+        width: double.infinity,
+        height: height,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: trackColor,
+            borderRadius: borderRadius,
           ),
+          child: MediaQuery.disableAnimationsOf(context)
+              ? alignFill(targetProgress, fill)
+              : TweenAnimationBuilder<double>(
+                  tween: Tween<double>(end: targetProgress),
+                  duration: _animationDuration,
+                  curve: Curves.easeOut,
+                  builder: (_, fraction, child) => alignFill(fraction, child),
+                  child: fill,
+                ),
         ),
       ),
     );

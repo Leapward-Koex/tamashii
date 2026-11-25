@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:simple_torrent/simple_torrent.dart';
@@ -8,6 +8,7 @@ import 'package:tamashii/providers/download_queue_provider.dart';
 import 'package:tamashii/providers/foreground_torrent_provider.dart';
 import 'package:tamashii/providers/torrent_download_provider.dart';
 import 'package:tamashii/services/transfer_policy.dart';
+import 'package:tamashii/widgets/glowing_progress_bar.dart';
 import 'package:tamashii/widgets/transfer_policy_banner.dart';
 import 'package:tamashii_network_cost/tamashii_network_cost.dart';
 
@@ -150,6 +151,64 @@ void main() {
     expect(find.text('Preparing'), findsOneWidget);
     expect(find.text('Calculating…'), findsWidgets);
     expect(find.textContaining('estimated'), findsOneWidget);
+  });
+
+  testWidgets('remaining downloads keep animating when a row completes', (
+    tester,
+  ) async {
+    final first = _item(
+      key: 'first',
+      displayName: 'First episode',
+      status: DownloadTransferStatus.downloading,
+      progressFraction: 0.9,
+    );
+    final second = _item(
+      key: 'second',
+      displayName: 'Second episode',
+      status: DownloadTransferStatus.downloading,
+      progressFraction: 0.2,
+    );
+    final container = ProviderContainer.test(
+      overrides: [
+        downloadQueueProvider.overrideWithValue(
+          _report(items: [first, second]),
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          home: DownloadQueuePage(platform: TargetPlatform.windows),
+        ),
+      ),
+    );
+
+    final bar = find.descendant(
+      of: find.byKey(DownloadQueuePage.itemKey(second.key)),
+      matching: find.byType(GlowingProgressBar),
+    );
+    final fillLayout = find.descendant(
+      of: bar,
+      matching: find.byType(FractionallySizedBox),
+    );
+    double visibleFraction() =>
+        tester.widget<FractionallySizedBox>(fillLayout).widthFactor!;
+
+    expect(visibleFraction(), 0.2);
+    container.updateOverrides([
+      downloadQueueProvider.overrideWithValue(
+        _report(items: [second.copyWith(progressFraction: 0.6)]),
+      ),
+    ]);
+    await tester.pump();
+
+    expect(find.byKey(DownloadQueuePage.itemKey(first.key)), findsNothing);
+    expect(visibleFraction(), 0.2);
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(visibleFraction(), inExclusiveRange(0.2, 0.6));
+    await tester.pumpAndSettle();
+    expect(visibleFraction(), 0.6);
   });
 
   testWidgets('shows policy-blocked transfers separately from manual pause', (

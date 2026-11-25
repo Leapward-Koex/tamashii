@@ -11,7 +11,7 @@ part of 'bookmarked_series_provider.dart';
 /// Maintains the list of bookmarked series (by slug/page ID), persisted to storage.
 
 @ProviderFor(BookmarkedSeriesNotifier)
-const bookmarkedSeriesProvider = BookmarkedSeriesNotifierProvider._();
+final bookmarkedSeriesProvider = BookmarkedSeriesNotifierProvider._();
 
 /// Maintains the list of bookmarked series (by slug/page ID), persisted to storage.
 final class BookmarkedSeriesNotifierProvider
@@ -21,7 +21,7 @@ final class BookmarkedSeriesNotifierProvider
           List<BookmarkedShowInfo>
         > {
   /// Maintains the list of bookmarked series (by slug/page ID), persisted to storage.
-  const BookmarkedSeriesNotifierProvider._()
+  BookmarkedSeriesNotifierProvider._()
     : super(
         from: null,
         argument: null,
@@ -41,7 +41,7 @@ final class BookmarkedSeriesNotifierProvider
 }
 
 String _$bookmarkedSeriesNotifierHash() =>
-    r'b8a98e04ac5d00e20bb6003c4d5600675ff52eb3';
+    r'2aae0bcf5117acebcee17e3a1090b58a174754ce';
 
 /// Maintains the list of bookmarked series (by slug/page ID), persisted to storage.
 
@@ -50,8 +50,7 @@ abstract class _$BookmarkedSeriesNotifier
   FutureOr<List<BookmarkedShowInfo>> build();
   @$mustCallSuper
   @override
-  void runBuild() {
-    final created = build();
+  WhenComplete runBuild() {
     final ref =
         this.ref
             as $Ref<
@@ -69,6 +68,6 @@ abstract class _$BookmarkedSeriesNotifier
               Object?,
               Object?
             >;
-    element.handleValue(ref, created);
+    return element.handleCreate(ref, build);
   }
 }

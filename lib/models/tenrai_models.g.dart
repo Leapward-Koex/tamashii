@@ -1,14 +1,14 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'jikan_models.dart';
+part of 'tenrai_models.dart';
 
 // **************************************************************************
 // JsonSerializableGenerator
 // **************************************************************************
 
-_JikanAnimeSearchResult _$JikanAnimeSearchResultFromJson(
+_TenraiAnimeSearchResult _$TenraiAnimeSearchResultFromJson(
   Map<String, dynamic> json,
-) => _JikanAnimeSearchResult(
+) => _TenraiAnimeSearchResult(
   malId: (json['mal_id'] as num).toInt(),
   title: json['title'] as String,
   titleEnglish: json['title_english'] as String?,
@@ -16,16 +16,16 @@ _JikanAnimeSearchResult _$JikanAnimeSearchResultFromJson(
   episodes: (json['episodes'] as num?)?.toInt(),
   imageUrl: json['images'] == null
       ? ''
-      : _jikanImageUrlFromJson(json['images']),
+      : _tenraiImageUrlFromJson(json['images']),
 );
 
-Map<String, dynamic> _$JikanAnimeSearchResultToJson(
-  _JikanAnimeSearchResult instance,
+Map<String, dynamic> _$TenraiAnimeSearchResultToJson(
+  _TenraiAnimeSearchResult instance,
 ) => <String, dynamic>{
   'mal_id': instance.malId,
   'title': instance.title,
   'title_english': instance.titleEnglish,
   'type': instance.type,
   'episodes': instance.episodes,
-  'images': _jikanImageUrlToJson(instance.imageUrl),
+  'images': _tenraiImageUrlToJson(instance.imageUrl),
 };

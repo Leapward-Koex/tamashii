@@ -1,9 +1,10 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:tamashii/models/show_models.dart';
 import 'package:tamashii/providers/bookmarked_series_provider.dart';
+import 'package:tamashii/widgets/add_schedule_show_sheet.dart';
 import 'package:tamashii/widgets/schedule_show_actions_sheet.dart';
 import 'package:tamashii/widgets/show_image.dart';
 
@@ -71,11 +72,28 @@ class SchedulePage extends HookConsumerWidget {
         builder: (_) => ScheduleShowActionsSheet(show: show),
       );
 
-      if (action == null) {
+      if (action == null || !context.mounted) {
         return;
       }
 
       switch (action.type) {
+        case ScheduleShowActionType.match:
+          final matchedTitle = await showModalBottomSheet<String>(
+            context: context,
+            isScrollControlled: true,
+            builder: (_) => AddScheduleShowSheet.match(show: show),
+          );
+
+          if (!context.mounted || matchedTitle == null) {
+            return;
+          }
+
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              SnackBar(content: Text('Matched to "$matchedTitle" on Tenrai.')),
+            );
+          return;
         case ScheduleShowActionType.remove:
           final removed = await ref
               .read(bookmarkedSeriesProvider.notifier)

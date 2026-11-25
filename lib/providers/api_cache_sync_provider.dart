@@ -34,23 +34,31 @@ class ApiCacheSyncService {
     // Listen to bookmarked series changes to clean up cache
     _ref.listen(bookmarkedSeriesProvider, (previous, next) {
       if (previous?.hasValue == true && next.hasValue) {
-        final previousBookmarks = previous!.value!.toSet();
-        final currentBookmarks = next.value!.toSet();
-        final addedBookmarks = currentBookmarks.difference(previousBookmarks);
-
-        // Find removed bookmarks
-        final removedBookmarks = previousBookmarks.difference(currentBookmarks);
+        final previousBookmarks = {
+          for (final show in previous!.value!)
+            if (show.showsOnHomePage) show.showName: show,
+        };
+        final currentBookmarks = {
+          for (final show in next.value!)
+            if (show.showsOnHomePage) show.showName: show,
+        };
+        final addedBookmarks = currentBookmarks.values.where(
+          (show) => !previousBookmarks.containsKey(show.showName),
+        );
+        final removedBookmarks = previousBookmarks.keys.where(
+          (showName) => !currentBookmarks.containsKey(showName),
+        );
 
         if (addedBookmarks.isNotEmpty) {
           unawaited(_backfillBookmarkedEpisodes(addedBookmarks));
         }
 
         // Remove cached episodes for unbookmarked series
-        for (final removedSeries in removedBookmarks) {
+        for (final showName in removedBookmarks) {
           unawaited(
             _ref
                 .read(cachedEpisodesProvider.notifier)
-                .removeSeriesFromCache(removedSeries.showName),
+                .removeSeriesFromCache(showName),
           );
         }
       }

@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:simple_torrent/simple_torrent.dart';
@@ -206,8 +206,6 @@ class ShowCard extends ConsumerWidget {
     final hasActiveTorrent = torrentDownloadState.torrentId != null;
     final showTorrentDetails =
         hasActiveTorrent && !torrentDownloadState.isCompleted;
-    final showProgress =
-        showTorrentDetails && progressFraction > 0 && progressFraction < 1;
     final torrentStateColor = _getTorrentStateColor(
       torrentDownloadState.currentState,
     );
@@ -229,31 +227,24 @@ class ShowCard extends ConsumerWidget {
         return;
       }
 
-      if (isDownloaded && !isDownloading) {
-        final seriesDownloadPath = await _determineDownloadPath(
-          context: context,
-          showInfo: show,
-          currentMappings: seriesMappingSettings.value ?? <String, String>{},
-          isAutoGenEnabled: autoGenSettings.value ?? true,
-          currentBasePath: basePathSettings.value ?? '',
-          seriesMappingNotifier: seriesMappingNotifier,
-          textGenerator: textGenerator,
-        );
-        if (seriesDownloadPath != null && seriesDownloadPath.isNotEmpty) {
-          await ref
-              .read(foregroundTorrentManagerProvider.notifier)
-              .startDownload(
-                torrentKey,
-                show.downloads.first.magnet,
-                seriesDownloadPath,
-              );
-        }
+      if (torrentDownloadState.isCompleted && !isDownloaded) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Download completed.')));
         return;
       }
 
-      if (torrentDownloadState.isCompleted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Download completed.')));
+      ShowDownloadInfo? bestDownload;
+      for (final download in show.downloads) {
+        if (download.magnet.trim().isEmpty) continue;
+        if (bestDownload == null ||
+            download.resolution.index > bestDownload.resolution.index) {
+          bestDownload = download;
+        }
+      }
+      if (bestDownload == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No download links available.')),
+        );
         return;
       }
 
@@ -267,31 +258,17 @@ class ShowCard extends ConsumerWidget {
         textGenerator: textGenerator,
       );
 
-      if (seriesDownloadPath == null || seriesDownloadPath.isEmpty) {
+      if (seriesDownloadPath == null ||
+          seriesDownloadPath.isEmpty ||
+          !context.mounted) {
         return;
       }
-
-      if (show.downloads.isEmpty) {
-        if (!context.mounted) {
-          return;
-        }
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No download links available.')),
-        );
-        return;
-      }
-
-      final best = show.downloads.reduce((a, b) {
-        final aRes = int.parse(a.resolution.toJson());
-        final bRes = int.parse(b.resolution.toJson());
-        return aRes >= bRes ? a : b;
-      });
 
       await ref
           .read(foregroundTorrentManagerProvider.notifier)
-          .startDownload(torrentKey, best.magnet, seriesDownloadPath);
+          .startDownload(torrentKey, bestDownload.magnet, seriesDownloadPath);
 
-      if (!context.mounted) {
+      if (!context.mounted || isDownloaded) {
         return;
       }
       if (torrentDownloadState.errorMessage != null) {
@@ -363,7 +340,6 @@ class ShowCard extends ConsumerWidget {
             isPaused: isPaused,
             isDownloading: isDownloading,
             progressFraction: progressFraction,
-            showProgress: showProgress,
             showTorrentDetails: showTorrentDetails,
             torrentDownloadState: torrentDownloadState,
             torrentStateColor: torrentStateColor,
@@ -382,7 +358,6 @@ class ShowCard extends ConsumerWidget {
             isPaused: isPaused,
             isDownloading: isDownloading,
             progressFraction: progressFraction,
-            showProgress: showProgress,
             showTorrentDetails: showTorrentDetails,
             torrentDownloadState: torrentDownloadState,
             torrentStateColor: torrentStateColor,
@@ -405,7 +380,6 @@ class ShowCard extends ConsumerWidget {
     required bool isPaused,
     required bool isDownloading,
     required double progressFraction,
-    required bool showProgress,
     required bool showTorrentDetails,
     required TorrentDownloadState torrentDownloadState,
     required Color torrentStateColor,
@@ -565,8 +539,6 @@ class ShowCard extends ConsumerWidget {
                           ),
                         ],
                       ),
-                    ],
-                    if (showProgress) ...[
                       const SizedBox(height: 14),
                       GlowingProgressBar(
                         progress: progressFraction,
@@ -659,7 +631,6 @@ class ShowCard extends ConsumerWidget {
     required bool isPaused,
     required bool isDownloading,
     required double progressFraction,
-    required bool showProgress,
     required bool showTorrentDetails,
     required TorrentDownloadState torrentDownloadState,
     required Color torrentStateColor,
@@ -768,7 +739,7 @@ class ShowCard extends ConsumerWidget {
                           ),
                         ],
                       ),
-                      if (showProgress) ...[
+                      if (showTorrentDetails) ...[
                         const SizedBox(height: 14),
                         GlowingProgressBar(
                           progress: progressFraction,
@@ -776,8 +747,6 @@ class ShowCard extends ConsumerWidget {
                             'show-progress-fill-${show.show}-${show.episode}',
                           ),
                         ),
-                      ],
-                      if (showTorrentDetails) ...[
                         const SizedBox(height: 14),
                         Container(
                           key: standardStatusKey(show.show),

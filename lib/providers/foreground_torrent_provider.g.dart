@@ -10,7 +10,7 @@ part of 'foreground_torrent_provider.dart';
 // ignore_for_file: type=lint, type=warning
 
 @ProviderFor(ForegroundTransferPolicyStatus)
-const foregroundTransferPolicyStatusProvider =
+final foregroundTransferPolicyStatusProvider =
     ForegroundTransferPolicyStatusProvider._();
 
 final class ForegroundTransferPolicyStatusProvider
@@ -19,7 +19,7 @@ final class ForegroundTransferPolicyStatusProvider
           ForegroundTransferPolicyStatus,
           TransferPolicySnapshot
         > {
-  const ForegroundTransferPolicyStatusProvider._()
+  ForegroundTransferPolicyStatusProvider._()
     : super(
         from: null,
         argument: null,
@@ -54,8 +54,7 @@ abstract class _$ForegroundTransferPolicyStatus
   TransferPolicySnapshot build();
   @$mustCallSuper
   @override
-  void runBuild() {
-    final created = build();
+  WhenComplete runBuild() {
     final ref =
         this.ref as $Ref<TransferPolicySnapshot, TransferPolicySnapshot>;
     final element =
@@ -66,16 +65,16 @@ abstract class _$ForegroundTransferPolicyStatus
               Object?,
               Object?
             >;
-    element.handleValue(ref, created);
+    return element.handleCreate(ref, build);
   }
 }
 
 @ProviderFor(ForegroundTorrentManager)
-const foregroundTorrentManagerProvider = ForegroundTorrentManagerProvider._();
+final foregroundTorrentManagerProvider = ForegroundTorrentManagerProvider._();
 
 final class ForegroundTorrentManagerProvider
     extends $NotifierProvider<ForegroundTorrentManager, TorrentManagerState> {
-  const ForegroundTorrentManagerProvider._()
+  ForegroundTorrentManagerProvider._()
     : super(
         from: null,
         argument: null,
@@ -103,15 +102,14 @@ final class ForegroundTorrentManagerProvider
 }
 
 String _$foregroundTorrentManagerHash() =>
-    r'5302552c62ba96f56a798fca6de1adaacf85084f';
+    r'227cb7e24feb34d4b4f449b409832f9ed0c551b9';
 
 abstract class _$ForegroundTorrentManager
     extends $Notifier<TorrentManagerState> {
   TorrentManagerState build();
   @$mustCallSuper
   @override
-  void runBuild() {
-    final created = build();
+  WhenComplete runBuild() {
     final ref = this.ref as $Ref<TorrentManagerState, TorrentManagerState>;
     final element =
         ref.element
@@ -121,12 +119,12 @@ abstract class _$ForegroundTorrentManager
               Object?,
               Object?
             >;
-    element.handleValue(ref, created);
+    return element.handleCreate(ref, build);
   }
 }
 
 @ProviderFor(foregroundTorrentForShow)
-const foregroundTorrentForShowProvider = ForegroundTorrentForShowFamily._();
+final foregroundTorrentForShowProvider = ForegroundTorrentForShowFamily._();
 
 final class ForegroundTorrentForShowProvider
     extends
@@ -136,7 +134,7 @@ final class ForegroundTorrentForShowProvider
           TorrentDownloadState
         >
     with $Provider<TorrentDownloadState> {
-  const ForegroundTorrentForShowProvider._({
+  ForegroundTorrentForShowProvider._({
     required ForegroundTorrentForShowFamily super.from,
     required String super.argument,
   }) : super(
@@ -194,7 +192,7 @@ String _$foregroundTorrentForShowHash() =>
 
 final class ForegroundTorrentForShowFamily extends $Family
     with $FunctionalFamilyOverride<TorrentDownloadState, String> {
-  const ForegroundTorrentForShowFamily._()
+  ForegroundTorrentForShowFamily._()
     : super(
         retry: null,
         name: r'foregroundTorrentForShowProvider',

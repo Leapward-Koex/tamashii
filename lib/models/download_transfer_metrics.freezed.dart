@@ -1,6 +1,6 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // coverage:ignore-file
-// ignore_for_file: type=lint
+// ignore_for_file: type=lint, type=warning, deprecated_member_use, deprecated_member_use_from_same_package
 // ignore_for_file: unused_element, deprecated_member_use, deprecated_member_use_from_same_package, use_function_type_syntax_for_parameters, unnecessary_const, avoid_init_to_null, invalid_override_different_default_values_named, prefer_expression_function_bodies, annotate_overrides, invalid_annotation_target, unnecessary_question_mark
 
 part of 'download_transfer_metrics.dart';
@@ -9,6 +9,7 @@ part of 'download_transfer_metrics.dart';
 // FreezedGenerator
 // **************************************************************************
 
+// GENERATED CODE - DO NOT MODIFY BY HAND
 // dart format off
 T _$identity<T>(T value) => value;
 /// @nodoc
@@ -25,16 +26,21 @@ $DownloadTransferSnapshotCopyWith<DownloadTransferSnapshot> get copyWith => _$Do
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is DownloadTransferSnapshot&&(identical(other.key, key) || other.key == key)&&(identical(other.stats, stats) || other.stats == stats)&&(identical(other.metadata, metadata) || other.metadata == metadata)&&(identical(other.isCompleted, isCompleted) || other.isCompleted == isCompleted)&&(identical(other.isPaused, isPaused) || other.isPaused == isPaused)&&(identical(other.isPreparing, isPreparing) || other.isPreparing == isPreparing)&&(identical(other.isPolicyBlocked, isPolicyBlocked) || other.isPolicyBlocked == isPolicyBlocked)&&(identical(other.errorMessage, errorMessage) || other.errorMessage == errorMessage));
+  final _this = this as DownloadTransferSnapshot;
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is DownloadTransferSnapshot&&(identical(other.key, _this.key) || other.key == _this.key)&&(identical(other.stats, _this.stats) || other.stats == _this.stats)&&(identical(other.metadata, _this.metadata) || other.metadata == _this.metadata)&&(identical(other.isCompleted, _this.isCompleted) || other.isCompleted == _this.isCompleted)&&(identical(other.isPaused, _this.isPaused) || other.isPaused == _this.isPaused)&&(identical(other.isPreparing, _this.isPreparing) || other.isPreparing == _this.isPreparing)&&(identical(other.isPolicyBlocked, _this.isPolicyBlocked) || other.isPolicyBlocked == _this.isPolicyBlocked)&&(identical(other.errorMessage, _this.errorMessage) || other.errorMessage == _this.errorMessage));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,key,stats,metadata,isCompleted,isPaused,isPreparing,isPolicyBlocked,errorMessage);
+int get hashCode {
+  final _this = this as DownloadTransferSnapshot;
+  return Object.hash(runtimeType,_this.key,_this.stats,_this.metadata,_this.isCompleted,_this.isPaused,_this.isPreparing,_this.isPolicyBlocked,_this.errorMessage);
+}
 
 @override
 String toString() {
-  return 'DownloadTransferSnapshot(key: $key, stats: $stats, metadata: $metadata, isCompleted: $isCompleted, isPaused: $isPaused, isPreparing: $isPreparing, isPolicyBlocked: $isPolicyBlocked, errorMessage: $errorMessage)';
+  final _this = this as DownloadTransferSnapshot;
+  return 'DownloadTransferSnapshot(key: ${_this.key}, stats: ${_this.stats}, metadata: ${_this.metadata}, isCompleted: ${_this.isCompleted}, isPaused: ${_this.isPaused}, isPreparing: ${_this.isPreparing}, isPolicyBlocked: ${_this.isPolicyBlocked}, errorMessage: ${_this.errorMessage})';
 }
 
 
@@ -63,7 +69,7 @@ class _$DownloadTransferSnapshotCopyWithImpl<$Res>
 /// Create a copy of DownloadTransferSnapshot
 /// with the given fields replaced by the non-null parameter values.
 @pragma('vm:prefer-inline') @override $Res call({Object? key = null,Object? stats = freezed,Object? metadata = freezed,Object? isCompleted = null,Object? isPaused = null,Object? isPreparing = null,Object? isPolicyBlocked = null,Object? errorMessage = freezed,}) {
-  return _then(_self.copyWith(
+  return _then(DownloadTransferSnapshot(
 key: null == key ? _self.key : key // ignore: cast_nullable_to_non_nullable
 as String,stats: freezed == stats ? _self.stats : stats // ignore: cast_nullable_to_non_nullable
 as TorrentStats?,metadata: freezed == metadata ? _self.metadata : metadata // ignore: cast_nullable_to_non_nullable
@@ -235,16 +241,18 @@ _$DownloadTransferSnapshotCopyWith<_DownloadTransferSnapshot> get copyWith => __
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _DownloadTransferSnapshot&&(identical(other.key, key) || other.key == key)&&(identical(other.stats, stats) || other.stats == stats)&&(identical(other.metadata, metadata) || other.metadata == metadata)&&(identical(other.isCompleted, isCompleted) || other.isCompleted == isCompleted)&&(identical(other.isPaused, isPaused) || other.isPaused == isPaused)&&(identical(other.isPreparing, isPreparing) || other.isPreparing == isPreparing)&&(identical(other.isPolicyBlocked, isPolicyBlocked) || other.isPolicyBlocked == isPolicyBlocked)&&(identical(other.errorMessage, errorMessage) || other.errorMessage == errorMessage));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _DownloadTransferSnapshot&&(identical(other.key, key) || other.key == key)&&(identical(other.stats, stats) || other.stats == stats)&&(identical(other.metadata, metadata) || other.metadata == metadata)&&(identical(other.isCompleted, isCompleted) || other.isCompleted == isCompleted)&&(identical(other.isPaused, isPaused) || other.isPaused == isPaused)&&(identical(other.isPreparing, isPreparing) || other.isPreparing == isPreparing)&&(identical(other.isPolicyBlocked, isPolicyBlocked) || other.isPolicyBlocked == isPolicyBlocked)&&(identical(other.errorMessage, errorMessage) || other.errorMessage == errorMessage));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,key,stats,metadata,isCompleted,isPaused,isPreparing,isPolicyBlocked,errorMessage);
+int get hashCode {
+    return Object.hash(runtimeType,key,stats,metadata,isCompleted,isPaused,isPreparing,isPolicyBlocked,errorMessage);
+}
 
 @override
 String toString() {
-  return 'DownloadTransferSnapshot(key: $key, stats: $stats, metadata: $metadata, isCompleted: $isCompleted, isPaused: $isPaused, isPreparing: $isPreparing, isPolicyBlocked: $isPolicyBlocked, errorMessage: $errorMessage)';
+    return 'DownloadTransferSnapshot(key: $key, stats: $stats, metadata: $metadata, isCompleted: $isCompleted, isPaused: $isPaused, isPreparing: $isPreparing, isPolicyBlocked: $isPolicyBlocked, errorMessage: $errorMessage)';
 }
 
 
@@ -303,16 +311,21 @@ $DownloadTransferItemCopyWith<DownloadTransferItem> get copyWith => _$DownloadTr
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is DownloadTransferItem&&(identical(other.key, key) || other.key == key)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.status, status) || other.status == status)&&(identical(other.progressFraction, progressFraction) || other.progressFraction == progressFraction)&&(identical(other.totalBytes, totalBytes) || other.totalBytes == totalBytes)&&(identical(other.receivedBytes, receivedBytes) || other.receivedBytes == receivedBytes)&&(identical(other.remainingBytes, remainingBytes) || other.remainingBytes == remainingBytes)&&(identical(other.downloadRate, downloadRate) || other.downloadRate == downloadRate)&&(identical(other.uploadRate, uploadRate) || other.uploadRate == uploadRate)&&(identical(other.eta, eta) || other.eta == eta)&&(identical(other.seeds, seeds) || other.seeds == seeds)&&(identical(other.peers, peers) || other.peers == peers)&&(identical(other.errorMessage, errorMessage) || other.errorMessage == errorMessage));
+  final _this = this as DownloadTransferItem;
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is DownloadTransferItem&&(identical(other.key, _this.key) || other.key == _this.key)&&(identical(other.displayName, _this.displayName) || other.displayName == _this.displayName)&&(identical(other.status, _this.status) || other.status == _this.status)&&(identical(other.progressFraction, _this.progressFraction) || other.progressFraction == _this.progressFraction)&&(identical(other.totalBytes, _this.totalBytes) || other.totalBytes == _this.totalBytes)&&(identical(other.receivedBytes, _this.receivedBytes) || other.receivedBytes == _this.receivedBytes)&&(identical(other.remainingBytes, _this.remainingBytes) || other.remainingBytes == _this.remainingBytes)&&(identical(other.downloadRate, _this.downloadRate) || other.downloadRate == _this.downloadRate)&&(identical(other.uploadRate, _this.uploadRate) || other.uploadRate == _this.uploadRate)&&(identical(other.eta, _this.eta) || other.eta == _this.eta)&&(identical(other.seeds, _this.seeds) || other.seeds == _this.seeds)&&(identical(other.peers, _this.peers) || other.peers == _this.peers)&&(identical(other.errorMessage, _this.errorMessage) || other.errorMessage == _this.errorMessage));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,key,displayName,status,progressFraction,totalBytes,receivedBytes,remainingBytes,downloadRate,uploadRate,eta,seeds,peers,errorMessage);
+int get hashCode {
+  final _this = this as DownloadTransferItem;
+  return Object.hash(runtimeType,_this.key,_this.displayName,_this.status,_this.progressFraction,_this.totalBytes,_this.receivedBytes,_this.remainingBytes,_this.downloadRate,_this.uploadRate,_this.eta,_this.seeds,_this.peers,_this.errorMessage);
+}
 
 @override
 String toString() {
-  return 'DownloadTransferItem(key: $key, displayName: $displayName, status: $status, progressFraction: $progressFraction, totalBytes: $totalBytes, receivedBytes: $receivedBytes, remainingBytes: $remainingBytes, downloadRate: $downloadRate, uploadRate: $uploadRate, eta: $eta, seeds: $seeds, peers: $peers, errorMessage: $errorMessage)';
+  final _this = this as DownloadTransferItem;
+  return 'DownloadTransferItem(key: ${_this.key}, displayName: ${_this.displayName}, status: ${_this.status}, progressFraction: ${_this.progressFraction}, totalBytes: ${_this.totalBytes}, receivedBytes: ${_this.receivedBytes}, remainingBytes: ${_this.remainingBytes}, downloadRate: ${_this.downloadRate}, uploadRate: ${_this.uploadRate}, eta: ${_this.eta}, seeds: ${_this.seeds}, peers: ${_this.peers}, errorMessage: ${_this.errorMessage})';
 }
 
 
@@ -341,7 +354,7 @@ class _$DownloadTransferItemCopyWithImpl<$Res>
 /// Create a copy of DownloadTransferItem
 /// with the given fields replaced by the non-null parameter values.
 @pragma('vm:prefer-inline') @override $Res call({Object? key = null,Object? displayName = null,Object? status = null,Object? progressFraction = null,Object? totalBytes = freezed,Object? receivedBytes = freezed,Object? remainingBytes = freezed,Object? downloadRate = freezed,Object? uploadRate = freezed,Object? eta = freezed,Object? seeds = freezed,Object? peers = freezed,Object? errorMessage = freezed,}) {
-  return _then(_self.copyWith(
+  return _then(DownloadTransferItem(
 key: null == key ? _self.key : key // ignore: cast_nullable_to_non_nullable
 as String,displayName: null == displayName ? _self.displayName : displayName // ignore: cast_nullable_to_non_nullable
 as String,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
@@ -523,16 +536,18 @@ _$DownloadTransferItemCopyWith<_DownloadTransferItem> get copyWith => __$Downloa
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _DownloadTransferItem&&(identical(other.key, key) || other.key == key)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.status, status) || other.status == status)&&(identical(other.progressFraction, progressFraction) || other.progressFraction == progressFraction)&&(identical(other.totalBytes, totalBytes) || other.totalBytes == totalBytes)&&(identical(other.receivedBytes, receivedBytes) || other.receivedBytes == receivedBytes)&&(identical(other.remainingBytes, remainingBytes) || other.remainingBytes == remainingBytes)&&(identical(other.downloadRate, downloadRate) || other.downloadRate == downloadRate)&&(identical(other.uploadRate, uploadRate) || other.uploadRate == uploadRate)&&(identical(other.eta, eta) || other.eta == eta)&&(identical(other.seeds, seeds) || other.seeds == seeds)&&(identical(other.peers, peers) || other.peers == peers)&&(identical(other.errorMessage, errorMessage) || other.errorMessage == errorMessage));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _DownloadTransferItem&&(identical(other.key, key) || other.key == key)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.status, status) || other.status == status)&&(identical(other.progressFraction, progressFraction) || other.progressFraction == progressFraction)&&(identical(other.totalBytes, totalBytes) || other.totalBytes == totalBytes)&&(identical(other.receivedBytes, receivedBytes) || other.receivedBytes == receivedBytes)&&(identical(other.remainingBytes, remainingBytes) || other.remainingBytes == remainingBytes)&&(identical(other.downloadRate, downloadRate) || other.downloadRate == downloadRate)&&(identical(other.uploadRate, uploadRate) || other.uploadRate == uploadRate)&&(identical(other.eta, eta) || other.eta == eta)&&(identical(other.seeds, seeds) || other.seeds == seeds)&&(identical(other.peers, peers) || other.peers == peers)&&(identical(other.errorMessage, errorMessage) || other.errorMessage == errorMessage));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,key,displayName,status,progressFraction,totalBytes,receivedBytes,remainingBytes,downloadRate,uploadRate,eta,seeds,peers,errorMessage);
+int get hashCode {
+    return Object.hash(runtimeType,key,displayName,status,progressFraction,totalBytes,receivedBytes,remainingBytes,downloadRate,uploadRate,eta,seeds,peers,errorMessage);
+}
 
 @override
 String toString() {
-  return 'DownloadTransferItem(key: $key, displayName: $displayName, status: $status, progressFraction: $progressFraction, totalBytes: $totalBytes, receivedBytes: $receivedBytes, remainingBytes: $remainingBytes, downloadRate: $downloadRate, uploadRate: $uploadRate, eta: $eta, seeds: $seeds, peers: $peers, errorMessage: $errorMessage)';
+    return 'DownloadTransferItem(key: $key, displayName: $displayName, status: $status, progressFraction: $progressFraction, totalBytes: $totalBytes, receivedBytes: $receivedBytes, remainingBytes: $remainingBytes, downloadRate: $downloadRate, uploadRate: $uploadRate, eta: $eta, seeds: $seeds, peers: $peers, errorMessage: $errorMessage)';
 }
 
 
@@ -596,16 +611,21 @@ $DownloadTransferSummaryCopyWith<DownloadTransferSummary> get copyWith => _$Down
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is DownloadTransferSummary&&(identical(other.trackedCount, trackedCount) || other.trackedCount == trackedCount)&&(identical(other.liveCount, liveCount) || other.liveCount == liveCount)&&(identical(other.completedCount, completedCount) || other.completedCount == completedCount)&&(identical(other.activeCount, activeCount) || other.activeCount == activeCount)&&(identical(other.downloadingCount, downloadingCount) || other.downloadingCount == downloadingCount)&&(identical(other.preparingCount, preparingCount) || other.preparingCount == preparingCount)&&(identical(other.pausedCount, pausedCount) || other.pausedCount == pausedCount)&&(identical(other.waitingForNetworkCount, waitingForNetworkCount) || other.waitingForNetworkCount == waitingForNetworkCount)&&(identical(other.failedCount, failedCount) || other.failedCount == failedCount)&&(identical(other.progressFraction, progressFraction) || other.progressFraction == progressFraction)&&(identical(other.progressIsEstimated, progressIsEstimated) || other.progressIsEstimated == progressIsEstimated)&&(identical(other.totalBytes, totalBytes) || other.totalBytes == totalBytes)&&(identical(other.receivedBytes, receivedBytes) || other.receivedBytes == receivedBytes)&&(identical(other.remainingBytes, remainingBytes) || other.remainingBytes == remainingBytes)&&(identical(other.downloadRate, downloadRate) || other.downloadRate == downloadRate)&&(identical(other.uploadRate, uploadRate) || other.uploadRate == uploadRate)&&(identical(other.eta, eta) || other.eta == eta));
+  final _this = this as DownloadTransferSummary;
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is DownloadTransferSummary&&(identical(other.trackedCount, _this.trackedCount) || other.trackedCount == _this.trackedCount)&&(identical(other.liveCount, _this.liveCount) || other.liveCount == _this.liveCount)&&(identical(other.completedCount, _this.completedCount) || other.completedCount == _this.completedCount)&&(identical(other.activeCount, _this.activeCount) || other.activeCount == _this.activeCount)&&(identical(other.downloadingCount, _this.downloadingCount) || other.downloadingCount == _this.downloadingCount)&&(identical(other.preparingCount, _this.preparingCount) || other.preparingCount == _this.preparingCount)&&(identical(other.pausedCount, _this.pausedCount) || other.pausedCount == _this.pausedCount)&&(identical(other.waitingForNetworkCount, _this.waitingForNetworkCount) || other.waitingForNetworkCount == _this.waitingForNetworkCount)&&(identical(other.failedCount, _this.failedCount) || other.failedCount == _this.failedCount)&&(identical(other.progressFraction, _this.progressFraction) || other.progressFraction == _this.progressFraction)&&(identical(other.progressIsEstimated, _this.progressIsEstimated) || other.progressIsEstimated == _this.progressIsEstimated)&&(identical(other.totalBytes, _this.totalBytes) || other.totalBytes == _this.totalBytes)&&(identical(other.receivedBytes, _this.receivedBytes) || other.receivedBytes == _this.receivedBytes)&&(identical(other.remainingBytes, _this.remainingBytes) || other.remainingBytes == _this.remainingBytes)&&(identical(other.downloadRate, _this.downloadRate) || other.downloadRate == _this.downloadRate)&&(identical(other.uploadRate, _this.uploadRate) || other.uploadRate == _this.uploadRate)&&(identical(other.eta, _this.eta) || other.eta == _this.eta));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,trackedCount,liveCount,completedCount,activeCount,downloadingCount,preparingCount,pausedCount,waitingForNetworkCount,failedCount,progressFraction,progressIsEstimated,totalBytes,receivedBytes,remainingBytes,downloadRate,uploadRate,eta);
+int get hashCode {
+  final _this = this as DownloadTransferSummary;
+  return Object.hash(runtimeType,_this.trackedCount,_this.liveCount,_this.completedCount,_this.activeCount,_this.downloadingCount,_this.preparingCount,_this.pausedCount,_this.waitingForNetworkCount,_this.failedCount,_this.progressFraction,_this.progressIsEstimated,_this.totalBytes,_this.receivedBytes,_this.remainingBytes,_this.downloadRate,_this.uploadRate,_this.eta);
+}
 
 @override
 String toString() {
-  return 'DownloadTransferSummary(trackedCount: $trackedCount, liveCount: $liveCount, completedCount: $completedCount, activeCount: $activeCount, downloadingCount: $downloadingCount, preparingCount: $preparingCount, pausedCount: $pausedCount, waitingForNetworkCount: $waitingForNetworkCount, failedCount: $failedCount, progressFraction: $progressFraction, progressIsEstimated: $progressIsEstimated, totalBytes: $totalBytes, receivedBytes: $receivedBytes, remainingBytes: $remainingBytes, downloadRate: $downloadRate, uploadRate: $uploadRate, eta: $eta)';
+  final _this = this as DownloadTransferSummary;
+  return 'DownloadTransferSummary(trackedCount: ${_this.trackedCount}, liveCount: ${_this.liveCount}, completedCount: ${_this.completedCount}, activeCount: ${_this.activeCount}, downloadingCount: ${_this.downloadingCount}, preparingCount: ${_this.preparingCount}, pausedCount: ${_this.pausedCount}, waitingForNetworkCount: ${_this.waitingForNetworkCount}, failedCount: ${_this.failedCount}, progressFraction: ${_this.progressFraction}, progressIsEstimated: ${_this.progressIsEstimated}, totalBytes: ${_this.totalBytes}, receivedBytes: ${_this.receivedBytes}, remainingBytes: ${_this.remainingBytes}, downloadRate: ${_this.downloadRate}, uploadRate: ${_this.uploadRate}, eta: ${_this.eta})';
 }
 
 
@@ -634,7 +654,7 @@ class _$DownloadTransferSummaryCopyWithImpl<$Res>
 /// Create a copy of DownloadTransferSummary
 /// with the given fields replaced by the non-null parameter values.
 @pragma('vm:prefer-inline') @override $Res call({Object? trackedCount = null,Object? liveCount = null,Object? completedCount = null,Object? activeCount = null,Object? downloadingCount = null,Object? preparingCount = null,Object? pausedCount = null,Object? waitingForNetworkCount = null,Object? failedCount = null,Object? progressFraction = null,Object? progressIsEstimated = null,Object? totalBytes = freezed,Object? receivedBytes = freezed,Object? remainingBytes = freezed,Object? downloadRate = null,Object? uploadRate = null,Object? eta = freezed,}) {
-  return _then(_self.copyWith(
+  return _then(DownloadTransferSummary(
 trackedCount: null == trackedCount ? _self.trackedCount : trackedCount // ignore: cast_nullable_to_non_nullable
 as int,liveCount: null == liveCount ? _self.liveCount : liveCount // ignore: cast_nullable_to_non_nullable
 as int,completedCount: null == completedCount ? _self.completedCount : completedCount // ignore: cast_nullable_to_non_nullable
@@ -824,16 +844,18 @@ _$DownloadTransferSummaryCopyWith<_DownloadTransferSummary> get copyWith => __$D
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _DownloadTransferSummary&&(identical(other.trackedCount, trackedCount) || other.trackedCount == trackedCount)&&(identical(other.liveCount, liveCount) || other.liveCount == liveCount)&&(identical(other.completedCount, completedCount) || other.completedCount == completedCount)&&(identical(other.activeCount, activeCount) || other.activeCount == activeCount)&&(identical(other.downloadingCount, downloadingCount) || other.downloadingCount == downloadingCount)&&(identical(other.preparingCount, preparingCount) || other.preparingCount == preparingCount)&&(identical(other.pausedCount, pausedCount) || other.pausedCount == pausedCount)&&(identical(other.waitingForNetworkCount, waitingForNetworkCount) || other.waitingForNetworkCount == waitingForNetworkCount)&&(identical(other.failedCount, failedCount) || other.failedCount == failedCount)&&(identical(other.progressFraction, progressFraction) || other.progressFraction == progressFraction)&&(identical(other.progressIsEstimated, progressIsEstimated) || other.progressIsEstimated == progressIsEstimated)&&(identical(other.totalBytes, totalBytes) || other.totalBytes == totalBytes)&&(identical(other.receivedBytes, receivedBytes) || other.receivedBytes == receivedBytes)&&(identical(other.remainingBytes, remainingBytes) || other.remainingBytes == remainingBytes)&&(identical(other.downloadRate, downloadRate) || other.downloadRate == downloadRate)&&(identical(other.uploadRate, uploadRate) || other.uploadRate == uploadRate)&&(identical(other.eta, eta) || other.eta == eta));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _DownloadTransferSummary&&(identical(other.trackedCount, trackedCount) || other.trackedCount == trackedCount)&&(identical(other.liveCount, liveCount) || other.liveCount == liveCount)&&(identical(other.completedCount, completedCount) || other.completedCount == completedCount)&&(identical(other.activeCount, activeCount) || other.activeCount == activeCount)&&(identical(other.downloadingCount, downloadingCount) || other.downloadingCount == downloadingCount)&&(identical(other.preparingCount, preparingCount) || other.preparingCount == preparingCount)&&(identical(other.pausedCount, pausedCount) || other.pausedCount == pausedCount)&&(identical(other.waitingForNetworkCount, waitingForNetworkCount) || other.waitingForNetworkCount == waitingForNetworkCount)&&(identical(other.failedCount, failedCount) || other.failedCount == failedCount)&&(identical(other.progressFraction, progressFraction) || other.progressFraction == progressFraction)&&(identical(other.progressIsEstimated, progressIsEstimated) || other.progressIsEstimated == progressIsEstimated)&&(identical(other.totalBytes, totalBytes) || other.totalBytes == totalBytes)&&(identical(other.receivedBytes, receivedBytes) || other.receivedBytes == receivedBytes)&&(identical(other.remainingBytes, remainingBytes) || other.remainingBytes == remainingBytes)&&(identical(other.downloadRate, downloadRate) || other.downloadRate == downloadRate)&&(identical(other.uploadRate, uploadRate) || other.uploadRate == uploadRate)&&(identical(other.eta, eta) || other.eta == eta));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,trackedCount,liveCount,completedCount,activeCount,downloadingCount,preparingCount,pausedCount,waitingForNetworkCount,failedCount,progressFraction,progressIsEstimated,totalBytes,receivedBytes,remainingBytes,downloadRate,uploadRate,eta);
+int get hashCode {
+    return Object.hash(runtimeType,trackedCount,liveCount,completedCount,activeCount,downloadingCount,preparingCount,pausedCount,waitingForNetworkCount,failedCount,progressFraction,progressIsEstimated,totalBytes,receivedBytes,remainingBytes,downloadRate,uploadRate,eta);
+}
 
 @override
 String toString() {
-  return 'DownloadTransferSummary(trackedCount: $trackedCount, liveCount: $liveCount, completedCount: $completedCount, activeCount: $activeCount, downloadingCount: $downloadingCount, preparingCount: $preparingCount, pausedCount: $pausedCount, waitingForNetworkCount: $waitingForNetworkCount, failedCount: $failedCount, progressFraction: $progressFraction, progressIsEstimated: $progressIsEstimated, totalBytes: $totalBytes, receivedBytes: $receivedBytes, remainingBytes: $remainingBytes, downloadRate: $downloadRate, uploadRate: $uploadRate, eta: $eta)';
+    return 'DownloadTransferSummary(trackedCount: $trackedCount, liveCount: $liveCount, completedCount: $completedCount, activeCount: $activeCount, downloadingCount: $downloadingCount, preparingCount: $preparingCount, pausedCount: $pausedCount, waitingForNetworkCount: $waitingForNetworkCount, failedCount: $failedCount, progressFraction: $progressFraction, progressIsEstimated: $progressIsEstimated, totalBytes: $totalBytes, receivedBytes: $receivedBytes, remainingBytes: $remainingBytes, downloadRate: $downloadRate, uploadRate: $uploadRate, eta: $eta)';
 }
 
 
@@ -901,16 +923,21 @@ $DownloadTransferReportCopyWith<DownloadTransferReport> get copyWith => _$Downlo
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is DownloadTransferReport&&const DeepCollectionEquality().equals(other.items, items)&&(identical(other.summary, summary) || other.summary == summary));
+  final _this = this as DownloadTransferReport;
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is DownloadTransferReport&&const DeepCollectionEquality().equals(other.items, _this.items)&&(identical(other.summary, _this.summary) || other.summary == _this.summary));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(items),summary);
+int get hashCode {
+  final _this = this as DownloadTransferReport;
+  return Object.hash(runtimeType,const DeepCollectionEquality().hash(_this.items),_this.summary);
+}
 
 @override
 String toString() {
-  return 'DownloadTransferReport(items: $items, summary: $summary)';
+  final _this = this as DownloadTransferReport;
+  return 'DownloadTransferReport(items: ${_this.items}, summary: ${_this.summary})';
 }
 
 
@@ -939,7 +966,7 @@ class _$DownloadTransferReportCopyWithImpl<$Res>
 /// Create a copy of DownloadTransferReport
 /// with the given fields replaced by the non-null parameter values.
 @pragma('vm:prefer-inline') @override $Res call({Object? items = null,Object? summary = null,}) {
-  return _then(_self.copyWith(
+  return _then(DownloadTransferReport(
 items: null == items ? _self.items : items // ignore: cast_nullable_to_non_nullable
 as List<DownloadTransferItem>,summary: null == summary ? _self.summary : summary // ignore: cast_nullable_to_non_nullable
 as DownloadTransferSummary,
@@ -1108,16 +1135,18 @@ _$DownloadTransferReportCopyWith<_DownloadTransferReport> get copyWith => __$Dow
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _DownloadTransferReport&&const DeepCollectionEquality().equals(other.items, items)&&(identical(other.summary, summary) || other.summary == summary));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _DownloadTransferReport&&const DeepCollectionEquality().equals(other.items, items)&&(identical(other.summary, summary) || other.summary == summary));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(items),summary);
+int get hashCode {
+    return Object.hash(runtimeType,const DeepCollectionEquality().hash(items),summary);
+}
 
 @override
 String toString() {
-  return 'DownloadTransferReport(items: $items, summary: $summary)';
+    return 'DownloadTransferReport(items: $items, summary: $summary)';
 }
 
 

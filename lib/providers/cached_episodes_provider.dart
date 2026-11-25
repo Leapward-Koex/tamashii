@@ -59,9 +59,7 @@ class CachedEpisodesNotifier extends _$CachedEpisodesNotifier {
         .map((bookmark) => bookmark.showName)
         .toSet();
 
-    // Get current cached episodes, defaulting to empty list if null
-    final stateValue = state.value;
-    final currentCached = stateValue ?? <ShowInfo>[];
+    final currentCached = state.isLoading ? await future : state.requireValue;
 
     // Find new episodes from bookmarked series
     final newBookmarkedEpisodes = apiEpisodes
@@ -83,8 +81,7 @@ class CachedEpisodesNotifier extends _$CachedEpisodesNotifier {
 
   /// Add episodes to cache
   Future<void> _addEpisodesToCache(List<ShowInfo> episodes) async {
-    final stateValue = state.value;
-    final currentCached = stateValue ?? <ShowInfo>[];
+    final currentCached = state.isLoading ? await future : state.requireValue;
 
     // Create a map to handle deduplication, preferring the new episodes
     final Map<String, ShowInfo> episodeMap = {};

@@ -22,15 +22,15 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        // AGP 9.1 embeds Kotlin 2.2.10, below Flutter 3.47's supported floor.
+        // AGP 9.3 embeds Kotlin 2.2.10, below Flutter's supported floor.
         // Override only the runtime classpath; the Kotlin plugin is not applied.
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.4.0")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.4.20")
     }
 }
 
 plugins {
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
-    id("com.android.application") version "9.1.0" apply false
+    id("com.android.application") version "9.3.3" apply false
 }
 
 include(":app")

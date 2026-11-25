@@ -1,22 +1,22 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:tamashii/api/jikan_api.dart';
-import 'package:tamashii/models/jikan_models.dart';
-import 'package:tamashii/providers/jikan_api_providers.dart';
+import 'package:tamashii/api/tenrai_api.dart';
+import 'package:tamashii/models/tenrai_models.dart';
+import 'package:tamashii/providers/tenrai_api_providers.dart';
 
-class FakeJikanApi extends JikanApi {
-  FakeJikanApi();
+class FakeTenraiApi extends TenraiApi {
+  FakeTenraiApi();
 
   final List<String> searchedQueries = <String>[];
 
   @override
-  Future<List<JikanAnimeSearchResult>> searchAnime(
+  Future<List<TenraiAnimeSearchResult>> searchAnime(
     String query, {
     int limit = 10,
   }) async {
     searchedQueries.add(query);
-    return const <JikanAnimeSearchResult>[
-      JikanAnimeSearchResult(
+    return const <TenraiAnimeSearchResult>[
+      TenraiAnimeSearchResult(
         malId: 1,
         title: 'Cowboy Bebop',
         titleEnglish: 'Cowboy Bebop',
@@ -27,33 +27,33 @@ class FakeJikanApi extends JikanApi {
   }
 }
 
-class ThrowingJikanApi extends JikanApi {
-  ThrowingJikanApi();
+class ThrowingTenraiApi extends TenraiApi {
+  ThrowingTenraiApi();
 
   int callCount = 0;
 
   @override
-  Future<List<JikanAnimeSearchResult>> searchAnime(
+  Future<List<TenraiAnimeSearchResult>> searchAnime(
     String query, {
     int limit = 10,
   }) async {
     callCount += 1;
-    throw const JikanApiException('boom');
+    throw const TenraiApiException('boom');
   }
 }
 
 void main() {
-  group('searchJikanShowsProvider', () {
+  group('searchTenraiShowsProvider', () {
     test(
       'keeps cached results for the same query after listeners are removed',
       () async {
-        final api = FakeJikanApi();
+        final api = FakeTenraiApi();
         final container = ProviderContainer(
-          overrides: [jikanApiProvider.overrideWithValue(api)],
+          overrides: [tenraiApiProvider.overrideWithValue(api)],
         );
         addTearDown(container.dispose);
 
-        final provider = searchJikanShowsProvider(' hero ');
+        final provider = searchTenraiShowsProvider(' hero ');
         final subscription = container.listen(
           provider,
           (_, _) {},
@@ -76,14 +76,14 @@ void main() {
     test(
       'returns empty results for blank queries without calling the api',
       () async {
-        final api = FakeJikanApi();
+        final api = FakeTenraiApi();
         final container = ProviderContainer(
-          overrides: [jikanApiProvider.overrideWithValue(api)],
+          overrides: [tenraiApiProvider.overrideWithValue(api)],
         );
         addTearDown(container.dispose);
 
         final results = await container.read(
-          searchJikanShowsProvider('   ').future,
+          searchTenraiShowsProvider('   ').future,
         );
 
         expect(results, isEmpty);
@@ -92,15 +92,15 @@ void main() {
     );
 
     test('does not retry failed searches automatically', () async {
-      final api = ThrowingJikanApi();
+      final api = ThrowingTenraiApi();
       final container = ProviderContainer(
-        overrides: [jikanApiProvider.overrideWithValue(api)],
+        overrides: [tenraiApiProvider.overrideWithValue(api)],
       );
       addTearDown(container.dispose);
 
       await expectLater(
-        container.read(searchJikanShowsProvider('bebop').future),
-        throwsA(isA<JikanApiException>()),
+        container.read(searchTenraiShowsProvider('bebop').future),
+        throwsA(isA<TenraiApiException>()),
       );
 
       await Future<void>.delayed(const Duration(milliseconds: 300));

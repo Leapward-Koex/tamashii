@@ -14,8 +14,8 @@ video.
 
 - Home lists recent episode releases from SubsPlease and supports title search.
 - Bookmarking a show on Home adds it to the watching list and Schedule.
-- Schedule groups saved shows by weekday. It also supports manual entries found
-  with a Jikan search.
+- Schedule groups saved shows by weekday. Add a show by title or choose a match
+  from Tenrai's catalog.
 - Available episode downloads are started manually from Home. New downloads use
   the highest resolution offered by the source.
 - Downloads shows live progress, rates, estimated time remaining, peers, and
@@ -53,7 +53,9 @@ Keep the extracted files together. The executable requires the files beside it.
 2. On **Home**, browse, search, or refresh the release list. Bookmark a show to
    add it to the watching list.
 3. In **Schedule**, move a saved show to another weekday or use **+** to add a
-   manual planning entry.
+   manual planning entry. Choose **Add by title** to save it without a search
+   result, then use **Match with Tenrai** from the entry if you want to link it
+   later.
 4. Select **Download** on an available episode. On Android, grant folder access
    when prompted.
 5. Open **Downloads** from Home to view active transfers or pause and resume
@@ -97,9 +99,9 @@ Tamashii does not require an account. Watching-list data, folder choices, and
 download markers are stored locally.
 
 Recent release information and torrent magnets come from
-[SubsPlease](https://subsplease.org). [Jikan](https://jikan.moe) is used to
-search titles for manual Schedule entries. These services control their own
-availability and metadata.
+[SubsPlease](https://subsplease.org). The [Tenrai API](https://tenrai.org)
+supplies MyAnimeList title matches for Schedule. These services control their
+own availability and metadata.
 
 Tamashii does not host media. Torrent transfers can expose your IP address to
 peers and trackers. Download only material you are entitled to access and

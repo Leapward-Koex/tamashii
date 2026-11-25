@@ -1,6 +1,6 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // coverage:ignore-file
-// ignore_for_file: type=lint
+// ignore_for_file: type=lint, type=warning, deprecated_member_use, deprecated_member_use_from_same_package
 // ignore_for_file: unused_element, deprecated_member_use, deprecated_member_use_from_same_package, use_function_type_syntax_for_parameters, unnecessary_const, avoid_init_to_null, invalid_override_different_default_values_named, prefer_expression_function_bodies, annotate_overrides, invalid_annotation_target, unnecessary_question_mark
 
 part of 'show_models.dart';
@@ -9,13 +9,14 @@ part of 'show_models.dart';
 // FreezedGenerator
 // **************************************************************************
 
+// GENERATED CODE - DO NOT MODIFY BY HAND
 // dart format off
 T _$identity<T>(T value) => value;
 
 /// @nodoc
 mixin _$BookmarkedShowInfo {
 
- String get imageUrl; int get releaseDayOfWeek; String get showName; int? get jikanId; BookmarkedShowSource get source;
+ String get imageUrl; int get releaseDayOfWeek; String get showName;@JsonKey(name: 'jikanId') int? get malId; BookmarkedShowSource get source;
 /// Create a copy of BookmarkedShowInfo
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -28,16 +29,21 @@ $BookmarkedShowInfoCopyWith<BookmarkedShowInfo> get copyWith => _$BookmarkedShow
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is BookmarkedShowInfo&&(identical(other.imageUrl, imageUrl) || other.imageUrl == imageUrl)&&(identical(other.releaseDayOfWeek, releaseDayOfWeek) || other.releaseDayOfWeek == releaseDayOfWeek)&&(identical(other.showName, showName) || other.showName == showName)&&(identical(other.jikanId, jikanId) || other.jikanId == jikanId)&&(identical(other.source, source) || other.source == source));
+  final _this = this as BookmarkedShowInfo;
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is BookmarkedShowInfo&&(identical(other.imageUrl, _this.imageUrl) || other.imageUrl == _this.imageUrl)&&(identical(other.releaseDayOfWeek, _this.releaseDayOfWeek) || other.releaseDayOfWeek == _this.releaseDayOfWeek)&&(identical(other.showName, _this.showName) || other.showName == _this.showName)&&(identical(other.malId, _this.malId) || other.malId == _this.malId)&&(identical(other.source, _this.source) || other.source == _this.source));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,imageUrl,releaseDayOfWeek,showName,jikanId,source);
+int get hashCode {
+  final _this = this as BookmarkedShowInfo;
+  return Object.hash(runtimeType,_this.imageUrl,_this.releaseDayOfWeek,_this.showName,_this.malId,_this.source);
+}
 
 @override
 String toString() {
-  return 'BookmarkedShowInfo(imageUrl: $imageUrl, releaseDayOfWeek: $releaseDayOfWeek, showName: $showName, jikanId: $jikanId, source: $source)';
+  final _this = this as BookmarkedShowInfo;
+  return 'BookmarkedShowInfo(imageUrl: ${_this.imageUrl}, releaseDayOfWeek: ${_this.releaseDayOfWeek}, showName: ${_this.showName}, malId: ${_this.malId}, source: ${_this.source})';
 }
 
 
@@ -48,7 +54,7 @@ abstract mixin class $BookmarkedShowInfoCopyWith<$Res>  {
   factory $BookmarkedShowInfoCopyWith(BookmarkedShowInfo value, $Res Function(BookmarkedShowInfo) _then) = _$BookmarkedShowInfoCopyWithImpl;
 @useResult
 $Res call({
- String imageUrl, int releaseDayOfWeek, String showName, int? jikanId, BookmarkedShowSource source
+ String imageUrl, int releaseDayOfWeek, String showName,@JsonKey(name: 'jikanId') int? malId, BookmarkedShowSource source
 });
 
 
@@ -65,12 +71,12 @@ class _$BookmarkedShowInfoCopyWithImpl<$Res>
 
 /// Create a copy of BookmarkedShowInfo
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? imageUrl = null,Object? releaseDayOfWeek = null,Object? showName = null,Object? jikanId = freezed,Object? source = null,}) {
-  return _then(_self.copyWith(
+@pragma('vm:prefer-inline') @override $Res call({Object? imageUrl = null,Object? releaseDayOfWeek = null,Object? showName = null,Object? malId = freezed,Object? source = null,}) {
+  return _then(BookmarkedShowInfo(
 imageUrl: null == imageUrl ? _self.imageUrl : imageUrl // ignore: cast_nullable_to_non_nullable
 as String,releaseDayOfWeek: null == releaseDayOfWeek ? _self.releaseDayOfWeek : releaseDayOfWeek // ignore: cast_nullable_to_non_nullable
 as int,showName: null == showName ? _self.showName : showName // ignore: cast_nullable_to_non_nullable
-as String,jikanId: freezed == jikanId ? _self.jikanId : jikanId // ignore: cast_nullable_to_non_nullable
+as String,malId: freezed == malId ? _self.malId : malId // ignore: cast_nullable_to_non_nullable
 as int?,source: null == source ? _self.source : source // ignore: cast_nullable_to_non_nullable
 as BookmarkedShowSource,
   ));
@@ -157,10 +163,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String imageUrl,  int releaseDayOfWeek,  String showName,  int? jikanId,  BookmarkedShowSource source)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String imageUrl,  int releaseDayOfWeek,  String showName, @JsonKey(name: 'jikanId')  int? malId,  BookmarkedShowSource source)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _BookmarkedShowInfo() when $default != null:
-return $default(_that.imageUrl,_that.releaseDayOfWeek,_that.showName,_that.jikanId,_that.source);case _:
+return $default(_that.imageUrl,_that.releaseDayOfWeek,_that.showName,_that.malId,_that.source);case _:
   return orElse();
 
 }
@@ -178,10 +184,10 @@ return $default(_that.imageUrl,_that.releaseDayOfWeek,_that.showName,_that.jikan
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String imageUrl,  int releaseDayOfWeek,  String showName,  int? jikanId,  BookmarkedShowSource source)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String imageUrl,  int releaseDayOfWeek,  String showName, @JsonKey(name: 'jikanId')  int? malId,  BookmarkedShowSource source)  $default,) {final _that = this;
 switch (_that) {
 case _BookmarkedShowInfo():
-return $default(_that.imageUrl,_that.releaseDayOfWeek,_that.showName,_that.jikanId,_that.source);case _:
+return $default(_that.imageUrl,_that.releaseDayOfWeek,_that.showName,_that.malId,_that.source);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -198,10 +204,10 @@ return $default(_that.imageUrl,_that.releaseDayOfWeek,_that.showName,_that.jikan
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String imageUrl,  int releaseDayOfWeek,  String showName,  int? jikanId,  BookmarkedShowSource source)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String imageUrl,  int releaseDayOfWeek,  String showName, @JsonKey(name: 'jikanId')  int? malId,  BookmarkedShowSource source)?  $default,) {final _that = this;
 switch (_that) {
 case _BookmarkedShowInfo() when $default != null:
-return $default(_that.imageUrl,_that.releaseDayOfWeek,_that.showName,_that.jikanId,_that.source);case _:
+return $default(_that.imageUrl,_that.releaseDayOfWeek,_that.showName,_that.malId,_that.source);case _:
   return null;
 
 }
@@ -213,13 +219,13 @@ return $default(_that.imageUrl,_that.releaseDayOfWeek,_that.showName,_that.jikan
 @JsonSerializable()
 
 class _BookmarkedShowInfo extends BookmarkedShowInfo {
-  const _BookmarkedShowInfo({required this.imageUrl, required this.releaseDayOfWeek, required this.showName, this.jikanId, this.source = BookmarkedShowSource.subsplease}): super._();
+  const _BookmarkedShowInfo({required this.imageUrl, required this.releaseDayOfWeek, required this.showName, @JsonKey(name: 'jikanId') this.malId, this.source = BookmarkedShowSource.subsplease}): super._();
   factory _BookmarkedShowInfo.fromJson(Map<String, dynamic> json) => _$BookmarkedShowInfoFromJson(json);
 
 @override final  String imageUrl;
 @override final  int releaseDayOfWeek;
 @override final  String showName;
-@override final  int? jikanId;
+@override@JsonKey(name: 'jikanId') final  int? malId;
 @override@JsonKey() final  BookmarkedShowSource source;
 
 /// Create a copy of BookmarkedShowInfo
@@ -235,16 +241,18 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _BookmarkedShowInfo&&(identical(other.imageUrl, imageUrl) || other.imageUrl == imageUrl)&&(identical(other.releaseDayOfWeek, releaseDayOfWeek) || other.releaseDayOfWeek == releaseDayOfWeek)&&(identical(other.showName, showName) || other.showName == showName)&&(identical(other.jikanId, jikanId) || other.jikanId == jikanId)&&(identical(other.source, source) || other.source == source));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _BookmarkedShowInfo&&(identical(other.imageUrl, imageUrl) || other.imageUrl == imageUrl)&&(identical(other.releaseDayOfWeek, releaseDayOfWeek) || other.releaseDayOfWeek == releaseDayOfWeek)&&(identical(other.showName, showName) || other.showName == showName)&&(identical(other.malId, malId) || other.malId == malId)&&(identical(other.source, source) || other.source == source));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,imageUrl,releaseDayOfWeek,showName,jikanId,source);
+int get hashCode {
+    return Object.hash(runtimeType,imageUrl,releaseDayOfWeek,showName,malId,source);
+}
 
 @override
 String toString() {
-  return 'BookmarkedShowInfo(imageUrl: $imageUrl, releaseDayOfWeek: $releaseDayOfWeek, showName: $showName, jikanId: $jikanId, source: $source)';
+    return 'BookmarkedShowInfo(imageUrl: $imageUrl, releaseDayOfWeek: $releaseDayOfWeek, showName: $showName, malId: $malId, source: $source)';
 }
 
 
@@ -255,7 +263,7 @@ abstract mixin class _$BookmarkedShowInfoCopyWith<$Res> implements $BookmarkedSh
   factory _$BookmarkedShowInfoCopyWith(_BookmarkedShowInfo value, $Res Function(_BookmarkedShowInfo) _then) = __$BookmarkedShowInfoCopyWithImpl;
 @override @useResult
 $Res call({
- String imageUrl, int releaseDayOfWeek, String showName, int? jikanId, BookmarkedShowSource source
+ String imageUrl, int releaseDayOfWeek, String showName,@JsonKey(name: 'jikanId') int? malId, BookmarkedShowSource source
 });
 
 
@@ -272,12 +280,12 @@ class __$BookmarkedShowInfoCopyWithImpl<$Res>
 
 /// Create a copy of BookmarkedShowInfo
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? imageUrl = null,Object? releaseDayOfWeek = null,Object? showName = null,Object? jikanId = freezed,Object? source = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? imageUrl = null,Object? releaseDayOfWeek = null,Object? showName = null,Object? malId = freezed,Object? source = null,}) {
   return _then(_BookmarkedShowInfo(
 imageUrl: null == imageUrl ? _self.imageUrl : imageUrl // ignore: cast_nullable_to_non_nullable
 as String,releaseDayOfWeek: null == releaseDayOfWeek ? _self.releaseDayOfWeek : releaseDayOfWeek // ignore: cast_nullable_to_non_nullable
 as int,showName: null == showName ? _self.showName : showName // ignore: cast_nullable_to_non_nullable
-as String,jikanId: freezed == jikanId ? _self.jikanId : jikanId // ignore: cast_nullable_to_non_nullable
+as String,malId: freezed == malId ? _self.malId : malId // ignore: cast_nullable_to_non_nullable
 as int?,source: null == source ? _self.source : source // ignore: cast_nullable_to_non_nullable
 as BookmarkedShowSource,
   ));

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:tamashii/services/series_folder_resolution_service.dart';
 
 Future<String?> showSeriesFolderConfirmationDialog({

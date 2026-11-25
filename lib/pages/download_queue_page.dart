@@ -1,10 +1,11 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:tamashii/models/download_transfer_metrics.dart';
 import 'package:tamashii/providers/download_queue_provider.dart';
 import 'package:tamashii/providers/foreground_torrent_provider.dart';
 import 'package:tamashii/services/download_transfer_metrics.dart';
+import 'package:tamashii/widgets/glowing_progress_bar.dart';
 import 'package:tamashii/widgets/transfer_policy_banner.dart';
 
 /// A live view of transfers which are still being prepared, transferred,
@@ -136,17 +137,25 @@ class _DownloadQueuePageState extends ConsumerState<DownloadQueuePage> {
                       if (activeItems.isNotEmpty) ...[
                         const SizedBox(height: 24),
                         _DownloadSection(
+                          key: const ValueKey(
+                            DownloadTransferStatus.downloading,
+                          ),
                           title: 'Downloading',
                           items: activeItems,
                         ),
                       ],
                       if (pausedItems.isNotEmpty) ...[
                         const SizedBox(height: 24),
-                        _DownloadSection(title: 'Paused', items: pausedItems),
+                        _DownloadSection(
+                          key: const ValueKey(DownloadTransferStatus.paused),
+                          title: 'Paused',
+                          items: pausedItems,
+                        ),
                       ],
                       if (failedItems.isNotEmpty) ...[
                         const SizedBox(height: 24),
                         _DownloadSection(
+                          key: const ValueKey(DownloadTransferStatus.failed),
                           title: 'Needs attention',
                           items: failedItems,
                         ),
@@ -233,7 +242,7 @@ class _DownloadSummaryCard extends StatelessWidget {
           children: [
             Text('Live downloads', style: theme.textTheme.titleLarge),
             const SizedBox(height: 12),
-            LinearProgressIndicator(value: summary.progressFraction),
+            GlowingProgressBar(progress: summary.progressFraction),
             const SizedBox(height: 8),
             Text(
               '$progressLabel • ${_summaryTransferText(summary)}',
@@ -338,7 +347,7 @@ class _SummaryMetric extends StatelessWidget {
 }
 
 class _DownloadSection extends StatelessWidget {
-  const _DownloadSection({required this.title, required this.items});
+  const _DownloadSection({super.key, required this.title, required this.items});
 
   final String title;
   final List<DownloadTransferItem> items;
@@ -351,7 +360,10 @@ class _DownloadSection extends StatelessWidget {
         Text(title, style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         for (final item in items) ...[
-          _DownloadItemCard(item: item),
+          _DownloadItemCard(
+            key: DownloadQueuePage.itemKey(item.key),
+            item: item,
+          ),
           const SizedBox(height: 8),
         ],
       ],
@@ -360,7 +372,7 @@ class _DownloadSection extends StatelessWidget {
 }
 
 class _DownloadItemCard extends StatelessWidget {
-  const _DownloadItemCard({required this.item});
+  const _DownloadItemCard({super.key, required this.item});
 
   final DownloadTransferItem item;
 
@@ -378,7 +390,6 @@ class _DownloadItemCard extends StatelessWidget {
         : DownloadTransferFormatters.formatEta(item.eta);
 
     return Card(
-      key: DownloadQueuePage.itemKey(item.key),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -413,7 +424,10 @@ class _DownloadItemCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-            LinearProgressIndicator(value: item.progressFraction),
+            GlowingProgressBar(
+              progress: item.progressFraction,
+              color: status.color,
+            ),
             const SizedBox(height: 8),
             Text(
               '${(item.progressFraction * 100).toStringAsFixed(1)}% • ${_itemTransferText(item)}',

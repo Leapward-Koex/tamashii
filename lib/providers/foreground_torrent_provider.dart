@@ -10,7 +10,6 @@ import 'package:simple_torrent/simple_torrent.dart';
 import 'package:tamashii/providers/downloaded_torrents_provider.dart';
 import 'package:tamashii/providers/torrent_download_provider.dart';
 import 'package:tamashii/services/foreground_service_lifecycle.dart';
-import 'package:tamashii/services/notification_service.dart';
 import 'package:tamashii/services/permission_service.dart';
 import 'package:tamashii/services/download_transfer_metrics.dart';
 import 'package:tamashii/services/torrent_foreground_task.dart';
@@ -1126,8 +1125,17 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
           _completeTestQuery(message);
           break;
 
-        case 'show_completion_notification':
-          _handleCompletionNotification(message);
+        case 'download_finalised':
+          final torrentKey = message['torrentKey'];
+          if (_serviceInstanceTracker.acceptsMessage(
+                message['serviceInstanceId'] as String?,
+              ) &&
+              torrentKey is String &&
+              _downloadPaths.containsKey(torrentKey)) {
+            ref
+                .read(downloadedTorrentsProvider.notifier)
+                .addDownloaded(torrentKey);
+          }
           break;
 
         default:
@@ -1236,16 +1244,6 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
       final newState = currentState.copyWith(stats: stats, clearError: true);
 
       _updateTorrentState(torrentKey, newState);
-
-      // Persist completion. The task awaits native finalise before it stops
-      // itself; stopping here would race manager teardown against finalise.
-      if (stats.progress >= 1.0) {
-        if (_downloadPaths.containsKey(torrentKey)) {
-          ref
-              .read(downloadedTorrentsProvider.notifier)
-              .addDownloaded(torrentKey);
-        }
-      }
 
       // Log the stats for debugging
       print(
@@ -1443,42 +1441,6 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
       );
       _updateTorrentState(torrentKey, newState);
       print('❌ Error for $torrentKey: $message');
-    }
-  }
-
-  void _handleCompletionNotification(Map<String, dynamic> data) {
-    final String? torrentKey = data['torrentKey'];
-    final String? displayName = data['displayName'];
-    final String? message = data['message'];
-
-    if (torrentKey != null && displayName != null && message != null) {
-      print('🎉 Torrent completed: $displayName');
-
-      // Persist completion info
-      if (_downloadPaths.containsKey(torrentKey)) {
-        ref.read(downloadedTorrentsProvider.notifier).addDownloaded(torrentKey);
-      }
-
-      // Show a local notification using flutter_foreground_task's notification capability
-      // We can send a separate notification by temporarily updating the service notification
-      // with completion info, then reverting back to the main notification
-      _showCompletionNotificationToUser(displayName, message);
-    }
-  }
-
-  void _showCompletionNotificationToUser(
-    String displayName,
-    String message,
-  ) async {
-    // Show a proper local notification using flutter_local_notifications
-    try {
-      await NotificationService.showTorrentCompletionNotification(
-        torrentName: displayName,
-        message: message,
-      );
-      print('📱 Local notification shown for: $displayName');
-    } catch (e) {
-      print('❌ Failed to show notification: $e');
     }
   }
 }
