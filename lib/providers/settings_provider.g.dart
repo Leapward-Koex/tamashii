@@ -138,7 +138,7 @@ final class SeriesFolderMappingProvider
 }
 
 String _$seriesFolderMappingHash() =>
-    r'e84e8d3c39128aec74523d26221b21ee74d550c8';
+    r'2aa4900872bc9abbb59b9b256a00f227f3ae2178';
 
 /// Mapping of series → custom folder path for episodes.
 

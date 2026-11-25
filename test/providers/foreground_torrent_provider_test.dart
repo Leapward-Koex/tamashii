@@ -5,6 +5,47 @@ import 'package:tamashii/services/transfer_policy.dart';
 import 'package:simple_torrent/simple_torrent.dart';
 
 void main() {
+  test('reattaching restores rows and subsequent events update individual transfers', () {
+    final container = ProviderContainer.test();
+    final manager = container.read(foregroundTorrentManagerProvider.notifier);
+    manager.handleServiceData({
+      'type': 'download_started',
+      'torrentKey': 'abandoned',
+      'torrentId': 3,
+    });
+    manager.handleServiceData({
+      'type': 'bulk_torrent_states',
+      'isServiceSnapshot': true,
+      'states': {
+        'episode': {
+          'torrentId': 7,
+          'metadata': _metadata.toMap(),
+          'stats': _stats.toMap(),
+          'isPaused': true,
+        },
+      },
+    });
+    final restored = container.read(foregroundTorrentManagerProvider).torrents;
+    expect(restored['abandoned']!.errorMessage, isNotEmpty);
+    expect(restored['episode']!.displayName, 'Episode 1');
+    expect(restored['episode']!.progressFraction, 0.5);
+    expect(restored['episode']!.isPaused, isTrue);
+    manager.handleServiceData({
+      'type': 'download_resumed',
+      'torrentKey': 'episode',
+    });
+    manager.handleServiceData({
+      'type': 'stats_update',
+      'torrentKey': 'episode',
+      'stats': {..._stats.toMap(), 'progress': 0.75},
+    });
+    final updated = container.read(foregroundTorrentManagerProvider).torrents;
+    expect(updated['episode']!.progressFraction, 0.75);
+    expect(updated['episode']!.isPaused, isFalse);
+    expect(updated['episode']!.displayName, 'Episode 1');
+    expect(updated['abandoned'], same(restored['abandoned']));
+  });
+
   test(
     'bulk acknowledgements immediately apply paused state and clear errors',
     () {

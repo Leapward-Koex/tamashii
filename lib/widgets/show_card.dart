@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -33,14 +35,14 @@ class ShowCard extends ConsumerWidget {
     required this.show,
     this.seriesFolderPlanBuilder = _defaultSeriesFolderPlanBuilder,
     this.featured = false,
-    this.posterParallax = 0,
+    this.posterParallax,
     this.revealIndex = 0,
   });
 
   final ShowInfo show;
   final SeriesFolderPlanBuilder seriesFolderPlanBuilder;
   final bool featured;
-  final double posterParallax;
+  final ValueListenable<double>? posterParallax;
   final int revealIndex;
 
   static Key featuredPosterTransformKey(String showName) =>
@@ -95,7 +97,7 @@ class ShowCard extends ConsumerWidget {
     required Map<String, String> currentMappings,
     required bool isAutoGenEnabled,
     required String currentBasePath,
-    required SeriesFolderMapping seriesMappingNotifier,
+    required Future<void> Function(String path) saveFolder,
     required OnDeviceTextGenerator textGenerator,
   }) async {
     final seriesSpecificPath = currentMappings[showInfo.show];
@@ -144,7 +146,10 @@ class ShowCard extends ConsumerWidget {
 
       try {
         await Directory(path).create(recursive: true);
-        await seriesMappingNotifier.setFolder(showInfo.show, path);
+        if (!context.mounted) {
+          return null;
+        }
+        await saveFolder(path);
         return path;
       } catch (e) {
         if (!context.mounted) {
@@ -159,14 +164,14 @@ class ShowCard extends ConsumerWidget {
     final selectedDirectory = await FilePicker.getDirectoryPath(
       dialogTitle: 'Select download folder for "${showInfo.show}"',
     );
-    if (selectedDirectory != null && selectedDirectory.isNotEmpty) {
-      await seriesMappingNotifier.setFolder(showInfo.show, selectedDirectory);
-      return selectedDirectory;
-    }
-
     if (!context.mounted) {
       return null;
     }
+    if (selectedDirectory != null && selectedDirectory.isNotEmpty) {
+      await saveFolder(selectedDirectory);
+      return selectedDirectory;
+    }
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('No folder selected. Download cancelled.')),
     );
@@ -175,27 +180,24 @@ class ShowCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final bookmarks =
-        ref.watch(bookmarkedSeriesProvider).value ?? <BookmarkedShowInfo>[];
-    final isBookmarked = bookmarks.any(
-      (bookmark) => bookmark.showName == show.show,
-    );
-    final bookmarkedNotifier = ref.read(bookmarkedSeriesProvider.notifier);
-    final seriesMappingSettings = ref.watch(seriesFolderMappingProvider);
-    final autoGenSettings = ref.watch(autoGenerateFoldersProvider);
-    final basePathSettings = ref.watch(downloadBasePathProvider);
-    final seriesMappingNotifier = ref.read(
-      seriesFolderMappingProvider.notifier,
-    );
-    final textGenerator = ref.read(onDeviceTextGeneratorProvider);
-
     final torrentKey = '${show.show}-${show.episode}';
+    final isBookmarked = ref.watch(
+      bookmarkedSeriesProvider.select(
+        (bookmarks) =>
+            bookmarks.value?.any(
+              (bookmark) => bookmark.showName == show.show,
+            ) ??
+            false,
+      ),
+    );
     final torrentDownloadState = ref.watch(
       foregroundTorrentForShowProvider(torrentKey),
     );
-    final downloadedSet =
-        ref.watch(downloadedTorrentsProvider).value ?? <String>{};
-    final isDownloaded = downloadedSet.contains(torrentKey);
+    final isDownloaded = ref.watch(
+      downloadedTorrentsProvider.select(
+        (downloads) => downloads.value?.contains(torrentKey) ?? false,
+      ),
+    );
 
     final progressFraction = torrentDownloadState.progressFraction;
     final downloadRate = torrentDownloadState.downloadRate;
@@ -248,14 +250,25 @@ class ShowCard extends ConsumerWidget {
         return;
       }
 
+      final (mappings, autoGenerate, basePath) = await (
+        ref.read(seriesFolderMappingProvider.future),
+        ref.read(autoGenerateFoldersProvider.future),
+        ref.read(downloadBasePathProvider.future),
+      ).wait;
+      if (!context.mounted) {
+        return;
+      }
+
       final seriesDownloadPath = await _determineDownloadPath(
         context: context,
         showInfo: show,
-        currentMappings: seriesMappingSettings.value ?? <String, String>{},
-        isAutoGenEnabled: autoGenSettings.value ?? true,
-        currentBasePath: basePathSettings.value ?? '',
-        seriesMappingNotifier: seriesMappingNotifier,
-        textGenerator: textGenerator,
+        currentMappings: mappings,
+        isAutoGenEnabled: autoGenerate,
+        currentBasePath: basePath,
+        saveFolder: (path) => ref
+            .read(seriesFolderMappingProvider.notifier)
+            .setFolder(show.show, path),
+        textGenerator: ref.read(onDeviceTextGeneratorProvider),
       );
 
       if (seriesDownloadPath == null ||
@@ -317,6 +330,7 @@ class ShowCard extends ConsumerWidget {
     }
 
     Future<void> handleBookmarkPressed() async {
+      final bookmarkedNotifier = ref.read(bookmarkedSeriesProvider.notifier);
       if (isBookmarked) {
         await bookmarkedNotifier.remove(show.show);
         return;
@@ -389,6 +403,8 @@ class ShowCard extends ConsumerWidget {
     required Future<void> Function() onBookmarkPressed,
   }) {
     final theme = Theme.of(context);
+    final poster = ShowImage(imageUrl: show.imageUrl);
+    final parallax = posterParallax;
 
     return AnimatedContainer(
       key: featuredCardKey(show.show),
@@ -412,11 +428,17 @@ class ShowCard extends ConsumerWidget {
           fit: StackFit.expand,
           children: [
             Positioned.fill(
-              child: Transform.translate(
-                key: featuredPosterTransformKey(show.show),
-                offset: Offset(0, posterParallax),
-                child: ShowImage(imageUrl: show.imageUrl),
-              ),
+              child: parallax == null
+                  ? poster
+                  : ValueListenableBuilder<double>(
+                      valueListenable: parallax,
+                      child: poster,
+                      builder: (context, offset, child) => Transform.translate(
+                        key: featuredPosterTransformKey(show.show),
+                        offset: Offset(0, offset),
+                        child: child,
+                      ),
+                    ),
             ),
             Positioned.fill(
               child: DecoratedBox(
@@ -667,148 +689,158 @@ class ShowCard extends ConsumerWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(26),
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SizedBox(
-                width: 132,
-                height: 180,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    ShowImage(imageUrl: show.imageUrl),
-                    Positioned.fill(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.transparent,
-                              Colors.black.withValues(alpha: 0.24),
-                            ],
-                          ),
+        child: Stack(
+          children: [
+            PositionedDirectional(
+              start: 0,
+              top: 0,
+              bottom: 0,
+              width: 132,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ShowImage(imageUrl: show.imageUrl),
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.black.withValues(alpha: 0.24),
+                          ],
                         ),
                       ),
                     ),
-                    if (isDownloaded)
-                      Positioned(
-                        top: 10,
-                        right: 10,
-                        child: _buildInfoPill(
-                          label: 'DONE',
-                          foregroundColor: Colors.white,
-                          backgroundColor: Colors.green.withValues(alpha: 0.85),
-                        ),
+                  ),
+                  if (isDownloaded)
+                    Positioned(
+                      top: 10,
+                      right: 10,
+                      child: _buildInfoPill(
+                        label: 'DONE',
+                        foregroundColor: Colors.white,
+                        backgroundColor: Colors.green.withValues(alpha: 0.85),
                       ),
-                  ],
-                ),
+                    ),
+                ],
               ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 16, 14, 14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        show.show,
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          height: 1.1,
+            ),
+            ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 180),
+              child: Padding(
+                padding: const EdgeInsetsDirectional.fromSTEB(150, 16, 14, 14),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          show.show,
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            height: 1.1,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          _buildInfoPill(
-                            label: 'Ep ${show.episode}',
-                            foregroundColor: theme.colorScheme.onSurfaceVariant,
-                            backgroundColor:
-                                theme.colorScheme.secondaryContainer,
-                          ),
-                          _buildInfoPill(
-                            label: DateFormat.MMMd().format(show.releaseDate),
-                            foregroundColor: theme.colorScheme.onSurfaceVariant,
-                            backgroundColor:
-                                theme.colorScheme.surfaceContainerHigh,
-                          ),
-                        ],
-                      ),
-                      if (showTorrentDetails) ...[
-                        const SizedBox(height: 14),
-                        GlowingProgressBar(
-                          progress: progressFraction,
-                          fillKey: ValueKey<String>(
-                            'show-progress-fill-${show.show}-${show.episode}',
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        Container(
-                          key: standardStatusKey(show.show),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.surface.withValues(
-                              alpha: 0.72,
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            _buildInfoPill(
+                              label: 'Ep ${show.episode}',
+                              foregroundColor:
+                                  theme.colorScheme.onSurfaceVariant,
+                              backgroundColor:
+                                  theme.colorScheme.secondaryContainer,
                             ),
-                            borderRadius: BorderRadius.circular(16),
+                            _buildInfoPill(
+                              label: DateFormat.MMMd().format(show.releaseDate),
+                              foregroundColor:
+                                  theme.colorScheme.onSurfaceVariant,
+                              backgroundColor:
+                                  theme.colorScheme.surfaceContainerHigh,
+                            ),
+                          ],
+                        ),
+                        if (showTorrentDetails) ...[
+                          const SizedBox(height: 14),
+                          GlowingProgressBar(
+                            progress: progressFraction,
+                            fillKey: ValueKey<String>(
+                              'show-progress-fill-${show.show}-${show.episode}',
+                            ),
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(
-                                    _getTorrentStateIcon(
-                                      torrentDownloadState.currentState,
-                                    ),
-                                    size: 16,
-                                    color: torrentStateColor,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      _torrentStateLabel(
+                          const SizedBox(height: 14),
+                          Container(
+                            key: standardStatusKey(show.show),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.surface.withValues(
+                                alpha: 0.72,
+                              ),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(
+                                      _getTorrentStateIcon(
                                         torrentDownloadState.currentState,
                                       ),
-                                      style: theme.textTheme.labelMedium
-                                          ?.copyWith(
-                                            color: torrentStateColor,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
+                                      size: 16,
+                                      color: torrentStateColor,
                                     ),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        _torrentStateLabel(
+                                          torrentDownloadState.currentState,
+                                        ),
+                                        style: theme.textTheme.labelMedium
+                                            ?.copyWith(
+                                              color: torrentStateColor,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  _compactStatusText(
+                                    torrentDownloadState: torrentDownloadState,
+                                    downloadRate: downloadRate,
+                                    uploadRate: uploadRate,
                                   ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                _compactStatusText(
-                                  torrentDownloadState: torrentDownloadState,
-                                  downloadRate: downloadRate,
-                                  uploadRate: uploadRate,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
+                        ],
                       ],
-                      const Spacer(),
-                      const SizedBox(height: 16),
-                      Row(
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 16),
+                      child: Row(
                         key: standardActionsKey(show.show),
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
@@ -858,12 +890,12 @@ class ShowCard extends ConsumerWidget {
                           ),
                         ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

@@ -102,7 +102,7 @@ final class ForegroundTorrentManagerProvider
 }
 
 String _$foregroundTorrentManagerHash() =>
-    r'227cb7e24feb34d4b4f449b409832f9ed0c551b9';
+    r'1fa49440025b0a56e8e55c6f3fbdae5b754cb0ac';
 
 abstract class _$ForegroundTorrentManager
     extends $Notifier<TorrentManagerState> {
@@ -188,7 +188,7 @@ final class ForegroundTorrentForShowProvider
 }
 
 String _$foregroundTorrentForShowHash() =>
-    r'a2d636afdfd807e38dcee61a798f3ee1bf3420d4';
+    r'ab52eb98c67526a124a31c7dca3eee3d40a32a33';
 
 final class ForegroundTorrentForShowFamily extends $Family
     with $FunctionalFamilyOverride<TorrentDownloadState, String> {

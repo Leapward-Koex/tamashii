@@ -24,10 +24,20 @@ Future<List<ShowInfo>> searchShows(Ref ref, String searchTerm) async {
   return await api.getShowsFromSearch(searchTerm);
 }
 
-// Updated to use the new combined provider instead of raw API data
 @riverpod
 Future<List<ShowInfo>> filteredShows(Ref ref, String searchTerm) async {
-  return await ref.watch(filteredCombinedEpisodesProvider(searchTerm).future);
+  final combined = filteredCombinedEpisodesProvider(searchTerm);
+  if (searchTerm.isEmpty) {
+    final combinedState = ref.watch(combined);
+    if ((combinedState.isLoading || combinedState.hasError) &&
+        (combinedState.value?.isEmpty ?? true)) {
+      final preview = watchCachedEpisodeFeedPreview(ref);
+      if (preview != null && preview.isNotEmpty) {
+        return preview;
+      }
+    }
+  }
+  return ref.watch(combined.future);
 }
 
 @riverpod

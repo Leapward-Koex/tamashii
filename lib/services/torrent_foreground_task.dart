@@ -68,9 +68,9 @@ class TorrentTaskHandler extends TaskHandler {
       // after initialization and the current network policy has been applied.
       _metadataSub = SimpleTorrent.metadataStream.listen(_handleMetadataUpdate);
 
-      // Set up periodic updates every 2 seconds for responsive notifications.
+      // Stats, metadata and control changes already stream to the UI. A full
+      // snapshot is needed only when an engine attaches to a running service.
       _updateTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
-        _enqueueCommand(_broadcastTorrentStates);
         _updateNotificationWithProgress();
       });
 
@@ -335,7 +335,7 @@ class TorrentTaskHandler extends TaskHandler {
           DateTime.now(),
           requestId: command['requestId'] as int?,
         );
-        await _broadcastTorrentStates(isServiceSnapshot: true);
+        _sendServiceSnapshot();
         break;
       case 'set_test_network_status':
         if (!networkPolicyTestHookEnabled) {
@@ -674,33 +674,18 @@ class TorrentTaskHandler extends TaskHandler {
     _updateNotificationWithProgress();
   }
 
-  Future<void> _broadcastTorrentStates({bool isServiceSnapshot = false}) async {
+  void _sendServiceSnapshot() {
     final Map<String, dynamic> allStates = {};
-    final torrentEntries = Map<String, int>.of(_torrentIds).entries.toList();
-    final completedTorrents = Set<String>.of(_completedTorrents);
-
-    for (final entry in torrentEntries) {
+    for (final entry in _torrentIds.entries) {
       final String torrentKey = entry.key;
       final int torrentId = entry.value;
 
-      if (completedTorrents.contains(torrentKey)) {
+      if (_completedTorrents.contains(torrentKey)) {
         continue;
-      }
-
-      TorrentInfo? info;
-      try {
-        info = await SimpleTorrent.getTorrentInfo(torrentId);
-      } catch (e) {
-        // Metadata can still be arriving while a valid transfer is being
-        // tracked. Keep its rich snapshot instead of making a reattached UI
-        // incorrectly report it as failed just because this legacy field is
-        // temporarily unavailable.
-        print('Error getting legacy state for $torrentKey: $e');
       }
 
       allStates[torrentKey] = {
         'torrentId': torrentId,
-        'info': _serializeTorrentInfo(info),
         'stats': _currentStats[torrentKey]?.toMap(),
         'metadata': _currentMetadata[torrentKey]?.toMap(),
         'isPaused': _pausedTorrents.contains(torrentKey),
@@ -715,7 +700,7 @@ class TorrentTaskHandler extends TaskHandler {
       'type': 'bulk_torrent_states',
       'serviceInstanceId': _serviceInstanceId,
       'states': allStates,
-      'isServiceSnapshot': isServiceSnapshot,
+      'isServiceSnapshot': true,
       'timestamp': DateTime.now().millisecondsSinceEpoch,
     });
   }

@@ -5,13 +5,14 @@ import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart'
+    show ProviderListenableSelect;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:simple_torrent/simple_torrent.dart';
 import 'package:tamashii/providers/downloaded_torrents_provider.dart';
 import 'package:tamashii/providers/torrent_download_provider.dart';
 import 'package:tamashii/services/foreground_service_lifecycle.dart';
 import 'package:tamashii/services/permission_service.dart';
-import 'package:tamashii/services/download_transfer_metrics.dart';
 import 'package:tamashii/services/torrent_foreground_task.dart';
 import 'package:tamashii/services/transfer_policy.dart';
 import 'package:tamashii_network_cost/tamashii_network_cost.dart';
@@ -204,7 +205,6 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
 
   // Callback to receive data sent from the TaskHandler
   void _onReceiveTaskData(Object data) {
-    print('📨 Received data from foreground service: $data');
     handleServiceData(data);
   }
 
@@ -1244,11 +1244,6 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
       final newState = currentState.copyWith(stats: stats, clearError: true);
 
       _updateTorrentState(torrentKey, newState);
-
-      // Log the stats for debugging
-      print(
-        '📊 Stats update for $torrentKey: ${(stats.progress * 100).toStringAsFixed(1)}% (${DownloadTransferFormatters.formatRate(stats.downloadRate)}) - State: ${stats.state.name}',
-      );
     } catch (e) {
       print('❌ Failed to recreate TorrentStats from serialized data: $e');
     }
@@ -1456,11 +1451,9 @@ NetworkStatus _networkStatusForPolicy(TransferPolicySnapshot snapshot) {
 // Provider for individual torrent states
 @riverpod
 TorrentDownloadState foregroundTorrentForShow(Ref ref, String showId) {
-  if (Platform.isAndroid) {
-    final manager = ref.watch(foregroundTorrentManagerProvider);
-    return manager.torrents[showId] ?? const TorrentDownloadState();
-  } else {
-    final manager = ref.watch(torrentManagerProvider);
-    return manager.torrents[showId] ?? const TorrentDownloadState();
-  }
+  TorrentDownloadState selectEpisode(TorrentManagerState state) =>
+      state.torrents[showId] ?? const TorrentDownloadState();
+  return Platform.isAndroid
+      ? ref.watch(foregroundTorrentManagerProvider.select(selectEpisode))
+      : ref.watch(torrentManagerProvider.select(selectEpisode));
 }

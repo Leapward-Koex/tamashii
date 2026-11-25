@@ -8,10 +8,15 @@ import 'package:shared_preferences_platform_interface/in_memory_shared_preferenc
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:simple_torrent/simple_torrent.dart';
 import 'package:tamashii/models/show_models.dart';
+import 'package:tamashii/providers/bookmarked_series_provider.dart';
+import 'package:tamashii/providers/downloaded_torrents_provider.dart';
 import 'package:tamashii/providers/foreground_torrent_provider.dart';
+import 'package:tamashii/providers/settings_provider.dart';
 import 'package:tamashii/providers/torrent_download_provider.dart';
 import 'package:tamashii/widgets/glowing_progress_bar.dart';
 import 'package:tamashii/widgets/show_card.dart';
+import 'package:tamashii/widgets/show_image.dart';
+import 'package:tamashii/widgets/staggered_reveal.dart';
 
 const String _standardShowName = 'Layout Test Show';
 const String _featuredShowName =
@@ -119,6 +124,12 @@ void main() {
       greaterThanOrEqualTo(180),
     );
     expect(find.text('DOWNLOADING'), findsOneWidget);
+    final poster = find.byType(ShowImage);
+    expect(tester.getSize(poster).width, 132);
+    expect(
+      find.ancestor(of: poster, matching: find.byType(IntrinsicHeight)),
+      findsNothing,
+    );
     expect(
       find.byKey(
         const ValueKey<String>('show-progress-fill-Layout Test Show-12'),
@@ -126,6 +137,53 @@ void main() {
       findsOneWidget,
     );
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('idle cards skip action settings and unrelated state updates', (
+    tester,
+  ) async {
+    await _pumpShowCard(
+      tester,
+      showName: _standardShowName,
+      torrentState: const TorrentDownloadState(),
+    );
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(ShowCard)),
+    );
+    final mountedProviders = container.allProviders().map(
+      (item) => item.provider,
+    );
+    expect(mountedProviders, isNot(contains(seriesFolderMappingProvider)));
+    expect(mountedProviders, isNot(contains(autoGenerateFoldersProvider)));
+    expect(mountedProviders, isNot(contains(downloadBasePathProvider)));
+
+    final reveal = find.byType(StaggeredReveal);
+    final initial = tester.widget(reveal);
+    await container
+        .read(downloadedTorrentsProvider.notifier)
+        .addDownloaded('Another show-1');
+    await tester.pumpAndSettle();
+    expect(tester.widget(reveal), same(initial));
+
+    await container
+        .read(bookmarkedSeriesProvider.notifier)
+        .add(
+          const BookmarkedShowInfo(
+            imageUrl: '',
+            releaseDayOfWeek: DateTime.monday,
+            showName: 'Another show',
+          ),
+        );
+    await tester.pumpAndSettle();
+    expect(tester.widget(reveal), same(initial));
+
+    await container
+        .read(downloadedTorrentsProvider.notifier)
+        .addDownloaded('$_standardShowName-$_episode');
+    await tester.pumpAndSettle();
+    expect(tester.widget(reveal), isNot(same(initial)));
+    expect(find.text('DONE'), findsOneWidget);
   });
 
   testWidgets('active standard card shows the progress track at zero', (

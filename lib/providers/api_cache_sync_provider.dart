@@ -14,8 +14,12 @@ final apiCacheSyncProvider = Provider<ApiCacheSyncService>((ref) {
 });
 
 class ApiCacheSyncService {
+  static const _backfillBatchSize = 3;
+
   final Ref _ref;
   bool _initialized = false;
+  final _pendingBackfillTitles = <String>{};
+  Future<void> _backfillQueue = Future<void>.value();
 
   ApiCacheSyncService(this._ref);
 
@@ -115,31 +119,72 @@ class ApiCacheSyncService {
 
   Future<void> _backfillBookmarkedEpisodes(
     Iterable<BookmarkedShowInfo> seriesList,
-  ) async {
-    for (final series in seriesList) {
-      try {
-        final searchResults = await _ref.read(
-          searchShowsProvider(series.showName).future,
-        );
-        final matchingEpisodes = searchResults
-            .where((episode) => _sameShowName(episode.show, series.showName))
-            .toList();
+  ) {
+    final titles = [
+      for (final series in seriesList)
+        if (_pendingBackfillTitles.add(series.showName)) series.showName,
+    ];
+    if (titles.isEmpty) {
+      return _backfillQueue;
+    }
 
-        if (matchingEpisodes.isEmpty) {
-          continue;
-        }
+    _backfillQueue = _backfillQueue.then((_) async {
+      for (var index = 0; index < titles.length; index += _backfillBatchSize) {
+        final batch = titles.skip(index).take(_backfillBatchSize);
+        await _backfillBatch(batch);
+        _pendingBackfillTitles.removeAll(batch);
+      }
+    });
+    return _backfillQueue;
+  }
 
+  Future<void> _backfillBatch(Iterable<String> titles) async {
+    try {
+      final matches = await Future.wait(titles.map(_findEpisodes));
+      final bookmarks = await _ref.read(bookmarkedSeriesProvider.future);
+      final watchedTitles = {
+        for (final show in bookmarks)
+          if (show.showsOnHomePage) show.showName,
+      };
+      final episodesToCache = [
+        for (final (title, episodes) in matches)
+          if (watchedTitles.contains(title)) ...episodes,
+      ];
+      if (episodesToCache.isNotEmpty) {
         await _ref
             .read(cachedEpisodesProvider.notifier)
-            .cacheEpisodes(matchingEpisodes);
-      } catch (_) {
-        // Ignore per-series backfill errors so one bad request does not block the rest.
+            .cacheEpisodes(episodesToCache);
       }
+    } catch (_) {
+      // A failed batch must not block later bookmark changes.
     }
   }
 
-  bool _sameShowName(String lhs, String rhs) {
-    return lhs.trim().toLowerCase() == rhs.trim().toLowerCase();
+  Future<(String, List<ShowInfo>)> _findEpisodes(String title) async {
+    try {
+      final subscription = _ref.listen(
+        searchShowsProvider(title).future,
+        (_, _) {},
+      );
+      try {
+        final results = await subscription.read();
+        final normalizedTitle = title.trim().toLowerCase();
+        return (
+          title,
+          results
+              .where(
+                (episode) =>
+                    episode.show.trim().toLowerCase() == normalizedTitle,
+              )
+              .toList(),
+        );
+      } finally {
+        subscription.close();
+      }
+    } catch (_) {
+      // Other shows in the batch may still return results.
+      return (title, const <ShowInfo>[]);
+    }
   }
 
   /// Manually trigger a sync

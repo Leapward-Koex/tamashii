@@ -28,41 +28,72 @@ class StaggeredReveal extends StatefulWidget {
 
 class _StaggeredRevealState extends State<StaggeredReveal>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<double> _opacity;
+  AnimationController? _controller;
+  CurvedAnimation? _opacity;
   late final Animation<Offset> _slide;
   Timer? _startTimer;
+  bool _initialized = false;
 
   @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(vsync: this, duration: widget.duration);
-    _opacity = CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic);
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    if (_initialized) {
+      if (reduceMotion) {
+        _startTimer?.cancel();
+        _controller?.value = 1;
+      }
+      return;
+    }
+    _initialized = true;
+
+    final scrollPosition = Scrollable.maybeOf(context)?.position;
+    if (reduceMotion || (scrollPosition?.isScrollingNotifier.value ?? false)) {
+      return;
+    }
+
+    final controller = AnimationController(
+      vsync: this,
+      duration: widget.duration,
+    );
+    final opacity = CurvedAnimation(
+      parent: controller,
+      curve: Curves.easeOutCubic,
+    );
+    _controller = controller;
+    _opacity = opacity;
     _slide = Tween<Offset>(
       begin: widget.offset,
       end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
-
+    ).animate(opacity);
     final delayMilliseconds = math.min(widget.index * 55, 230);
-    _startTimer = Timer(Duration(milliseconds: delayMilliseconds), () {
-      if (mounted) {
-        _controller.forward();
-      }
-    });
+    if (delayMilliseconds <= 0) {
+      controller.forward();
+    } else {
+      _startTimer = Timer(
+        Duration(milliseconds: delayMilliseconds),
+        controller.forward,
+      );
+    }
   }
 
   @override
   void dispose() {
     _startTimer?.cancel();
-    _controller.dispose();
+    _opacity?.dispose();
+    _controller?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final opacity = _opacity;
+    if (opacity == null) {
+      return widget.child;
+    }
     return FadeTransition(
       key: StaggeredReveal.fadeKeyForIndex(widget.index),
-      opacity: _opacity,
+      opacity: opacity,
       child: SlideTransition(
         key: StaggeredReveal.slideKeyForIndex(widget.index),
         position: _slide,

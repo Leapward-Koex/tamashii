@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:simple_torrent/simple_torrent.dart';
 import 'package:tamashii/config/torrent_download_config.dart';
 import 'package:tamashii/providers/foreground_torrent_provider.dart';
+import 'package:tamashii/providers/settings_provider.dart';
 import 'package:tamashii/providers/torrent_download_provider.dart';
 import 'package:tamashii/services/transfer_policy.dart';
 import 'package:tamashii_network_cost/tamashii_network_cost.dart';
@@ -42,8 +43,12 @@ void main() {
       );
 
       final preferences = SharedPreferencesAsync();
-      await preferences.setBool(allowMeteredDownloadsPreferenceKey, false);
-      await preferences.setBool(allowMobileDataPreferenceKey, false);
+      final originalAllowMetered = await preferences.getBool(
+        allowMeteredDownloadsPreferenceKey,
+      );
+      final originalAllowMobile = await preferences.getBool(
+        allowMobileDataPreferenceKey,
+      );
 
       final testDirectory = await Directory.systemTemp.createTemp(
         'tamashii-network-policy-',
@@ -56,15 +61,38 @@ void main() {
 
       final container = ProviderContainer();
       final manager = container.read(foregroundTorrentManagerProvider.notifier);
+      // Match Settings: service reattachment refreshes the persisted policy.
+      Future<void> setAllowMobileData(bool allow) async {
+        await container
+            .read(allowMobileDataProvider.notifier)
+            .setAllowed(allow);
+        await manager.setAllowMobileData(allow);
+      }
+
+      Future<void> setAllowMeteredDownloads(bool allow) async {
+        await container
+            .read(allowMeteredDownloadsProvider.notifier)
+            .setAllowed(allow);
+        await manager.setAllowMeteredDownloads(allow);
+      }
+
+      Future<void> restorePreference(String key, bool? value) async {
+        if (value == null) {
+          await preferences.remove(key);
+        } else {
+          await preferences.setBool(key, value);
+        }
+      }
+
       var serviceStarted = false;
       var torrentStarted = false;
       var testPassed = false;
 
       try {
+        await setAllowMeteredDownloads(false);
+        await setAllowMobileData(false);
         serviceStarted = true;
         await manager.startNetworkPolicyTestService();
-        await manager.setAllowMeteredDownloads(false);
-        await manager.setAllowMobileData(false);
         await manager.setTestNetworkStatus(_unmeteredWifi);
 
         expect(container.read(foregroundTransferPolicyStatusProvider), (
@@ -123,7 +151,7 @@ void main() {
         );
         expect(await manager.queryTestTransfersSuspended(), isTrue);
 
-        await manager.setAllowMobileData(true);
+        await setAllowMobileData(true);
         expect(await manager.queryTestTransfersSuspended(), isFalse);
         expect(
           await manager.queryTestTorrentState(torrentKey),
@@ -134,7 +162,7 @@ void main() {
         // Revoking the mobile-data permission suspends this cellular VPN
         // again. Moving the same VPN to known unmetered Wi-Fi then opens the
         // global gate without touching the torrent's individual pause state.
-        await manager.setAllowMobileData(false);
+        await setAllowMobileData(false);
         expect(await manager.queryTestTransfersSuspended(), isTrue);
         await manager.setTestNetworkStatus(_unmeteredWifiVpn);
         expect(await manager.queryTestTransfersSuspended(), isFalse);
@@ -153,7 +181,7 @@ void main() {
         );
         expect(await manager.queryTestTransfersSuspended(), isTrue);
 
-        await manager.setAllowMeteredDownloads(true);
+        await setAllowMeteredDownloads(true);
         expect(await manager.queryTestTransfersSuspended(), isFalse);
         expect(
           await manager.queryTestTorrentState(torrentKey),
@@ -161,7 +189,7 @@ void main() {
           reason: 'Opening the metered gate must preserve manual pause.',
         );
 
-        await manager.setAllowMeteredDownloads(false);
+        await setAllowMeteredDownloads(false);
         expect(await manager.queryTestTransfersSuspended(), isTrue);
 
         // If Android cannot identify a VPN's underlying transport, the
@@ -174,14 +202,14 @@ void main() {
         );
         expect(await manager.queryTestTransfersSuspended(), isTrue);
 
-        await manager.setAllowMobileData(true);
+        await setAllowMobileData(true);
         expect(await manager.queryTestTransfersSuspended(), isFalse);
         expect(
           await manager.queryTestTorrentState(torrentKey),
           TorrentState.paused,
         );
 
-        await manager.setAllowMobileData(false);
+        await setAllowMobileData(false);
         expect(await manager.queryTestTransfersSuspended(), isTrue);
         await manager.setTestNetworkStatus(_unknownNonVpn);
         expect(
@@ -192,8 +220,8 @@ void main() {
 
         // Offline always wins, including when both paid-network permissions
         // are enabled.
-        await manager.setAllowMeteredDownloads(true);
-        await manager.setAllowMobileData(true);
+        await setAllowMeteredDownloads(true);
+        await setAllowMobileData(true);
         await manager.setTestNetworkStatus(_offline);
         expect(
           container.read(foregroundTransferPolicyStatusProvider).reason,
@@ -246,19 +274,10 @@ void main() {
 
         await manager.stopNetworkPolicyTestService();
         serviceStarted = false;
-        await preferences.setBool(allowMeteredDownloadsPreferenceKey, false);
-        await preferences.setBool(allowMobileDataPreferenceKey, false);
         await testDirectory.delete(recursive: true);
         testPassed = true;
       } finally {
         final preserveFailure = !testPassed && _keepTestDataOnFailure;
-        try {
-          await preferences.setBool(allowMeteredDownloadsPreferenceKey, false);
-          await preferences.setBool(allowMobileDataPreferenceKey, false);
-        } on Object catch (error) {
-          // ignore: avoid_print
-          print('Best-effort policy-preference cleanup failed: $error');
-        }
         if (torrentStarted && !preserveFailure) {
           try {
             await manager.removeDownload(torrentKey);
@@ -275,6 +294,21 @@ void main() {
             // ignore: avoid_print
             print('Best-effort service cleanup failed: $error');
           }
+        }
+        try {
+          await Future.wait([
+            restorePreference(
+              allowMeteredDownloadsPreferenceKey,
+              originalAllowMetered,
+            ),
+            restorePreference(
+              allowMobileDataPreferenceKey,
+              originalAllowMobile,
+            ),
+          ]);
+        } on Object catch (error) {
+          // ignore: avoid_print
+          print('Best-effort policy-preference cleanup failed: $error');
         }
         container.dispose();
 

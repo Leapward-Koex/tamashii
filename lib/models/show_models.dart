@@ -65,6 +65,9 @@ class ShowDownloadInfo {
 
 /// The main show/episode info from the API.
 class ShowInfo {
+  static final _feedDate = DateFormat('EEE, dd MMM yyyy HH:mm:ss Z', 'en_US');
+  static final _shortCacheDate = DateFormat('MM/dd/yy', 'en_US');
+  static final _shortCacheDatePrefix = RegExp(r'^\d+/');
   final List<ShowDownloadInfo> downloads;
   final String episode;
   final String imageUrl;
@@ -86,22 +89,16 @@ class ShowInfo {
   });
 
   factory ShowInfo.fromJson(Map<String, dynamic> json) {
-    // parse date from various formats
     final String rawDate = json['release_date'] as String;
     late DateTime parsedDate;
     try {
-      // Try RFC format first (from API): EEE, dd MMM yyyy HH:mm:ss Z
-      parsedDate = DateFormat(
-        'EEE, dd MMM yyyy HH:mm:ss Z',
-        'en_US',
-      ).parseUTC(rawDate);
-    } catch (error) {
-      try {
-        // Try short format (from cache): MM/dd/yy
-        parsedDate = DateFormat('MM/dd/yy', 'en_US').parse(rawDate);
-      } catch (secondError) {
-        throw FormatException('Invalid release_date format: $rawDate');
-      }
+      // Older cached releases start with a numeric month. Dispatching here
+      // avoids throwing and catching an exception for each legacy episode.
+      parsedDate = _shortCacheDatePrefix.hasMatch(rawDate)
+          ? _shortCacheDate.parse(rawDate)
+          : _feedDate.parseUTC(rawDate);
+    } on FormatException {
+      throw FormatException('Invalid release_date format: $rawDate');
     }
 
     return ShowInfo(
@@ -122,10 +119,7 @@ class ShowInfo {
 
   Map<String, dynamic> toJson() {
     // Use the full format to preserve time information
-    final String formattedDate = DateFormat(
-      'EEE, dd MMM yyyy HH:mm:ss Z',
-      'en_US',
-    ).format(releaseDate);
+    final String formattedDate = _feedDate.format(releaseDate);
 
     return <String, dynamic>{
       'downloads': downloads.map((e) => e.toJson()).toList(),

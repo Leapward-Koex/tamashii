@@ -38,6 +38,8 @@ void main() {
       );
       addTearDown(container.dispose);
 
+      expect(container.read(activeDownloadCountProvider), 2);
+      expect(container.read(downloadQueueProvider.exists), isFalse);
       final report = container.read(downloadQueueProvider);
 
       expect(report.summary.trackedCount, 3);
@@ -60,6 +62,29 @@ void main() {
     expect(find.byKey(DownloadQueuePage.emptyStateKey), findsOneWidget);
     expect(find.text('No active downloads'), findsOneWidget);
     expect(find.byKey(DownloadQueuePage.summaryCardKey), findsNothing);
+  });
+
+  testWidgets('builds only the nearby progress bars in a long download queue', (
+    WidgetTester tester,
+  ) async {
+    final items = List.generate(
+      100,
+      (index) => _item(
+        key: 'episode-$index',
+        displayName: 'Episode $index',
+        status: DownloadTransferStatus.downloading,
+      ),
+    );
+    await _pumpPage(tester, report: _report(items: items, activeCount: 100));
+
+    expect(find.byKey(DownloadQueuePage.itemKey('episode-0')), findsOneWidget);
+    expect(find.byType(GlowingProgressBar).evaluate().length, lessThan(12));
+    expect(find.byKey(DownloadQueuePage.itemKey('episode-99')), findsNothing);
+    await tester.scrollUntilVisible(
+      find.byKey(DownloadQueuePage.itemKey('episode-99')),
+      1200,
+    );
+    expect(find.text('Episode 99'), findsOneWidget);
   });
 
   testWidgets('groups live, paused, and failed transfers with shared metrics', (

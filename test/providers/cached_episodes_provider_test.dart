@@ -1,11 +1,23 @@
 // test/providers/cached_episodes_provider_test.dart
 
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tamashii/models/show_models.dart';
 import 'package:tamashii/providers/cached_episodes_provider.dart';
 import 'package:tamashii/providers/bookmarked_series_provider.dart';
+
+class _ColdCacheNotifier extends CachedEpisodesNotifier {
+  _ColdCacheNotifier(this.load);
+
+  final Future<List<ShowInfo>> load;
+
+  @override
+  Future<List<ShowInfo>> build() => load;
+}
 
 void main() {
   group('CachedEpisodesNotifier', () {
@@ -76,6 +88,136 @@ void main() {
       expect(storedData, isNotNull);
       expect(storedData!, hasLength(2));
     });
+
+    test(
+      'unchanged live metadata skips the cache update and disk write',
+      () async {
+        final episode = createTestEpisode(
+          showName: 'Watched Show',
+          episode: '1',
+          releaseDate: DateTime.utc(2024),
+        );
+        final originalRow = jsonEncode({
+          ...episode.toJson(),
+          'unknown_field_from_existing_cache': true,
+        });
+        final preferences = await SharedPreferences.getInstance();
+        await preferences.setStringList('cached_episodes', [originalRow]);
+        final original = await container.read(cachedEpisodesProvider.future);
+        var updates = 0;
+        final listener = container.listen(
+          cachedEpisodesProvider,
+          (_, _) => updates++,
+        );
+        addTearDown(listener.close);
+        final notifier = container.read(cachedEpisodesProvider.notifier);
+
+        await notifier.cacheEpisodes([episode]);
+        expect(container.read(cachedEpisodesProvider).value, same(original));
+        expect(preferences.getStringList('cached_episodes'), [originalRow]);
+        expect(updates, 0);
+
+        final newMetadata = ShowInfo.fromJson({
+          ...episode.toJson(),
+          'downloads': [
+            {'res': '1080', 'magnet': 'magnet:?xt=test-only'},
+          ],
+        });
+        await notifier.cacheEpisodes([newMetadata]);
+        expect(
+          container.read(cachedEpisodesProvider).value!.single,
+          same(newMetadata),
+        );
+        expect(
+          jsonDecode(
+            preferences.getStringList('cached_episodes')!.single,
+          )['downloads'],
+          isNotEmpty,
+        );
+        expect(updates, 1);
+      },
+    );
+
+    test('concurrent cold-cache mutations persist each change', () async {
+      final load = Completer<List<ShowInfo>>();
+      final cold = ProviderContainer(
+        overrides: [
+          cachedEpisodesProvider.overrideWith(
+            () => _ColdCacheNotifier(load.future),
+          ),
+        ],
+      );
+      addTearDown(cold.dispose);
+      final notifier = cold.read(cachedEpisodesProvider.notifier);
+      final source = createTestEpisode(
+        showName: 'Previously cached',
+        episode: '1',
+        releaseDate: DateTime.utc(2024),
+      );
+      final first = createTestEpisode(
+        showName: 'First update',
+        episode: '1',
+        releaseDate: DateTime.utc(2024, 1, 2),
+      );
+      final second = createTestEpisode(
+        showName: 'Second update',
+        episode: '1',
+        releaseDate: DateTime.utc(2024, 1, 3),
+      );
+
+      final updates = Future.wait([
+        notifier.cacheEpisodes([first]),
+        notifier.cacheEpisodes([second]),
+        notifier.removeSeriesFromCache(source.show),
+      ]);
+      load.complete([source]);
+      await updates;
+
+      expect(await cold.read(cachedEpisodesProvider.future), [second, first]);
+      final persisted = await container.read(cachedEpisodesProvider.future);
+      expect(persisted.map((episode) => episode.show), [
+        second.show,
+        first.show,
+      ]);
+    });
+
+    for (final corrupt in [false, true]) {
+      test(
+        'large cache load ${corrupt ? 'clears invalid data' : 'preserves all rows'}',
+        () async {
+          final rows = List.generate(
+            300,
+            (index) => jsonEncode(
+              createTestEpisode(
+                showName: 'Long Series',
+                episode: '$index',
+                releaseDate: DateTime.utc(2024).add(Duration(days: index)),
+              ).toJson(),
+            ),
+          );
+          if (corrupt) rows[250] = 'invalid JSON';
+          final preferences = await SharedPreferences.getInstance();
+          await preferences.setStringList('cached_episodes', rows);
+          final subscription = container.listen(
+            cachedEpisodesProvider,
+            (_, _) {},
+          );
+          addTearDown(subscription.close);
+
+          final episodes = await container.read(cachedEpisodesProvider.future);
+          if (corrupt) {
+            expect(episodes, isEmpty);
+            expect(preferences.getStringList('cached_episodes'), isNull);
+          } else {
+            expect(
+              episodes.map((e) => e.episode),
+              List.generate(300, (index) => '$index'),
+            );
+            expect(preferences.getStringList('cached_episodes'), rows);
+          }
+        },
+      );
+    }
 
     test('should sort episodes by release date (newest first)', () async {
       final notifier = container.read(cachedEpisodesProvider.notifier);

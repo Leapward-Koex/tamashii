@@ -32,6 +32,35 @@ class FakeSubsPleaseApi extends SubsPleaseApi {
   Future<String?> getShowSynopsis(String showPage) async => null;
 }
 
+class _DeferredLatestApi extends FakeSubsPleaseApi {
+  _DeferredLatestApi()
+    : super(latestEpisodes: const [], searchEpisodesByTerm: const {});
+
+  final started = Completer<void>();
+  final result = Completer<List<ShowInfo>>();
+
+  @override
+  Future<List<ShowInfo>> getLatestShowList() {
+    if (!started.isCompleted) {
+      started.complete();
+    }
+    return result.future;
+  }
+}
+
+class _DeferredCache extends CachedEpisodesNotifier {
+  _DeferredCache(this.source);
+
+  final Completer<List<ShowInfo>> source;
+  bool started = false;
+
+  @override
+  Future<List<ShowInfo>> build() {
+    started = true;
+    return source.future;
+  }
+}
+
 void main() {
   group('Home screen filter state', () {
     ShowInfo createEpisode({
@@ -59,6 +88,103 @@ void main() {
 
     setUp(() {
       SharedPreferences.setMockInitialValues({});
+    });
+
+    test('saved feed displays cache while latest is pending', () async {
+      SharedPreferences.setMockInitialValues({'show_filter': 'saved'});
+      final api = _DeferredLatestApi();
+      final cache = _DeferredCache(Completer());
+      final cached = createEpisode(
+        showName: 'Watched show',
+        episode: '1',
+        releaseDate: DateTime(2024),
+      );
+      final latest = createEpisode(
+        showName: 'Watched show',
+        episode: '1',
+        releaseDate: DateTime(2024, 1, 2),
+      );
+      final unrelated = createEpisode(
+        showName: 'Other show',
+        episode: '10',
+        releaseDate: DateTime(2024, 1, 3),
+      );
+      final container = ProviderContainer(
+        overrides: [
+          subsPleaseApiProvider.overrideWithValue(api),
+          cachedEpisodesProvider.overrideWith(() => cache),
+        ],
+      );
+      addTearDown(container.dispose);
+      await container
+          .read(bookmarkedSeriesProvider.notifier)
+          .add(
+            BookmarkedShowInfo(
+              imageUrl: cached.imageUrl,
+              releaseDayOfWeek: DateTime.monday,
+              showName: cached.show,
+            ),
+          );
+
+      final preview = Completer<List<ShowInfo>>();
+      final refreshed = Completer<List<ShowInfo>>();
+      final listener = container.listen(filteredShowsProvider(''), (_, next) {
+        final items = next.asData?.value;
+        if (items == null || items.isEmpty) {
+          return;
+        }
+        if (items.contains(cached) && !preview.isCompleted) {
+          preview.complete(items);
+        }
+        if (items.contains(latest) && !refreshed.isCompleted) {
+          refreshed.complete(items);
+        }
+      });
+      addTearDown(listener.close);
+
+      await api.started.future.timeout(const Duration(seconds: 1));
+      expect(cache.started, isTrue);
+      cache.source.complete([unrelated, cached]);
+      expect(await preview.future.timeout(const Duration(seconds: 1)), [
+        cached,
+      ]);
+      expect(api.result.isCompleted, isFalse);
+
+      api.result.complete([latest, unrelated]);
+      expect(await refreshed.future.timeout(const Duration(seconds: 1)), [
+        latest,
+      ]);
+    });
+
+    test('typed search never starts the disk cache', () async {
+      final episode = createEpisode(
+        showName: 'Watched show',
+        episode: '1',
+        releaseDate: DateTime(2024),
+      );
+      final api = FakeSubsPleaseApi(
+        latestEpisodes: const [],
+        searchEpisodesByTerm: {
+          'watched': [episode],
+        },
+      );
+      final cache = _DeferredCache(Completer());
+      final container = ProviderContainer(
+        overrides: [
+          subsPleaseApiProvider.overrideWithValue(api),
+          cachedEpisodesProvider.overrideWith(() => cache),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final provider = filteredShowsProvider('watched');
+      final watch = container.listen(provider, (_, _) {});
+      addTearDown(watch.close);
+      final results = await container
+          .read(provider.future)
+          .timeout(const Duration(seconds: 1));
+      expect(results, [episode]);
+      expect(cache.started, isFalse);
     });
 
     test('saved filter includes a show that was bookmarked from search even when latest is empty', () async {

@@ -10,6 +10,18 @@ import 'package:tamashii/models/download_transfer_metrics.dart';
 class DownloadTransferMetrics {
   const DownloadTransferMetrics._();
 
+  static int activeCount(Iterable<DownloadTransferSnapshot> snapshots) {
+    var count = 0;
+    for (final snapshot in snapshots) {
+      if (!_isCompleted(snapshot) && _isActive(_statusFor(snapshot))) count++;
+    }
+    return count;
+  }
+
+  static bool _isActive(DownloadTransferStatus status) =>
+      status == DownloadTransferStatus.preparing ||
+      status == DownloadTransferStatus.downloading;
+
   /// Builds a report in the order supplied by [snapshots].
   ///
   /// A transfer whose explicit completion flag is true, or whose torrent stats
@@ -20,11 +32,12 @@ class DownloadTransferMetrics {
   static DownloadTransferReport build(
     Iterable<DownloadTransferSnapshot> snapshots,
   ) {
-    final snapshotList = List<DownloadTransferSnapshot>.unmodifiable(snapshots);
     final items = <DownloadTransferItem>[];
+    var trackedCount = 0;
     var completedCount = 0;
 
-    for (final snapshot in snapshotList) {
+    for (final snapshot in snapshots) {
+      trackedCount++;
       if (_isCompleted(snapshot)) {
         completedCount++;
         continue;
@@ -35,7 +48,7 @@ class DownloadTransferMetrics {
     return DownloadTransferReport(
       items: List<DownloadTransferItem>.unmodifiable(items),
       summary: _buildSummary(
-        trackedCount: snapshotList.length,
+        trackedCount: trackedCount,
         completedCount: completedCount,
         items: items,
       ),
@@ -130,11 +143,7 @@ class DownloadTransferMetrics {
         ? _safeFraction(receivedBytes!, totalBytes!)
         : _averageProgress(items);
     final activeItems = items
-        .where(
-          (item) =>
-              item.status == DownloadTransferStatus.preparing ||
-              item.status == DownloadTransferStatus.downloading,
-        )
+        .where((item) => _isActive(item.status))
         .toList(growable: false);
 
     return DownloadTransferSummary(

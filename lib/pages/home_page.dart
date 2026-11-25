@@ -1,5 +1,5 @@
-import 'dart:math' as math;
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
@@ -42,7 +42,29 @@ class HomePage extends HookConsumerWidget {
     const double refreshIndicatorDisplacement = homeListTopInset + 24;
 
     final TextEditingController searchController = useTextEditingController();
-    final scrollController = useScrollController();
+    final searchBarProgress = useValueNotifier(0.0);
+    final posterParallax = useValueNotifier(0.0);
+    late final ScrollController scrollController;
+    void updateScrollEffects() {
+      final offset = scrollController.hasClients
+          ? scrollController.offset
+          : 0.0;
+      searchBarProgress.value = (offset / 140).clamp(0.0, 1.0);
+      posterParallax.value = math.min(offset * 0.18, 28.0);
+    }
+
+    void restoreScrollEffects(ScrollPosition _) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) {
+          updateScrollEffects();
+        }
+      });
+    }
+
+    scrollController = useScrollController(
+      onAttach: restoreScrollEffects,
+      onDetach: restoreScrollEffects,
+    );
     final debounceTimerRef = useRef<Timer?>(null);
     final debouncedQuery = useState<String>('');
 
@@ -69,6 +91,11 @@ class HomePage extends HookConsumerWidget {
       };
     }, [searchController]);
 
+    useEffect(() {
+      scrollController.addListener(updateScrollEffects);
+      return () => scrollController.removeListener(updateScrollEffects);
+    }, [scrollController, searchBarProgress, posterParallax]);
+
     final String currentQuery = debouncedQuery.value;
 
     // Watch the current filter
@@ -85,13 +112,15 @@ class HomePage extends HookConsumerWidget {
     }
 
     final selectedIndex = useState<int>(0);
-    final transferPolicy = defaultTargetPlatform == TargetPlatform.android
+    final visitedTabs = useRef(<int>{0});
+    final isAndroid = defaultTargetPlatform == TargetPlatform.android;
+    final transferPolicy = isAndroid
         ? ref.watch(foregroundTransferPolicyStatusProvider)
         : null;
-    final activeDownloadCount = ref
-        .watch(downloadQueueProvider)
-        .summary
-        .activeCount;
+    final activeDownloadCount = selectedIndex.value == 0
+        ? ref.watch(activeDownloadCountProvider)
+        : 0;
+    final theme = Theme.of(context);
     final pages = <Widget>[
       Stack(
         children: [
@@ -147,8 +176,6 @@ class HomePage extends HookConsumerWidget {
                   return const Center(child: Text('No series found'));
                 }
 
-                final remainingShows = shows.skip(1).toList(growable: false);
-
                 return RefreshIndicator(
                   key: refreshKey,
                   onRefresh: refresh,
@@ -173,35 +200,24 @@ class HomePage extends HookConsumerWidget {
                           child: SizedBox(height: homeListTopInset),
                         ),
                         SliverToBoxAdapter(
-                          child: AnimatedBuilder(
-                            animation: scrollController,
-                            builder: (context, _) {
-                              final scrollOffset = scrollController.hasClients
-                                  ? scrollController.offset
-                                  : 0.0;
-                              return ShowCard(
-                                show: shows.first,
-                                featured: true,
-                                posterParallax: math.min(
-                                  scrollOffset * 0.18,
-                                  28.0,
-                                ),
-                              );
-                            },
+                          child: ShowCard(
+                            show: shows.first,
+                            featured: true,
+                            posterParallax: posterParallax,
                           ),
                         ),
-                        if (remainingShows.isNotEmpty)
+                        if (shows.length > 1)
                           SliverList(
                             delegate: SliverChildBuilderDelegate((
                               context,
                               index,
                             ) {
-                              final show = remainingShows[index];
+                              final show = shows[index + 1];
                               return ShowCard(
                                 show: show,
                                 revealIndex: index + 1,
                               );
-                            }, childCount: remainingShows.length),
+                            }, childCount: shows.length - 1),
                           ),
                         const SliverToBoxAdapter(child: SizedBox(height: 24)),
                       ],
@@ -215,13 +231,27 @@ class HomePage extends HookConsumerWidget {
             top: 0,
             left: 0,
             right: 0,
-            child: AnimatedBuilder(
-              animation: scrollController,
-              builder: (context, _) {
-                final scrollOffset = scrollController.hasClients
-                    ? scrollController.offset
-                    : 0.0;
-                final progress = (scrollOffset / 140).clamp(0.0, 1.0);
+            child: ValueListenableBuilder<double>(
+              valueListenable: searchBarProgress,
+              child: TextField(
+                controller: searchController,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: theme.colorScheme.onSurface,
+                  fontWeight: FontWeight.w600,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Search for shows...',
+                  hintStyle: theme.textTheme.titleMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  border: InputBorder.none,
+                  prefixIcon: Icon(
+                    Icons.search,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              builder: (context, progress, child) {
                 final searchBarHeight = lerpDouble(
                   searchBarMaxHeight,
                   searchBarMinHeight,
@@ -239,8 +269,38 @@ class HomePage extends HookConsumerWidget {
                 )!;
                 final blur = lerpDouble(18, 8, progress)!;
                 final radius = lerpDouble(24, 18, progress)!;
-                final theme = Theme.of(context);
-
+                final background = theme.colorScheme.surface.withValues(
+                  alpha: isAndroid
+                      ? lerpDouble(0.92, 0.98, progress)!
+                      : lerpDouble(0.58, 0.88, progress)!,
+                );
+                final searchShell = Container(
+                  key: searchBarShellKey,
+                  height: searchBarHeight,
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: background,
+                    borderRadius: BorderRadius.circular(radius),
+                    border: Border.all(
+                      color: Color.lerp(
+                        Colors.white.withValues(alpha: 0.18),
+                        theme.colorScheme.outlineVariant.withValues(
+                          alpha: 0.34,
+                        ),
+                        progress,
+                      )!,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.06),
+                        blurRadius: 24,
+                        offset: const Offset(0, 12),
+                      ),
+                    ],
+                  ),
+                  child: child,
+                );
                 return SafeArea(
                   bottom: false,
                   child: Padding(
@@ -252,57 +312,15 @@ class HomePage extends HookConsumerWidget {
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(radius),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-                        child: Container(
-                          key: searchBarShellKey,
-                          height: searchBarHeight,
-                          padding: const EdgeInsets.symmetric(horizontal: 18),
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: Color.lerp(
-                              theme.colorScheme.surface.withValues(alpha: 0.58),
-                              theme.colorScheme.surface.withValues(alpha: 0.88),
-                              progress,
-                            ),
-                            borderRadius: BorderRadius.circular(radius),
-                            border: Border.all(
-                              color: Color.lerp(
-                                Colors.white.withValues(alpha: 0.18),
-                                theme.colorScheme.outlineVariant.withValues(
-                                  alpha: 0.34,
-                                ),
-                                progress,
-                              )!,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.06),
-                                blurRadius: 24,
-                                offset: const Offset(0, 12),
+                      child: isAndroid
+                          ? searchShell
+                          : BackdropFilter(
+                              filter: ImageFilter.blur(
+                                sigmaX: blur,
+                                sigmaY: blur,
                               ),
-                            ],
-                          ),
-                          child: TextField(
-                            controller: searchController,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              color: theme.colorScheme.onSurface,
-                              fontWeight: FontWeight.w600,
+                              child: searchShell,
                             ),
-                            decoration: InputDecoration(
-                              hintText: 'Search for shows...',
-                              hintStyle: theme.textTheme.titleMedium?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                              border: InputBorder.none,
-                              prefixIcon: Icon(
-                                Icons.search,
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
                     ),
                   ),
                 );
@@ -361,7 +379,18 @@ class HomePage extends HookConsumerWidget {
         children: [
           TransferPolicyBanner(snapshot: transferPolicy),
           Expanded(
-            child: IndexedStack(index: selectedIndex.value, children: pages),
+            child: IndexedStack(
+              index: selectedIndex.value,
+              children: [
+                for (final (index, page) in pages.indexed)
+                  TickerMode(
+                    enabled: index == selectedIndex.value,
+                    child: visitedTabs.value.contains(index)
+                        ? page
+                        : const SizedBox.shrink(),
+                  ),
+              ],
+            ),
           ),
         ],
       ),
@@ -392,7 +421,10 @@ class HomePage extends HookConsumerWidget {
           : null,
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: selectedIndex.value,
-        onTap: (i) => selectedIndex.value = i,
+        onTap: (i) {
+          visitedTabs.value.add(i);
+          selectedIndex.value = i;
+        },
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(

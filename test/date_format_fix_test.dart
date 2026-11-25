@@ -22,6 +22,7 @@ void main() {
       expect(showInfo.releaseDate.year, 2025);
       expect(showInfo.releaseDate.month, 7);
       expect(showInfo.releaseDate.day, 26);
+      expect(showInfo.releaseDate.isUtc, isTrue);
       expect(showInfo.releaseDate.hour, 10);
       expect(showInfo.releaseDate.minute, 15);
     });
@@ -43,6 +44,12 @@ void main() {
       expect(showInfo.releaseDate.year, 2025);
       expect(showInfo.releaseDate.month, 7);
       expect(showInfo.releaseDate.day, 26);
+      expect(showInfo.releaseDate.isUtc, isFalse);
+      final shortMonth = ShowInfo.fromJson({
+        ...json,
+        'release_date': '7/26/25',
+      });
+      expect(shortMonth.releaseDate, showInfo.releaseDate);
     });
 
     test('ShowInfo round-trip serialization should work', () {

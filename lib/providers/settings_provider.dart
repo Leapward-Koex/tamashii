@@ -49,6 +49,7 @@ class DownloadBasePath extends _$DownloadBasePath {
 @riverpod
 class SeriesFolderMapping extends _$SeriesFolderMapping {
   static const _key = 'series_folder_mapping';
+  Future<void> _pendingWrite = Future<void>.value();
 
   @override
   Future<Map<String, String>> build() async {
@@ -62,20 +63,45 @@ class SeriesFolderMapping extends _$SeriesFolderMapping {
   }
 
   /// Assign a custom folder for a series.
-  Future<void> setFolder(String series, String path) async {
-    final current = state.value ?? <String, String>{};
-    final updated = {...current, series: path};
-    state = AsyncValue.data(updated);
-    await _preferences.setString(_key, json.encode(updated));
+  Future<void> setFolder(String series, String path) {
+    return _update((current) => {...current, series: path});
   }
 
   /// Remove mapping for a series and persist.
-  Future<void> removeFolder(String series) async {
-    final current = state.value ?? <String, String>{};
-    if (!current.containsKey(series)) return;
-    final updated = Map<String, String>.from(current)..remove(series);
-    state = AsyncValue.data(updated);
-    await _preferences.setString(_key, json.encode(updated));
+  Future<void> removeFolder(String series) {
+    return _update((current) {
+      if (!current.containsKey(series)) {
+        return null;
+      }
+      return Map<String, String>.of(current)..remove(series);
+    });
+  }
+
+  Future<void> _update(
+    Map<String, String>? Function(Map<String, String>) update,
+  ) {
+    final link = ref.keepAlive();
+    final result = _pendingWrite
+        .then((_) async {
+          if (state.isLoading) {
+            await future;
+          }
+          final updated = update(state.requireValue);
+          if (updated == null) {
+            return;
+          }
+
+          await _preferences.setString(_key, json.encode(updated));
+          if (ref.mounted) {
+            state = AsyncValue.data(updated);
+          }
+        })
+        .whenComplete(link.close);
+    _pendingWrite = result.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    return result;
   }
 }
 

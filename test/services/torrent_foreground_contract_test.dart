@@ -48,11 +48,17 @@ void main() {
     },
   );
 
-  test('task commands are serialized and awaited broadcasts use snapshots', () {
+  test('task commands are serialized and the periodic timer only updates the notification', () {
     expect(taskSource, contains('_commandQueue.then((_) => command())'));
     expect(taskSource, contains('await _commandQueue;'));
-    expect(taskSource, contains('Map<String, int>.of(_torrentIds)'));
-    expect(taskSource, contains('Set<String>.of(_completedTorrents)'));
+    final timer = _between(
+      taskSource,
+      '_updateTimer = Timer.periodic',
+      '_serviceReady = true;',
+    );
+    expect(timer, contains('_updateNotificationWithProgress();'));
+    expect(timer, isNot(contains('_sendServiceSnapshot')));
+    expect(timer, isNot(contains('_enqueueCommand')));
   });
 
   test('repeat and service-state events refresh the transfer policy', () {
@@ -121,7 +127,7 @@ void main() {
     final finalise = _between(
       taskSource,
       'Future<void> _finaliseCompletedTorrent',
-      'Future<void> _broadcastTorrentStates',
+      'void _sendServiceSnapshot',
     );
     _expectOrdered(finalise, <String>[
       'await SimpleTorrent.finalise(torrentId)',
@@ -300,7 +306,7 @@ void main() {
     () {
       final serviceSnapshot = _between(
         taskSource,
-        'Future<void> _broadcastTorrentStates',
+        'void _sendServiceSnapshot',
         'Future<void> _stopServiceIfStillComplete',
       );
       expect(
@@ -315,14 +321,16 @@ void main() {
         serviceSnapshot,
         contains("'isPaused': _pausedTorrents.contains(torrentKey)"),
       );
+      expect(serviceSnapshot, contains("'isServiceSnapshot': true"));
       expect(
-        serviceSnapshot,
-        contains("'isServiceSnapshot': isServiceSnapshot"),
+        _between(
+          taskSource,
+          "case 'request_service_state':",
+          "case 'set_test_network_status':",
+        ),
+        contains('_sendServiceSnapshot();'),
       );
-      expect(
-        taskSource,
-        contains('await _broadcastTorrentStates(isServiceSnapshot: true)'),
-      );
+      expect(serviceSnapshot, isNot(contains('getTorrentInfo(')));
       expect(providerSource, contains('TorrentStats.fromMap('));
       expect(providerSource, contains('TorrentMetadata.fromMap('));
       expect(providerSource, contains("data['isServiceSnapshot'] == true"));

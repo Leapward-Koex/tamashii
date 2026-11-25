@@ -28,14 +28,13 @@ Future<void> main() async {
     } catch (error) {
       debugPrint('SimpleTorrent initialization failed: $error');
     }
-  }
-
-  // Initialize notification service for torrent completion notifications
-  try {
-    await NotificationService.initialize();
-    debugPrint('Notification service initialized successfully');
-  } catch (error) {
-    debugPrint('Failed to initialize notification service: $error');
+    // Android posts completion notifications from the download service's
+    // engine, which initializes the plugin even when the UI is closed.
+    try {
+      await NotificationService.initialize();
+    } catch (error) {
+      debugPrint('Failed to initialize notification service: $error');
+    }
   }
 
   runApp(const ProviderScope(child: TamashiiApp()));

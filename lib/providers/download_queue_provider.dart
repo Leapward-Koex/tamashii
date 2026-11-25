@@ -14,8 +14,18 @@ part 'download_queue_provider.g.dart';
 /// This intentionally only adapts UI manager state. Classification, totals,
 /// progress, rate, ETA, and formatting rules all live in
 /// [DownloadTransferMetrics], so the page cannot drift from the notification.
-@Riverpod(keepAlive: true)
+@riverpod
 DownloadTransferReport downloadQueue(Ref ref) {
+  return DownloadTransferMetrics.build(_queueSnapshots(ref));
+}
+
+/// The Home badge needs only lifecycle state, even when transfer rates change.
+@riverpod
+int activeDownloadCount(Ref ref) {
+  return DownloadTransferMetrics.activeCount(_queueSnapshots(ref));
+}
+
+Iterable<DownloadTransferSnapshot> _queueSnapshots(Ref ref) {
   final TorrentManagerState managerState;
   final bool isPolicyBlocked;
   if (Platform.isAndroid) {
@@ -28,25 +38,23 @@ DownloadTransferReport downloadQueue(Ref ref) {
     isPolicyBlocked = false;
   }
 
-  return DownloadTransferMetrics.build(
-    managerState.torrents.entries
-        .where((entry) => _hasLiveDownloadState(entry.value))
-        .map((entry) {
-          final download = entry.value;
-          return DownloadTransferSnapshot(
-            key: entry.key,
-            stats: download.stats,
-            metadata: download.metadata,
-            isCompleted: download.isCompleted,
-            isPaused: download.isPaused,
-            isPreparing:
-                download.isLoading ||
-                (download.torrentId != null && download.stats == null),
-            isPolicyBlocked: isPolicyBlocked,
-            errorMessage: download.errorMessage,
-          );
-        }),
-  );
+  return managerState.torrents.entries
+      .where((entry) => _hasLiveDownloadState(entry.value))
+      .map((entry) {
+        final download = entry.value;
+        return DownloadTransferSnapshot(
+          key: entry.key,
+          stats: download.stats,
+          metadata: download.metadata,
+          isCompleted: download.isCompleted,
+          isPaused: download.isPaused,
+          isPreparing:
+              download.isLoading ||
+              (download.torrentId != null && download.stats == null),
+          isPolicyBlocked: isPolicyBlocked,
+          errorMessage: download.errorMessage,
+        );
+      });
 }
 
 bool _hasLiveDownloadState(TorrentDownloadState download) {

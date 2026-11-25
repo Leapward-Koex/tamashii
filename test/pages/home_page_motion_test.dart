@@ -7,6 +7,8 @@ import 'package:tamashii/models/download_transfer_metrics.dart';
 import 'package:tamashii/models/show_models.dart';
 import 'package:tamashii/pages/download_queue_page.dart';
 import 'package:tamashii/pages/home_page.dart';
+import 'package:tamashii/pages/schedule_page.dart';
+import 'package:tamashii/pages/settings_page.dart';
 import 'package:tamashii/providers/download_queue_provider.dart';
 import 'package:tamashii/providers/subsplease_api_providers.dart';
 import 'package:tamashii/providers/torrent_download_provider.dart';
@@ -105,10 +107,41 @@ void main() {
         .transform
         .storage[13];
 
-    await tester.drag(
-      find.byKey(HomePage.scrollViewKey),
-      const Offset(0, -180),
+    final hero = find.ancestor(
+      of: heroTransformFinder,
+      matching: find.byType(ShowCard),
     );
+    final searchField = find.byType(TextField);
+    final scrollController = tester
+        .widget<CustomScrollView>(find.byKey(HomePage.scrollViewKey))
+        .controller!;
+    var heroWidget = tester.widget(hero);
+    var searchFieldWidget = tester.widget(searchField);
+    Widget? collapsedShell;
+    var heroRebuilds = 0;
+    var searchFieldRebuilds = 0;
+    var collapsedShellRebuilds = 0;
+    for (final offset in <double>[24, 48, 72, 96, 120, 144, 156, 168, 180]) {
+      scrollController.jumpTo(offset);
+      await tester.pump();
+      final nextHero = tester.widget(hero);
+      final nextSearchField = tester.widget(searchField);
+      if (!identical(nextHero, heroWidget)) {
+        heroRebuilds++;
+      }
+      if (!identical(nextSearchField, searchFieldWidget)) {
+        searchFieldRebuilds++;
+      }
+      heroWidget = nextHero;
+      searchFieldWidget = nextSearchField;
+      if (offset >= 144) {
+        final shell = tester.widget(find.byKey(HomePage.searchBarShellKey));
+        if (collapsedShell != null && !identical(shell, collapsedShell)) {
+          collapsedShellRebuilds++;
+        }
+        collapsedShell = shell;
+      }
+    }
     await tester.pumpAndSettle();
 
     final collapsedSearchHeight = tester
@@ -121,6 +154,11 @@ void main() {
 
     expect(collapsedSearchHeight, lessThan(initialSearchHeight));
     expect(updatedHeroOffset, greaterThan(initialHeroOffset));
+    expect(
+      (heroRebuilds, searchFieldRebuilds, collapsedShellRebuilds),
+      (0, 0, 0),
+    );
+    expect(find.byType(BackdropFilter), findsNothing);
     expect(find.text('Featured Show'), findsWidgets);
     expect(find.text('Second Show'), findsOneWidget);
   });
@@ -175,6 +213,7 @@ void main() {
             FakeSubsPleaseApi(latestEpisodes: const <ShowInfo>[]),
           ),
           torrentManagerProvider.overrideWithValue(const TorrentManagerState()),
+          activeDownloadCountProvider.overrideWithValue(2),
           downloadQueueProvider.overrideWithValue(report),
         ],
         child: MaterialApp(
@@ -201,5 +240,47 @@ void main() {
     expect(find.byType(DownloadQueuePage), findsOneWidget);
     expect(find.text('Downloads'), findsOneWidget);
     expect(find.text('Episode 1'), findsOneWidget);
+  });
+
+  testWidgets('builds tabs on first visit and keeps visited state', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'auto_generate_folders': false,
+      'show_filter': 'all',
+    });
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          subsPleaseApiProvider.overrideWithValue(
+            FakeSubsPleaseApi(latestEpisodes: const <ShowInfo>[]),
+          ),
+          torrentManagerProvider.overrideWithValue(const TorrentManagerState()),
+        ],
+        child: const MaterialApp(home: HomePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final schedule = find.byType(SchedulePage, skipOffstage: false);
+    final settings = find.byType(SettingsPage, skipOffstage: false);
+    expect((schedule.evaluate().length, settings.evaluate().length), (0, 0));
+
+    await tester.enterText(find.byType(TextField), 'Retained search');
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+    final settingsElement = tester.element(settings);
+    expect(TickerMode.valuesOf(settingsElement).enabled, isTrue);
+    expect(schedule, findsNothing);
+
+    await tester.tap(find.text('Schedule'));
+    await tester.pumpAndSettle();
+    expect(schedule, findsOneWidget);
+    expect(tester.element(settings), same(settingsElement));
+    expect(TickerMode.valuesOf(settingsElement).enabled, isFalse);
+
+    await tester.tap(find.text('Home'));
+    await tester.pumpAndSettle();
+    expect(find.text('Retained search'), findsOneWidget);
   });
 }

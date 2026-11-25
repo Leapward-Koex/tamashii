@@ -86,20 +86,21 @@ class _DownloadQueuePageState extends ConsumerState<DownloadQueuePage> {
         ? ref.watch(foregroundTransferPolicyStatusProvider)
         : null;
     final summary = report.summary;
-    final activeItems = report.items
-        .where(
-          (item) =>
-              item.status == DownloadTransferStatus.preparing ||
-              item.status == DownloadTransferStatus.downloading ||
-              item.status == DownloadTransferStatus.waitingForNetwork,
-        )
-        .toList(growable: false);
-    final pausedItems = report.items
-        .where((item) => item.status == DownloadTransferStatus.paused)
-        .toList(growable: false);
-    final failedItems = report.items
-        .where((item) => item.status == DownloadTransferStatus.failed)
-        .toList(growable: false);
+    final activeItems = <DownloadTransferItem>[];
+    final pausedItems = <DownloadTransferItem>[];
+    final failedItems = <DownloadTransferItem>[];
+    for (final item in report.items) {
+      switch (item.status) {
+        case DownloadTransferStatus.preparing:
+        case DownloadTransferStatus.downloading:
+        case DownloadTransferStatus.waitingForNetwork:
+          activeItems.add(item);
+        case DownloadTransferStatus.paused:
+          pausedItems.add(item);
+        case DownloadTransferStatus.failed:
+          failedItems.add(item);
+      }
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Downloads')),
@@ -112,30 +113,33 @@ class _DownloadQueuePageState extends ConsumerState<DownloadQueuePage> {
           Expanded(
             child: report.items.isEmpty
                 ? const _EmptyDownloadsState()
-                : ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-                    children: [
-                      _DownloadSummaryCard(
-                        summary: summary,
-                        isPausing: _isPausing,
-                        isResuming: _isResuming,
-                        onPauseAll:
-                            (summary.activeCount +
-                                        summary.waitingForNetworkCount) >
-                                    0 &&
-                                !_isPausing &&
-                                !_isResuming
-                            ? () => _runBulkAction(pause: true)
-                            : null,
-                        onResumeAll:
-                            summary.pausedCount > 0 &&
-                                !_isPausing &&
-                                !_isResuming
-                            ? () => _runBulkAction(pause: false)
-                            : null,
+                : CustomScrollView(
+                    slivers: [
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                        sliver: SliverToBoxAdapter(
+                          child: _DownloadSummaryCard(
+                            summary: summary,
+                            isPausing: _isPausing,
+                            isResuming: _isResuming,
+                            onPauseAll:
+                                (summary.activeCount +
+                                            summary.waitingForNetworkCount) >
+                                        0 &&
+                                    !_isPausing &&
+                                    !_isResuming
+                                ? () => _runBulkAction(pause: true)
+                                : null,
+                            onResumeAll:
+                                summary.pausedCount > 0 &&
+                                    !_isPausing &&
+                                    !_isResuming
+                                ? () => _runBulkAction(pause: false)
+                                : null,
+                          ),
+                        ),
                       ),
-                      if (activeItems.isNotEmpty) ...[
-                        const SizedBox(height: 24),
+                      if (activeItems.isNotEmpty)
                         _DownloadSection(
                           key: const ValueKey(
                             DownloadTransferStatus.downloading,
@@ -143,23 +147,19 @@ class _DownloadQueuePageState extends ConsumerState<DownloadQueuePage> {
                           title: 'Downloading',
                           items: activeItems,
                         ),
-                      ],
-                      if (pausedItems.isNotEmpty) ...[
-                        const SizedBox(height: 24),
+                      if (pausedItems.isNotEmpty)
                         _DownloadSection(
                           key: const ValueKey(DownloadTransferStatus.paused),
                           title: 'Paused',
                           items: pausedItems,
                         ),
-                      ],
-                      if (failedItems.isNotEmpty) ...[
-                        const SizedBox(height: 24),
+                      if (failedItems.isNotEmpty)
                         _DownloadSection(
                           key: const ValueKey(DownloadTransferStatus.failed),
                           title: 'Needs attention',
                           items: failedItems,
                         ),
-                      ],
+                      const SliverToBoxAdapter(child: SizedBox(height: 32)),
                     ],
                   ),
           ),
@@ -354,25 +354,45 @@ class _DownloadSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title, style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 8),
-        for (final item in items) ...[
-          _DownloadItemCard(
-            key: DownloadQueuePage.itemKey(item.key),
-            item: item,
+    // Flutter requests existing keys when the report changes. Preserve the
+    // progress animation of a transfer when an earlier one leaves the queue.
+    late final indices = {
+      for (var i = 0; i < items.length; i++)
+        DownloadQueuePage.itemKey(items[i].key): i,
+    };
+    return SliverPadding(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+      sliver: SliverMainAxisGroup(
+        slivers: [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                title,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
           ),
-          const SizedBox(height: 8),
+          SliverList.builder(
+            itemCount: items.length,
+            findChildIndexCallback: (key) => indices[key],
+            itemBuilder: (context, index) {
+              final item = items[index];
+              return Padding(
+                key: DownloadQueuePage.itemKey(item.key),
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _DownloadItemCard(item: item),
+              );
+            },
+          ),
         ],
-      ],
+      ),
     );
   }
 }
 
 class _DownloadItemCard extends StatelessWidget {
-  const _DownloadItemCard({super.key, required this.item});
+  const _DownloadItemCard({required this.item});
 
   final DownloadTransferItem item;
 

@@ -45,7 +45,7 @@ final class DownloadQueueProvider
         argument: null,
         retry: null,
         name: r'downloadQueueProvider',
-        isAutoDispose: false,
+        isAutoDispose: true,
         dependencies: null,
         $allTransitiveDependencies: null,
       );
@@ -73,7 +73,54 @@ final class DownloadQueueProvider
   }
 }
 
-String _$downloadQueueHash() => r'a0be7fdc4e494d904e522d2a69d69b72d8e8d034';
+String _$downloadQueueHash() => r'e8e8e85ed8c3adf03dfc63a5f90ff93c603ed96a';
+
+/// The Home badge needs only lifecycle state, even when transfer rates change.
+
+@ProviderFor(activeDownloadCount)
+final activeDownloadCountProvider = ActiveDownloadCountProvider._();
+
+/// The Home badge needs only lifecycle state, even when transfer rates change.
+
+final class ActiveDownloadCountProvider
+    extends $FunctionalProvider<int, int, int>
+    with $Provider<int> {
+  /// The Home badge needs only lifecycle state, even when transfer rates change.
+  ActiveDownloadCountProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'activeDownloadCountProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$activeDownloadCountHash();
+
+  @$internal
+  @override
+  $ProviderElement<int> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  int create(Ref ref) {
+    return activeDownloadCount(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(int value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<int>(value),
+    );
+  }
+}
+
+String _$activeDownloadCountHash() =>
+    r'ad06253635a649a7ad05e2e35b0837c5c13b2c77';
 
 @ProviderFor(downloadQueueControls)
 final downloadQueueControlsProvider = DownloadQueueControlsProvider._();

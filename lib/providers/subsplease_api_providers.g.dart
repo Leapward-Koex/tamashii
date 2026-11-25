@@ -219,7 +219,7 @@ final class FilteredShowsProvider
   }
 }
 
-String _$filteredShowsHash() => r'7bed9373efd283c4f71db6e38eb71ca2d95370a1';
+String _$filteredShowsHash() => r'0f88e911ff8023c6cb96dd46585d9f3bf454477f';
 
 final class FilteredShowsFamily extends $Family
     with $FunctionalFamilyOverride<FutureOr<List<ShowInfo>>, String> {

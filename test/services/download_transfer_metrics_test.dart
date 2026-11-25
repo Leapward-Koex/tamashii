@@ -5,6 +5,31 @@ import 'package:tamashii/services/download_transfer_metrics.dart';
 
 void main() {
   group('DownloadTransferMetrics', () {
+    test('the Home badge and queue agree across transfer lifecycle states', () {
+      final snapshots = [
+        const DownloadTransferSnapshot(key: 'preparing', isPreparing: true),
+        DownloadTransferSnapshot(
+          key: 'downloading',
+          stats: _stats(progress: 0.7, downloadRate: 20),
+        ),
+        const DownloadTransferSnapshot(key: 'paused', isPaused: true),
+        const DownloadTransferSnapshot(key: 'offline', isPolicyBlocked: true),
+        const DownloadTransferSnapshot(key: 'error', errorMessage: 'Failed'),
+        const DownloadTransferSnapshot(key: 'finished', isCompleted: true),
+        DownloadTransferSnapshot(
+          key: 'finalising',
+          stats: _stats(progress: 1.0, downloadRate: 0),
+        ),
+      ];
+      for (final snapshot in snapshots) {
+        expect(
+          DownloadTransferMetrics.activeCount([snapshot]),
+          DownloadTransferMetrics.build([snapshot]).summary.activeCount,
+          reason: snapshot.key,
+        );
+      }
+      expect(DownloadTransferMetrics.activeCount(snapshots), 2);
+    });
     test(
       'calculates byte-weighted progress, summed rates, and longest ETA',
       () {
