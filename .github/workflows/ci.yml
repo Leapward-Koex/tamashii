@@ -17,6 +17,8 @@ permissions:
 
 env:
   ANDROID_NDK_VERSION: '29.0.13113456'
+  # Manual branch builds are for development and benchmarking.
+  SMOKE_TORRENT_DEFINE: ${{ github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main' && '--dart-define=TAMASHII_USE_TEST_TORRENT=true' || '' }}
 
 jobs:
   quality:
@@ -24,9 +26,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-
-      - name: Validate Gradle wrappers
-        uses: gradle/actions/wrapper-validation@v6
 
       - name: Install Git LFS filters
         run: git lfs install
@@ -36,6 +35,11 @@ jobs:
         with:
           distribution: zulu
           java-version: '17'
+
+      - name: Validate Gradle wrappers and restore build cache
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
@@ -97,7 +101,6 @@ jobs:
 
   android-smoke:
     name: Android ${{ matrix.mode }} build
-    needs: quality
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -114,6 +117,11 @@ jobs:
         with:
           distribution: zulu
           java-version: '17'
+
+      - name: Validate Gradle wrappers and restore build cache
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
@@ -180,8 +188,7 @@ jobs:
       - name: Build Android
         # Flutter must refresh its build-mode-specific Android plugin registrant;
         # --no-pub can leave the dev-only integration_test plugin in release builds.
-        # CI artifacts intentionally retain the production torrent configuration.
-        run: flutter build apk --${{ matrix.mode }}
+        run: flutter build apk --${{ matrix.mode }} ${{ env.SMOKE_TORRENT_DEFINE }}
 
       - name: Upload debug APK
         if: matrix.mode == 'debug'
@@ -189,6 +196,7 @@ jobs:
         with:
           name: android-debug
           path: build/app/outputs/flutter-apk/app-debug.apk
+          compression-level: 0
           if-no-files-found: error
           retention-days: 14
 
@@ -204,12 +212,12 @@ jobs:
         with:
           name: android-release
           path: dist/tamashii-android.apk
+          compression-level: 0
           if-no-files-found: error
           retention-days: 14
 
   windows-smoke:
     name: Windows ${{ matrix.mode }} build
-    needs: quality
     runs-on: windows-latest
     strategy:
       fail-fast: false
@@ -235,8 +243,7 @@ jobs:
 
       - name: Build Windows
         # Keep pub enabled so Flutter refreshes build-mode-specific plugin registrants.
-        # CI artifacts intentionally retain the production torrent configuration.
-        run: flutter build windows --${{ matrix.mode }}
+        run: flutter build windows --${{ matrix.mode }} ${{ env.SMOKE_TORRENT_DEFINE }}
 
       - name: Upload debug Windows bundle
         if: matrix.mode == 'debug'
@@ -260,6 +267,7 @@ jobs:
         with:
           name: windows-release
           path: dist/tamashii-windows.zip
+          compression-level: 0
           if-no-files-found: error
           retention-days: 14
 

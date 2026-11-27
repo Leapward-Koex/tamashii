@@ -18,9 +18,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Validate Gradle wrappers
-        uses: gradle/actions/wrapper-validation@v6
-
       - name: Install Git LFS filters
         run: git lfs install
 
@@ -29,6 +26,9 @@ jobs:
         with:
           distribution: zulu
           java-version: '17'
+
+      - name: Validate Gradle wrappers and restore build cache
+        uses: gradle/actions/setup-gradle@v6
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
@@ -101,6 +101,7 @@ jobs:
         with:
           name: android-release-${{ steps.version.outputs.build_number }}
           path: build/app/outputs/flutter-apk/app-release.apk
+          compression-level: 0
           retention-days: 30
 
       - name: Attach APK to GitHub release
