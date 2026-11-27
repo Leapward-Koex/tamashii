@@ -2,6 +2,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:tamashii/api/tenrai_api.dart';
 import 'package:tamashii/models/tenrai_models.dart';
 import 'package:tamashii/services/tenrai_poster_matcher.dart';
+import 'package:tamashii/services/show_catalog_matcher.dart';
 
 part 'tenrai_api_providers.g.dart';
 
@@ -37,6 +38,20 @@ Future<TenraiAnimeSearchResult?> catalogEntryById(Ref ref, int malId) async {
   final entry = await ref.watch(tenraiApiProvider).getAnimeById(malId);
   if (ref.mounted && entry != null) ref.keepAlive();
   return entry;
+}
+
+@Riverpod(retry: _noRetry)
+Future<List<TenraiAnimeSearchResult>> relatedTenraiShows(
+  Ref ref,
+  int malId,
+  String title,
+) async {
+  final api = ref.watch(tenraiApiProvider);
+  final related = await api.relatedAnime(malId);
+  if (related.any((entry) => entry.malId != malId)) return related;
+  // Some titles have no catalogued relations. A family search can still
+  // surface a different season or a similarly named series for correction.
+  return api.searchAnime(catalogSeriesQuery(title));
 }
 
 @Riverpod(retry: _noRetry)

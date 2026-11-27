@@ -140,11 +140,11 @@ class TodayWidgetProvider : AppWidgetProvider() {
                         val episode = RemoteViews(context.packageName, R.layout.today_widget_row)
                         episode.visible(R.id.widget_art, tall)
                         if (tall) {
-                            episode.setTextViewText(R.id.widget_monogram, row.title.take(1))
+                            episode.setTextViewText(R.id.widget_monogram, row.displayTitle.take(1))
                             episode.visible(R.id.widget_poster, cover != null)
                             if (cover != null) episode.setImageViewBitmap(R.id.widget_poster, cover)
                         }
-                        episode.setTextViewText(R.id.widget_series, row.title)
+                        episode.setTextViewText(R.id.widget_series, row.displayTitle)
                         val status = context.getString(row.state.label())
                         val number = row.episode?.let { context.getString(R.string.today_widget_episode, it) }
                         val subtitle = when {
@@ -184,7 +184,7 @@ class TodayWidgetProvider : AppWidgetProvider() {
             }
             val description = if (action.canDownload) label else listOfNotNull(context.getString(row.state.label()), percentText).joinToString(", ")
             val episodeLabel = row.episode?.let { context.getString(R.string.today_widget_episode, it) }
-            val target = listOfNotNull(row.title, episodeLabel).joinToString(", ")
+            val target = listOfNotNull(row.displayTitle, episodeLabel).joinToString(", ")
             val spoken = context.getString(R.string.today_widget_action_description, description, target)
             views.setContentDescription(R.id.widget_action, if (action.showProgress) spoken else null)
             if (action.canDownload) {

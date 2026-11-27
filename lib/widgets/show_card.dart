@@ -1,7 +1,3 @@
-import 'dart:async';
-import 'dart:io';
-
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -13,38 +9,30 @@ import 'package:tamashii/pages/show_info_page.dart';
 import 'package:tamashii/providers/bookmarked_series_provider.dart';
 import 'package:tamashii/providers/downloaded_torrents_provider.dart';
 import 'package:tamashii/providers/foreground_torrent_provider.dart';
-import 'package:tamashii/providers/on_device_ai_provider.dart';
-import 'package:tamashii/providers/settings_provider.dart';
 import 'package:tamashii/providers/show_catalog_match_provider.dart';
-import 'package:tamashii/providers/tenrai_api_providers.dart';
 import 'package:tamashii/providers/torrent_download_provider.dart';
-import 'package:tamashii/services/gemini_nano_service.dart';
-import 'package:tamashii/services/permission_service.dart';
-import 'package:tamashii/services/series_folder_resolution_service.dart';
 import 'package:tamashii/theme/paper_lantern.dart';
-import 'package:tamashii/widgets/download_preparation_dialog.dart';
 import 'package:tamashii/widgets/glowing_progress_bar.dart';
-import 'package:tamashii/widgets/series_folder_confirmation_dialog.dart';
+import 'package:tamashii/widgets/release_download_button.dart';
 import 'package:tamashii/widgets/show_image.dart';
 import 'package:tamashii/widgets/staggered_reveal.dart';
 
-typedef SeriesFolderPlanBuilder = Future<SeriesFolderResolutionPlan> Function({
-  required ShowInfo showInfo,
-  required String basePath,
-  required OnDeviceTextGenerator textGenerator,
-});
+export 'release_download_button.dart' show SeriesFolderPlanBuilder;
 
 class ShowCard extends ConsumerWidget {
   const ShowCard({
     super.key,
     required this.show,
-    this.seriesFolderPlanBuilder = _defaultSeriesFolderPlanBuilder,
+    this.onOpen,
+    this.seriesFolderPlanBuilder =
+        ReleaseDownloadButton.defaultSeriesFolderPlanBuilder,
     this.featured = false,
     this.posterParallax,
     this.revealIndex = 0,
   });
 
   final ShowInfo show;
+  final ValueChanged<ShowInfo>? onOpen;
   final SeriesFolderPlanBuilder seriesFolderPlanBuilder;
   final bool featured;
   final ValueListenable<double>? posterParallax;
@@ -71,15 +59,6 @@ class ShowCard extends ConsumerWidget {
   static Key standardActionsKey(String showName) =>
       ValueKey<String>('standard-show-actions-$showName');
 
-  static Future<SeriesFolderResolutionPlan> _defaultSeriesFolderPlanBuilder({
-    required ShowInfo showInfo,
-    required String basePath,
-    required OnDeviceTextGenerator textGenerator,
-  }) {
-    return SeriesFolderResolutionService(textGenerator: textGenerator)
-        .plan(showTitle: showInfo.show, basePath: basePath);
-  }
-
   String _formatBytes(int bytes) {
     if (bytes < 1024) {
       return '$bytes B';
@@ -96,96 +75,10 @@ class ShowCard extends ConsumerWidget {
     return '${gb.toStringAsFixed(1)} GB';
   }
 
-  Future<String?> _determineDownloadPath({
-    required BuildContext context,
-    required ShowInfo showInfo,
-    required Map<String, String> currentMappings,
-    required bool isAutoGenEnabled,
-    required String currentBasePath,
-    required Future<void> Function(String path) saveFolder,
-    required OnDeviceTextGenerator textGenerator,
-  }) async {
-    final seriesSpecificPath = currentMappings[showInfo.show];
-    if (seriesSpecificPath != null && seriesSpecificPath.isNotEmpty) {
-      return seriesSpecificPath;
-    }
-
-    if (isAutoGenEnabled) {
-      if (currentBasePath.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Base download folder not set. Please configure it in Settings.',
-            ),
-          ),
-        );
-        return null;
-      }
-
-      final plan = await runWithDownloadPreparationDialog(
-        context: context,
-        action: () => seriesFolderPlanBuilder(
-          showInfo: showInfo,
-          basePath: currentBasePath,
-          textGenerator: textGenerator,
-        ),
-      );
-
-      if (!context.mounted) {
-        return null;
-      }
-
-      String? path = plan.suggestedPath;
-      if (plan.usedAi) {
-        path = await showSeriesFolderConfirmationDialog(
-          context: context,
-          showTitle: showInfo.show,
-          basePath: currentBasePath,
-          plan: plan,
-        );
-      }
-
-      if (path == null || path.isEmpty) {
-        return null;
-      }
-
-      try {
-        await Directory(path).create(recursive: true);
-        if (!context.mounted) {
-          return null;
-        }
-        await saveFolder(path);
-        return path;
-      } catch (e) {
-        if (!context.mounted) {
-          return null;
-        }
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error creating folder: $e')));
-        return null;
-      }
-    }
-
-    final selectedDirectory = await FilePicker.getDirectoryPath(
-      dialogTitle: 'Select download folder for "${showInfo.show}"',
-    );
-    if (!context.mounted) {
-      return null;
-    }
-    if (selectedDirectory != null && selectedDirectory.isNotEmpty) {
-      await saveFolder(selectedDirectory);
-      return selectedDirectory;
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('No folder selected. Download cancelled.')),
-    );
-    return null;
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final torrentKey = show.torrentKey;
+    final target = ShowCatalogTarget.fromRelease(show);
     final isBookmarked = ref.watch(
       bookmarkedSeriesProvider.select(
         (bookmarks) =>
@@ -204,125 +97,17 @@ class ShowCard extends ConsumerWidget {
       ),
     );
 
-    final isDownloading = torrentDownloadState.isDownloading;
     final hasActiveTorrent = torrentDownloadState.torrentId != null;
     final showTorrentDetails =
         hasActiveTorrent && !torrentDownloadState.isCompleted;
 
-    Future<void> performDownloadAction() async {
-      if (isDownloading) {
-        await ref
-            .read(foregroundTorrentManagerProvider.notifier)
-            .pauseDownload(torrentKey);
-        return;
-      }
-
-      if (hasActiveTorrent &&
-          !isDownloading &&
-          !torrentDownloadState.isCompleted) {
-        await ref
-            .read(foregroundTorrentManagerProvider.notifier)
-            .resumeDownload(torrentKey);
-        return;
-      }
-
-      if (torrentDownloadState.isCompleted && !isDownloaded) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Download completed.')));
-        return;
-      }
-
-      final bestDownload = show.bestDownload;
-      if (bestDownload == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No download links available.')),
-        );
-        return;
-      }
-
-      final (mappings, autoGenerate, basePath) = await (
-        ref.read(seriesFolderMappingProvider.future),
-        ref.read(autoGenerateFoldersProvider.future),
-        ref.read(downloadBasePathProvider.future),
-      ).wait;
-      if (!context.mounted) {
-        return;
-      }
-
-      final seriesDownloadPath = await _determineDownloadPath(
-        context: context,
-        showInfo: show,
-        currentMappings: mappings,
-        isAutoGenEnabled: autoGenerate,
-        currentBasePath: basePath,
-        saveFolder: (path) => ref
-            .read(seriesFolderMappingProvider.notifier)
-            .setFolder(show.show, path),
-        textGenerator: ref.read(onDeviceTextGeneratorProvider),
-      );
-
-      if (seriesDownloadPath == null ||
-          seriesDownloadPath.isEmpty ||
-          !context.mounted) {
-        return;
-      }
-
-      await ref
-          .read(foregroundTorrentManagerProvider.notifier)
-          .startDownload(
-            torrentKey,
-            bestDownload.magnet,
-            seriesDownloadPath,
-            redownload: isDownloaded,
-          );
-
-      if (!context.mounted || isDownloaded) {
-        return;
-      }
-      if (torrentDownloadState.errorMessage != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${torrentDownloadState.errorMessage}'),
-          ),
-        );
-      } else if (torrentDownloadState.torrentId != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Download started to: $seriesDownloadPath')),
-        );
-      }
-    }
-
-    Future<void> handleDownloadPressed() async {
-      try {
-        await performDownloadAction();
-      } on ForegroundNotificationPermissionException catch (error) {
-        if (!context.mounted) {
-          return;
-        }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(error.toString()),
-            action: const SnackBarAction(
-              label: 'Settings',
-              onPressed: PermissionService.openSettings,
-            ),
-          ),
-        );
-      } on ForegroundTorrentCommandException catch (error) {
-        if (!context.mounted) {
-          return;
-        }
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(error.toString())));
-      } catch (error) {
-        if (!context.mounted) {
-          return;
-        }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Unable to update download: $error')),
-        );
-      }
-    }
+    final saved = ref.watch(cachedShowCatalogMatchProvider(target));
+    final discover = featured && isBookmarked && !target.isReleaseScoped;
+    final lookup = discover && saved == null
+        ? ref.watch(showCatalogMatchProvider(target))
+        : null;
+    final entry = (saved ?? lookup?.value)?.entry;
+    final title = entry?.displayTitle ?? show.show;
 
     Future<void> handleBookmarkPressed() async {
       final bookmarkedNotifier = ref.read(bookmarkedSeriesProvider.notifier);
@@ -340,50 +125,18 @@ class ShowCard extends ConsumerWidget {
       );
     }
 
-    final posterLookup = featured && isBookmarked
-        ? _watchFeaturedPoster(ref)
-        : null;
-    final preferredPoster = posterLookup?.asData?.value;
+    final preferredPoster = entry?.posterUrl;
     final poster = ShowImage(
       imageUrl: preferredPoster ?? show.imageUrl,
       fallbackImageUrl: preferredPoster == null ? null : show.imageUrl,
-      faceAware: posterLookup != null && !posterLookup.isLoading,
+      faceAware: featured && isBookmarked && !(lookup?.isLoading ?? false),
     );
-    final downloadLabel = _downloadActionLabel(
-      isLoadingTorrent: torrentDownloadState.isLoading,
-      isDownloading: isDownloading,
-      isPaused: showTorrentDetails && !isDownloading,
-      isDownloaded: isDownloaded,
-      isCompleted: torrentDownloadState.isCompleted,
+    final download = ReleaseDownloadButton(
+      show: show,
+      displayTitle: title,
+      withLabel: featured,
+      seriesFolderPlanBuilder: seriesFolderPlanBuilder,
     );
-    final actionIcon = torrentDownloadState.isLoading
-        ? const SizedBox.square(
-            dimension: 17,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          )
-        : Icon(
-            _downloadActionIcon(
-              isDownloading: isDownloading,
-              isPaused: showTorrentDetails && !isDownloading,
-              isDownloaded: isDownloaded,
-            ),
-            size: 19,
-          );
-    final download = featured
-        ? FilledButton.icon(
-            onPressed: torrentDownloadState.isLoading
-                ? null
-                : handleDownloadPressed,
-            icon: actionIcon,
-            label: Text(downloadLabel),
-          )
-        : IconButton(
-            tooltip: downloadLabel,
-            onPressed: torrentDownloadState.isLoading
-                ? null
-                : handleDownloadPressed,
-            icon: actionIcon,
-          );
     final watching = IconButton(
       tooltip: isBookmarked ? 'Remove from watching' : 'Mark as watching',
       icon: Icon(
@@ -397,9 +150,18 @@ class ShowCard extends ConsumerWidget {
         ? _transferStatus(context, torrentDownloadState)
         : null;
     final card = featured
-        ? _feature(context, poster, download, watching, isDownloaded, status)
+        ? _feature(
+            context,
+            title.trim(),
+            poster,
+            download,
+            watching,
+            isDownloaded,
+            status,
+          )
         : _releaseRow(
             context,
+            title,
             poster,
             download,
             watching,
@@ -407,28 +169,6 @@ class ShowCard extends ConsumerWidget {
             status,
           );
     return StaggeredReveal(index: revealIndex, child: card);
-  }
-
-  AsyncValue<String?> _watchFeaturedPoster(WidgetRef ref) {
-    final target = ShowCatalogTarget.fromRelease(show);
-    final overrides = ref.watch(catalogMatchOverridesProvider);
-    if (!overrides.hasValue) return overrides.whenData((_) => null);
-    final choice = target.effectiveOverride(overrides.requireValue);
-    if (!target.isReleaseScoped && !choice.exists) {
-      return ref.watch(featuredTenraiPosterProvider(show.show));
-    }
-    // A title-only lookup identifies the regular season, even when the
-    // featured release is a special with its own MyAnimeList identity.
-    final entry = choice.entry;
-    for (final url in [entry?.largeImageUrl, entry?.imageUrl]) {
-      final uri = Uri.tryParse(url?.trim() ?? '');
-      if (uri != null &&
-          uri.host.isNotEmpty &&
-          (uri.isScheme('https') || uri.isScheme('http'))) {
-        return AsyncData(uri.toString());
-      }
-    }
-    return const AsyncData(null);
   }
 
   Widget _releaseSurface(
@@ -442,9 +182,15 @@ class ShowCard extends ConsumerWidget {
         key: key,
         color: PaperLantern.paper,
         child: InkWell(
-          onTap: () => Navigator.of(context).push<void>(
-            MaterialPageRoute(builder: (_) => ShowInfoPage.release(show)),
-          ),
+          onTap: () {
+            if (onOpen case final open?) {
+              open(show);
+            } else {
+              Navigator.of(context).push<void>(
+                MaterialPageRoute(builder: (_) => ShowInfoPage.release(show)),
+              );
+            }
+          },
           child: DecoratedBox(
             decoration: BoxDecoration(
               border: Border(
@@ -476,6 +222,7 @@ class ShowCard extends ConsumerWidget {
 
   Widget _feature(
     BuildContext context,
+    String title,
     Widget poster,
     Widget download,
     Widget watching,
@@ -485,7 +232,6 @@ class ShowCard extends ConsumerWidget {
     final theme = Theme.of(context);
     final parallax = posterParallax;
     final editionDate = DateFormat.MMMd().format(show.releaseDate.toLocal());
-    final title = show.show.trim();
     final lastWord = title.lastIndexOf(' ');
     final copy = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -617,6 +363,7 @@ class ShowCard extends ConsumerWidget {
 
   Widget _releaseRow(
     BuildContext context,
+    String title,
     Widget poster,
     Widget download,
     Widget watching,
@@ -643,7 +390,7 @@ class ShowCard extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      show.show,
+                      title,
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleMedium?.copyWith(
@@ -746,47 +493,5 @@ class ShowCard extends ConsumerWidget {
       case TorrentState.stopped:
         return 'STOPPED';
     }
-  }
-
-  IconData _downloadActionIcon({
-    required bool isDownloading,
-    required bool isPaused,
-    required bool isDownloaded,
-  }) {
-    if (isDownloading) {
-      return Icons.pause_circle_filled_rounded;
-    }
-    if (isPaused) {
-      return Icons.play_circle_filled_rounded;
-    }
-    if (isDownloaded) {
-      return Icons.replay;
-    }
-    return Icons.download_rounded;
-  }
-
-  String _downloadActionLabel({
-    required bool isLoadingTorrent,
-    required bool isDownloading,
-    required bool isPaused,
-    required bool isDownloaded,
-    required bool isCompleted,
-  }) {
-    if (isLoadingTorrent) {
-      return 'Preparing';
-    }
-    if (isDownloading) {
-      return 'Pause';
-    }
-    if (isPaused) {
-      return 'Resume';
-    }
-    if (isDownloaded) {
-      return 'Redownload';
-    }
-    if (isCompleted) {
-      return 'Completed';
-    }
-    return 'Download';
   }
 }

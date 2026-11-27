@@ -9,6 +9,7 @@ import 'package:tamashii/providers/show_catalog_match_provider.dart';
 import 'package:tamashii/providers/tenrai_api_providers.dart';
 import 'package:tamashii/services/show_catalog_matcher.dart';
 import 'package:tamashii/theme/paper_lantern.dart';
+import 'package:tamashii/widgets/show_image.dart';
 
 class ShowInfoMatchSheet extends ConsumerStatefulWidget {
   const ShowInfoMatchSheet({required this.target, super.key});
@@ -92,14 +93,25 @@ class _ShowInfoMatchSheetState extends ConsumerState<ShowInfoMatchSheet> {
     final theme = Theme.of(context);
     final target = widget.target;
     final current = ref.watch(showCatalogMatchProvider(target));
-    final match = current.value;
-    final currentId = match?.entry?.malId;
+    final match =
+        ref.watch(cachedShowCatalogMatchProvider(target)) ?? current.value;
+    final saved = match?.entry;
+    final currentId = saved?.malId;
     final isId = RegExp(r'^\d+$').hasMatch(_query);
     final id = isId ? int.tryParse(_query) : null;
     AsyncValue<List<TenraiAnimeSearchResult>> results;
     VoidCallback? retry;
     if (_typed != _query) {
       results = const AsyncLoading();
+    } else if (_query.isEmpty &&
+        saved != null &&
+        (match!.userSelected || match.candidates.isEmpty)) {
+      final provider = relatedTenraiShowsProvider(
+        saved.malId,
+        saved.displayTitle,
+      );
+      results = ref.watch(provider);
+      retry = () => ref.invalidate(provider);
     } else if (_query.isEmpty) {
       results = current.whenData(
         (m) => [
@@ -122,9 +134,22 @@ class _ShowInfoMatchSheetState extends ConsumerState<ShowInfoMatchSheet> {
       retry = () => ref.invalidate(provider);
     }
     final options = {
+      if (_typed.isEmpty && _query.isEmpty && saved != null) saved.malId: saved,
       for (final e in results.asData?.value ?? <TenraiAnimeSearchResult>[])
         e.malId: e,
     };
+    final entries = options.values.toList();
+    final ordered = _query.isEmpty
+        ? [
+            ...entries.where((e) => e.malId == currentId),
+            ...entries.where(
+              (e) => e.malId != currentId && e.isCurrentlyAiring,
+            ),
+            ...entries.where(
+              (e) => e.malId != currentId && !e.isCurrentlyAiring,
+            ),
+          ]
+        : entries;
     final selectedId = _selected?.malId;
     final chosen = options[selectedId];
     final savedChoices = ref.watch(catalogMatchOverridesProvider);
@@ -240,7 +265,7 @@ class _ShowInfoMatchSheetState extends ConsumerState<ShowInfoMatchSheet> {
                           child: const Text('Retry'),
                         ),
                       )
-                    else if (options.isEmpty)
+                    else if (ordered.isEmpty)
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         child: Text(
@@ -248,48 +273,61 @@ class _ShowInfoMatchSheetState extends ConsumerState<ShowInfoMatchSheet> {
                               ? 'Search the catalog for another title or a MAL ID.'
                               : 'No entries found. Try another title or MAL ID.',
                         ),
-                      )
-                    else
-                      for (final entry in options.values)
-                        ListTile(
-                          key: ShowInfoMatchSheet.entryKey(entry.malId),
-                          enabled: !_saving,
-                          selected: selectedId == entry.malId,
-                          selectedTileColor: PaperLantern.wash,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 4,
-                          ),
-                          shape: const Border(
-                            bottom: BorderSide(color: PaperLantern.rule),
-                          ),
-                          leading: Icon(
-                            selectedId == entry.malId
-                                ? Icons.radio_button_checked
-                                : Icons.radio_button_off,
-                          ),
-                          title: Text(
-                            entry.displayTitle,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontFamily: PaperLantern.serif,
-                            ),
-                          ),
-                          subtitle: Text(
-                            [
-                              if (entry.title != entry.displayTitle)
-                                entry.title,
-                              [
-                                if (entry.type case final type?
-                                    when type.isNotEmpty)
-                                  type,
-                                if (entry.episodes case final count?)
-                                  '$count ep',
-                                'MAL #${entry.malId}',
-                                if (entry.malId == currentId) 'Current',
-                              ].join(' · '),
-                            ].join('\n'),
-                          ),
-                          onTap: () => setState(() => _selected = entry),
+                      ),
+                    for (final entry in ordered)
+                      ListTile(
+                        key: ShowInfoMatchSheet.entryKey(entry.malId),
+                        enabled: !_saving,
+                        selected: selectedId == entry.malId,
+                        selectedTileColor: PaperLantern.wash,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 4,
                         ),
+                        shape: const Border(
+                          bottom: BorderSide(color: PaperLantern.rule),
+                        ),
+                        leading: SizedBox(
+                          width: 40,
+                          height: 54,
+                          child: ColoredBox(
+                            color: PaperLantern.wash,
+                            child: entry.posterUrl != null
+                                ? ShowImage(
+                                    imageUrl: entry.posterUrl!,
+                                    width: 40,
+                                    height: 54,
+                                  )
+                                : const Icon(
+                                    Icons.image_outlined,
+                                    color: PaperLantern.muted,
+                                  ),
+                          ),
+                        ),
+                        trailing: selectedId == entry.malId
+                            ? const Icon(Icons.check_circle_outline)
+                            : null,
+                        title: Text(
+                          entry.displayTitle,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontFamily: PaperLantern.serif,
+                          ),
+                        ),
+                        subtitle: Text(
+                          [
+                            if (entry.title != entry.displayTitle) entry.title,
+                            [
+                              if (entry.type case final type?
+                                  when type.isNotEmpty)
+                                type,
+                              if (entry.episodes case final count?) '$count ep',
+                              entry.airingLabel,
+                              'MAL #${entry.malId}',
+                              if (entry.malId == currentId) 'Current',
+                            ].join(' · '),
+                          ].join('\n'),
+                        ),
+                        onTap: () => setState(() => _selected = entry),
+                      ),
                     if (_saveError != null)
                       Semantics(
                         liveRegion: true,

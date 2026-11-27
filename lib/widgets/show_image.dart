@@ -34,14 +34,14 @@ class ShowImage extends ConsumerWidget {
         fit == BoxFit.cover &&
         !kIsWeb &&
         defaultTargetPlatform == TargetPlatform.android;
-    Widget? fallback({required bool frameFaces}) {
+    Widget? fallback() {
       if (fallbackUrl == null || fallbackUrl == path) return null;
       return ShowImage(
         imageUrl: fallbackUrl,
         width: width,
         height: height,
         fit: fit,
-        faceAware: frameFaces,
+        faceAware: canFrameFaces,
       );
     }
 
@@ -64,7 +64,7 @@ class ShowImage extends ConsumerWidget {
       return SizedBox(
         width: width,
         height: height,
-        child: fallback(frameFaces: canFrameFaces) ?? brokenImage,
+        child: fallback() ?? brokenImage,
       );
     }
 
@@ -112,16 +112,15 @@ class ShowImage extends ConsumerWidget {
                     fit: fit,
                     alignment: alignment,
                     errorBuilder: (context, error, stackTrace) =>
-                        fallback(frameFaces: true) ?? brokenImage,
+                        fallback() ?? brokenImage,
                   );
                 },
               )
             : null,
-        placeholder: (context, url) =>
-            fallback(frameFaces: false) ??
-            const Center(child: CircularProgressIndicator()),
-        errorWidget: (context, url, error) =>
-            fallback(frameFaces: canFrameFaces) ?? brokenImage,
+        // A cached catalog match should never flash the source artwork while
+        // the selected cover decodes. Use the alternate only on failure.
+        placeholder: (context, url) => const SizedBox.expand(),
+        errorWidget: (context, url, error) => fallback() ?? brokenImage,
       );
     }
 

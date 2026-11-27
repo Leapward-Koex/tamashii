@@ -8,12 +8,12 @@ import java.util.Locale
 
 internal data class WatchedTitle(
     val title: String, val weekday: Int, val manual: Boolean,
-    val folder: String, val imageUrl: String?,
+    val folder: String, val imageUrl: String?, val displayTitle: String = title,
 )
 
 internal data class ReleasedEpisode(
     val key: String, val title: String, val episode: String, val releasedAt: Long,
-    val magnet: String, val imageUrl: String?,
+    val magnet: String, val imageUrl: String?, val displayTitle: String = title,
 )
 
 internal data class WidgetTransfer(val state: TodayWidgetState, val percent: Int? = null)
@@ -50,11 +50,11 @@ internal class WidgetCatalog(
                 else -> TodayWidgetState.READY
             }
             rows.add(TodayWidgetRow(watched.title, state, release.key, release.episode,
-                transfer?.percent, release.imageUrl ?: watched.imageUrl))
+                transfer?.percent, release.imageUrl ?: watched.imageUrl, release.displayTitle))
         }
         watching.values.filter { it.weekday == date.dayOfWeek.value && it.title !in releasedTitles }
-            .sortedBy { it.title }.forEach {
-                rows.add(TodayWidgetRow(it.title, TodayWidgetState.EXPECTED, imageUrl = it.imageUrl))
+            .sortedBy { it.displayTitle }.forEach {
+                rows.add(TodayWidgetRow(it.title, TodayWidgetState.EXPECTED, imageUrl = it.imageUrl, displayTitle = it.displayTitle))
             }
         return TodayWidgetContent(date, rows, nextUp(date), initialized)
     }
@@ -62,8 +62,8 @@ internal class WidgetCatalog(
     private fun nextUp(today: LocalDate): String? {
         for (offset in 1L..7L) {
             val day = today.plusDays(offset).dayOfWeek
-            val first = watching.values.filter { it.weekday == day.value }.minByOrNull { it.title }
-            if (first != null) return "${first.title} on ${day.getDisplayName(TextStyle.FULL, Locale.getDefault())}"
+            val first = watching.values.filter { it.weekday == day.value }.minByOrNull { it.displayTitle }
+            if (first != null) return "${first.displayTitle} on ${day.getDisplayName(TextStyle.FULL, Locale.getDefault())}"
         }
         return null
     }

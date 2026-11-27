@@ -6,6 +6,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:tamashii/pages/settings_page.dart';
+import 'package:tamashii/models/show_catalog_match.dart';
+import 'package:tamashii/models/tenrai_models.dart';
+import 'package:tamashii/providers/show_catalog_match_provider.dart';
 import 'package:tamashii/providers/foreground_torrent_provider.dart';
 import 'package:tamashii/providers/on_device_ai_provider.dart';
 import 'package:tamashii/services/gemini_nano_service.dart';
@@ -41,6 +44,41 @@ void _setMockPreferences(Map<String, Object> values) {
 }
 
 void main() {
+  testWidgets(
+    'folder overrides display the catalog title alongside the original folder',
+    (tester) async {
+      _setMockPreferences({
+        'auto_generate_folders': false,
+        'series_folder_mapping': '{"Source title":"shows/Source title"}',
+      });
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            cachedShowCatalogMatchProvider(
+              const ShowCatalogTarget(title: 'Source title'),
+            ).overrideWithValue(
+              const ShowCatalogMatch(
+                entry: TenraiAnimeSearchResult(
+                  malId: 42,
+                  title: 'Catalog title',
+                ),
+              ),
+            ),
+          ],
+          child: const MaterialApp(
+            home: Scaffold(
+              body: SettingsPage(platform: TargetPlatform.windows),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.text('Catalog title'), 240);
+      expect(find.text('shows/Source title'), findsOneWidget);
+      expect(find.byTooltip('Edit folder for Catalog title'), findsOneWidget);
+    },
+  );
+
   setUp(() {
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();

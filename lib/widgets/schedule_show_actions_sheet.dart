@@ -27,7 +27,7 @@ class ScheduleShowAction {
 }
 
 class ScheduleShowActionsSheet extends StatelessWidget {
-  const ScheduleShowActionsSheet({super.key, required this.show});
+  const ScheduleShowActionsSheet({super.key, required this.show, this.title});
 
   static const Key removeButtonKey = ValueKey<String>(
     'schedule-show-remove-button',
@@ -43,6 +43,7 @@ class ScheduleShowActionsSheet extends StatelessWidget {
       ValueKey<String>('schedule-show-day-button-$weekday');
 
   final BookmarkedShowInfo show;
+  final String? title;
 
   @override
   Widget build(BuildContext context) {
@@ -59,7 +60,7 @@ class ScheduleShowActionsSheet extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                PaperSectionHeading(show.showName),
+                PaperSectionHeading(title ?? show.showName),
                 Align(
                   alignment: AlignmentDirectional.centerStart,
                   child: Padding(

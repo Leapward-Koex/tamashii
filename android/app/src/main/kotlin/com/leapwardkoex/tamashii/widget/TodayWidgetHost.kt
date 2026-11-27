@@ -53,7 +53,8 @@ object TodayWidgetHost {
     fun publish(context: Context, update: Map<*, *>) {
         val previous = saved(context)
         val incoming = JSONObject(update)
-        if (!(incoming.optBoolean("bootstrap") && previous.has("watching"))) {
+        val staleBootstrap = incoming.optBoolean("bootstrap") && previous.has("watching")
+        if (!staleBootstrap) {
             for (field in listOf("watching", "downloaded")) {
                 if (incoming.has(field)) previous.put(field, incoming.get(field))
             }
@@ -64,13 +65,21 @@ object TodayWidgetHost {
         val cutoff = Instant.now().minus(Duration.ofDays(2)).toEpochMilli()
         val episodes = previous.objects("releases").associateByTo(mutableMapOf()) { it.getString("key") }
         val freshFeed = !incoming.has("watching")
-        for (episode in incoming.objects("releases")) {
+        for (episode in if (staleBootstrap) emptyList() else incoming.objects("releases")) {
             val key = episode.getString("key")
             // Flutter also publishes cached rows on a folder/bookmark change. Preserve any
             // updated timestamp or magnet that a background feed request already discovered.
-            if (freshFeed || episodes[key]?.optBoolean("fromFeed") != true) {
-                episodes[key] = episode.put("fromFeed", freshFeed)
+            val existing = episodes[key]
+            val row = if (freshFeed || existing == null || !existing.optBoolean("fromFeed"))
+                episode.put("fromFeed", freshFeed) else existing
+            // The app owns title/poster choices even when a later headless feed
+            // result supplies newer transfer metadata for the same release.
+            val presentation = if (freshFeed && existing?.optBoolean("appPresentation") == true)
+                existing else episode
+            for (field in listOf("displayTitle", "catalogImageUrl")) {
+                row.put(field, presentation.opt(field))
             }
+            episodes[key] = row.put("appPresentation", !freshFeed || existing?.optBoolean("appPresentation") == true)
         }
         episodes.entries.removeAll { (_, episode) ->
             episode.optLong("releasedAt") < cutoff || episode.optString("title") !in watched
@@ -83,11 +92,14 @@ object TodayWidgetHost {
     private fun catalog(json: JSONObject): WidgetCatalog {
         val watching = json.objects("watching").map {
             WatchedTitle(it.getString("title"), it.getInt("weekday"), it.optBoolean("manual"),
-                it.optString("folder"), it.optString("imageUrl").takeIf(String::isNotBlank))
+                it.optString("folder"), it.optString("imageUrl").takeIf(String::isNotBlank),
+                it.optString("displayTitle", it.getString("title")))
         }
         val episodes = json.objects("releases").map {
             ReleasedEpisode(it.getString("key"), it.getString("title"), it.getString("episode"),
-                it.getLong("releasedAt"), it.getString("magnet"), it.optString("imageUrl").takeIf(String::isNotBlank))
+                it.getLong("releasedAt"), it.getString("magnet"),
+                it.optString("catalogImageUrl").takeIf(String::isNotBlank) ?: it.optString("imageUrl").takeIf(String::isNotBlank),
+                it.optString("displayTitle", it.getString("title")))
         }
         val downloaded = json.optJSONArray("downloaded") ?: JSONArray()
         return WidgetCatalog(watching.associateBy { it.title }, episodes.associateBy { it.key },

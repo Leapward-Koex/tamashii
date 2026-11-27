@@ -43,15 +43,40 @@ class TenraiApi {
       'q': trimmedQuery,
       'limit': '$limit',
     });
-    return _get(uri, (data) {
-      final rows = data as List<dynamic>;
-      return rows
+    return _get(uri, _animeRows);
+  }
+
+  List<TenraiAnimeSearchResult> _animeRows(Object? data) =>
+      (data as List<dynamic>)
           .map(
             (row) =>
                 TenraiAnimeSearchResult.fromJson(row as Map<String, dynamic>),
           )
           .toList(growable: false);
-    });
+
+  /// Hydrate related anime in one batch: relation summaries omit airing status
+  /// and localized titles. Manga adaptations also use MAL IDs in a separate namespace.
+  Future<List<TenraiAnimeSearchResult>> relatedAnime(int malId) async {
+    final ids = await _get(
+      Uri.https(_host, '/v1/anime/$malId/relations'),
+      (data) => <int>{
+        for (final relation in data as List<dynamic>)
+          for (final entry in (relation as Map)['entry'] as List<dynamic>)
+            if (entry case {'type': 'anime', 'mal_id': final int id}
+                when id > 0 && id != malId)
+              id,
+      },
+      onNotFound: () => <int>{},
+    );
+    if (ids.isEmpty) return [];
+    final page = [malId, ...ids.take(99)];
+    return _get(
+      Uri.https(_host, '/v1/anime', {
+        'ids': page.join(','),
+        'limit': '${page.length}',
+      }),
+      _animeRows,
+    );
   }
 
   Future<TenraiAnimeSearchResult?> getAnimeById(int malId) async {

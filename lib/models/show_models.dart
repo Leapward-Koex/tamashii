@@ -5,6 +5,7 @@
 
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:intl/intl.dart';
+import 'package:tamashii/models/tenrai_models.dart';
 
 part 'show_models.freezed.dart';
 part 'show_models.g.dart';
@@ -62,6 +63,14 @@ class ShowDownloadInfo {
     return <String, dynamic>{'res': resolution.toJson(), 'magnet': magnet};
   }
 }
+
+final _numberedEpisode = RegExp(
+  r'^\d+(?:\.\d+)?(?:v\d+)?$',
+  caseSensitive: false,
+);
+
+String formatEpisodeLabel(String episode) =>
+    _numberedEpisode.hasMatch(episode) ? 'Episode $episode' : episode;
 
 /// The main show/episode info from the API.
 class ShowInfo {
@@ -174,6 +183,7 @@ abstract class BookmarkedShowInfo with _$BookmarkedShowInfo {
     required String showName,
     // Older installs save MyAnimeList IDs under this key.
     @JsonKey(name: 'jikanId') int? malId,
+    @JsonKey(includeIfNull: false) TenraiAnimeSearchResult? catalogEntry,
     @Default(BookmarkedShowSource.subsplease) BookmarkedShowSource source,
   }) = _BookmarkedShowInfo;
 

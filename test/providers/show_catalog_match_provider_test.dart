@@ -7,6 +7,7 @@ import 'package:tamashii/api/tenrai_api.dart';
 import 'package:tamashii/models/show_catalog_match.dart';
 import 'package:tamashii/models/show_models.dart';
 import 'package:tamashii/models/tenrai_models.dart';
+import 'package:tamashii/providers/bookmarked_series_provider.dart';
 import 'package:tamashii/providers/on_device_ai_provider.dart';
 import 'package:tamashii/providers/show_catalog_match_provider.dart';
 import 'package:tamashii/providers/tenrai_api_providers.dart';
@@ -365,6 +366,100 @@ void main() {
     await container.pump();
     expect((await resolve(container, target)).entry, sideStory);
   });
+
+  test(
+    'a show added from catalog search keeps its selected entry offline',
+    () async {
+      final chosen = mainSeries.copyWith(
+        imageUrl: 'https://example.org/poster.jpg',
+      );
+      final c = ProviderContainer.test();
+      await c
+          .read(bookmarkedSeriesProvider.notifier)
+          .add(
+            bookmark.copyWith(
+              malId: chosen.malId,
+              catalogEntry: chosen,
+              source: BookmarkedShowSource.manual,
+            ),
+          );
+      final offline = _Api((_) => throw StateError('unexpected search'));
+      final restored = ProviderContainer.test(
+        overrides: [
+          tenraiApiProvider.overrideWithValue(offline),
+          catalogEntryByIdProvider(chosen.malId)
+              .overrideWith((_) => throw StateError('unexpected lookup')),
+        ],
+      );
+      await restored.read(catalogCacheReadyProvider.future);
+      final regular = ShowCatalogTarget.fromRelease(release('03'));
+      expect(
+        restored.read(cachedShowCatalogMatchProvider(regular))?.entry,
+        chosen,
+      );
+      expect((await resolve(restored, regular)).userSelected, true);
+      expect(restored.read(cachedShowCatalogMatchProvider(firstSP)), isNull);
+      expect(offline.queries, isEmpty);
+    },
+  );
+
+  test(
+    'regular episodes share a persisted title and poster without a new search',
+    () async {
+      final entry = mainSeries.copyWith(
+        title: 'Link Click',
+        titleEnglish: 'Link Click English',
+        imageUrl: 'https://example.org/cover.jpg',
+        largeImageUrl: 'https://example.org/large.jpg',
+      );
+      final api = _Api((_) => [entry]);
+      final c = ProviderContainer.test(
+        overrides: [tenraiApiProvider.overrideWithValue(api)],
+      );
+      final first = ShowCatalogTarget.fromRelease(release('01'));
+      final second = ShowCatalogTarget.fromRelease(release('02'));
+      final matches = await Future.wait([
+        resolve(c, first),
+        resolve(c, second),
+      ]);
+      expect(matches.map((match) => match.entry), [entry, entry]);
+      expect(api.queries, ['Link Click']);
+      final offline = _Api(
+        (_) => throw StateError('unexpected catalog search'),
+      );
+      final restarted = ProviderContainer.test(
+        overrides: [tenraiApiProvider.overrideWithValue(offline)],
+      );
+      await restarted.read(catalogCacheReadyProvider.future);
+      expect(
+        restarted.read(cachedShowCatalogMatchProvider(second))?.entry,
+        entry,
+      );
+      expect(restarted.read(cachedShowCatalogMatchProvider(firstSP)), isNull);
+      final stored = await resolve(
+        restarted,
+        ShowCatalogTarget.fromSchedule(bookmark),
+      );
+      expect(stored.entry, entry);
+      expect(stored.userSelected, isFalse);
+      expect(stored.evidence, isNotEmpty);
+      await restarted
+          .read(catalogMatchOverridesProvider.notifier)
+          .save(first, sideStory);
+      expect(
+        restarted.read(cachedShowCatalogMatchProvider(second))?.entry,
+        sideStory,
+      );
+      await restarted
+          .read(catalogMatchOverridesProvider.notifier)
+          .save(first, null);
+      expect(
+        restarted.read(cachedShowCatalogMatchProvider(second))?.entry,
+        isNull,
+      );
+      expect(offline.queries, isEmpty);
+    },
+  );
 
   test('a catalog special selected on episode 13 affects only that episode, including after restart', () async {
     final offline = _Api((_) => throw StateError('Unnecessary catalog lookup'));

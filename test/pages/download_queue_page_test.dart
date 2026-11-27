@@ -3,6 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:simple_torrent/simple_torrent.dart';
 import 'package:tamashii/models/download_transfer_metrics.dart';
+import 'package:tamashii/models/show_models.dart';
+import 'package:tamashii/models/show_catalog_match.dart';
+import 'package:tamashii/models/tenrai_models.dart';
+import 'package:tamashii/providers/show_catalog_match_provider.dart';
 import 'package:tamashii/pages/download_queue_page.dart';
 import 'package:tamashii/providers/download_queue_provider.dart';
 import 'package:tamashii/providers/foreground_torrent_provider.dart';
@@ -64,6 +68,57 @@ void main() {
     expect(find.text('No active downloads'), findsOneWidget);
     expect(find.byKey(DownloadQueuePage.summaryCardKey), findsNothing);
   });
+
+  testWidgets(
+    'downloads use the matched release name without changing the transfer key',
+    (tester) async {
+      final release = ShowInfo(
+        downloads: [],
+        episode: 'SP1',
+        imageUrl: '',
+        page: 'source',
+        releaseDate: DateTime(2026),
+        show: 'Source',
+        timeLabel: '',
+        xdcc: '',
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            downloadQueueProvider.overrideWithValue(
+              _report(
+                items: [
+                  _item(
+                    key: release.torrentKey,
+                    displayName: 'file.mkv',
+                    status: DownloadTransferStatus.paused,
+                  ),
+                ],
+              ),
+            ),
+            cachedShowCatalogMatchProvider(
+              ShowCatalogTarget.fromRelease(release),
+            ).overrideWithValue(
+              const ShowCatalogMatch(
+                entry: TenraiAnimeSearchResult(malId: 3, title: 'Special'),
+              ),
+            ),
+          ],
+          child: MaterialApp(
+            home: DownloadQueuePage(
+              releasesByKey: {release.torrentKey: release},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(DownloadQueuePage.itemKey('Source-SP1')),
+        findsOneWidget,
+      );
+      expect(find.text('Special · Episode SP1'), findsOneWidget);
+    },
+  );
 
   testWidgets('builds only the nearby progress bars in a long download queue', (
     WidgetTester tester,

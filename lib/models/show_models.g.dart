@@ -12,6 +12,11 @@ _BookmarkedShowInfo _$BookmarkedShowInfoFromJson(Map<String, dynamic> json) =>
       releaseDayOfWeek: (json['releaseDayOfWeek'] as num).toInt(),
       showName: json['showName'] as String,
       malId: (json['jikanId'] as num?)?.toInt(),
+      catalogEntry: json['catalogEntry'] == null
+          ? null
+          : TenraiAnimeSearchResult.fromJson(
+              json['catalogEntry'] as Map<String, dynamic>,
+            ),
       source:
           $enumDecodeNullable(_$BookmarkedShowSourceEnumMap, json['source']) ??
           BookmarkedShowSource.subsplease,
@@ -23,6 +28,7 @@ Map<String, dynamic> _$BookmarkedShowInfoToJson(_BookmarkedShowInfo instance) =>
       'releaseDayOfWeek': instance.releaseDayOfWeek,
       'showName': instance.showName,
       'jikanId': instance.malId,
+      'catalogEntry': ?instance.catalogEntry,
       'source': _$BookmarkedShowSourceEnumMap[instance.source]!,
     };
 

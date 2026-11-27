@@ -14,6 +14,8 @@ _TenraiAnimeSearchResult _$TenraiAnimeSearchResultFromJson(
   titleEnglish: json['title_english'] as String?,
   type: json['type'] as String?,
   episodes: (json['episodes'] as num?)?.toInt(),
+  status: json['status'] as String?,
+  airing: json['airing'] as bool?,
   imageUrl: json['images'] == null
       ? ''
       : _tenraiImageUrlFromJson(json['images']),
@@ -28,6 +30,8 @@ Map<String, dynamic> _$TenraiAnimeSearchResultToJson(
   'title_english': instance.titleEnglish,
   'type': instance.type,
   'episodes': instance.episodes,
+  'status': instance.status,
+  'airing': instance.airing,
   'images': _tenraiImageUrlToJson(instance.imageUrl),
   'largeImageUrl': ?instance.largeImageUrl,
 };

@@ -58,6 +58,7 @@ dependencies:
       path: packages/simple_torrent
   tamashii_network_cost:
     path: plugins/tamashii_network_cost
+  url_launcher: ^6.3.3
 
 dev_dependencies:
   build_runner: ^2.0.0

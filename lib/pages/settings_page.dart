@@ -8,6 +8,8 @@ import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:open_file/open_file.dart';
 import 'package:tamashii/providers/downloaded_torrents_provider.dart';
+import 'package:tamashii/models/show_catalog_match.dart';
+import 'package:tamashii/providers/show_catalog_match_provider.dart';
 import 'package:tamashii/providers/foreground_torrent_provider.dart';
 import 'package:tamashii/providers/on_device_ai_provider.dart';
 import 'package:tamashii/providers/settings_provider.dart';
@@ -237,8 +239,18 @@ class SettingsPage extends ConsumerWidget {
                   children: ListTile.divideTiles(
                     context: context,
                     tiles: map.entries.map((entry) {
+                      final title =
+                          ref
+                              .watch(
+                                cachedShowCatalogMatchProvider(
+                                  ShowCatalogTarget(title: entry.key),
+                                ),
+                              )
+                              ?.entry
+                              ?.displayTitle ??
+                          entry.key;
                       return ListTile(
-                        title: Text(entry.key),
+                        title: Text(title),
                         subtitle: Text(entry.value),
                         onTap: () async {
                           // Open folder in system file explorer
@@ -258,7 +270,7 @@ class SettingsPage extends ConsumerWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
-                              tooltip: 'Delete folder for ${entry.key}',
+                              tooltip: 'Delete folder for $title',
                               icon: const Icon(Icons.delete_outline),
                               onPressed: () async {
                                 final bool? confirm = await showDialog<bool>(
@@ -267,7 +279,7 @@ class SettingsPage extends ConsumerWidget {
                                     scrollable: true,
                                     title: const Text('Delete Series Folder'),
                                     content: Text(
-                                      'This will delete the folder and all files for "${entry.key}". Continue?',
+                                      'Delete "${entry.value}" and all its files for "$title"?',
                                     ),
                                     actions: [
                                       TextButton(
@@ -300,7 +312,7 @@ class SettingsPage extends ConsumerWidget {
                               },
                             ),
                             IconButton(
-                              tooltip: 'Edit folder for ${entry.key}',
+                              tooltip: 'Edit folder for $title',
                               icon: const Icon(Icons.edit_outlined),
                               onPressed: () async {
                                 final selected =

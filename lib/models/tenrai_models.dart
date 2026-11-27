@@ -16,6 +16,8 @@ abstract class TenraiAnimeSearchResult with _$TenraiAnimeSearchResult {
     @JsonKey(name: 'title_english') String? titleEnglish,
     String? type,
     int? episodes,
+    String? status,
+    bool? airing,
     @JsonKey(
       name: 'images',
       fromJson: _tenraiImageUrlFromJson,
@@ -37,6 +39,32 @@ abstract class TenraiAnimeSearchResult with _$TenraiAnimeSearchResult {
     }
     return title;
   }
+
+  String? get posterUrl {
+    for (final value in [?largeImageUrl, imageUrl]) {
+      final url = value.trim();
+      final uri = Uri.tryParse(url);
+      if (uri != null &&
+          uri.host.isNotEmpty &&
+          (uri.isScheme('https') || uri.isScheme('http'))) {
+        return url;
+      }
+    }
+    return null;
+  }
+
+  String get airingLabel {
+    final label = status?.trim();
+    if (label != null && label.isNotEmpty) return label;
+    return switch (airing) {
+      true => 'Currently Airing',
+      false => 'Not currently airing',
+      null => 'Airing status unknown',
+    };
+  }
+
+  bool get isCurrentlyAiring =>
+      airing == true || status?.trim().toLowerCase() == 'currently airing';
 }
 
 Object? _readTenraiLargeImageUrl(Map<dynamic, dynamic> json, String key) {

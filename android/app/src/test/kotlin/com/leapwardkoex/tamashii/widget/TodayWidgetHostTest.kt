@@ -74,6 +74,27 @@ class TodayWidgetHostTest {
     }
 
     @Test
+    fun correctingAReleaseChangesItsDisplayedIdentityWhilePreservingFreshFeedAndFolder() {
+        val poster = "https://mal.test/correct.jpg"
+        TodayWidgetHost.publish(app, catalog())
+        val fresh = mapOf("releases" to listOf(episode("magnet:fresh")))
+        TodayWidgetHost.publish(app, fresh)
+        val corrected = episode() + mapOf("displayTitle" to "Correct Special", "catalogImageUrl" to poster)
+        TodayWidgetHost.publish(app, catalog() + ("releases" to listOf(corrected)))
+        TodayWidgetHost.publish(app, fresh)
+        TodayWidgetHost.publish(app, catalog() + ("bootstrap" to true))
+        val row = TodayWidgetHost.content(app).rows.single()
+        assertEquals("Correct Special", row.displayTitle)
+        assertEquals(poster, row.imageUrl)
+        assertEquals(title, row.title)
+        queue(Instant.now())
+        assertEquals(mapOf("torrentKey" to key, "magnetUri" to "magnet:fresh", "downloadPath" to folder),
+            TodayWidgetHost.pendingDownloads(app).single())
+        TodayWidgetHost.publish(app, catalog())
+        assertEquals(title, TodayWidgetHost.content(app).rows.single().displayTitle)
+    }
+
+    @Test
     fun freshColdRequestResolvesSavedMagnetAndDestinationOnceAcknowledged() {
         // These are the only inputs available to a newly created service engine with the app closed.
         prefs.edit().putString("catalog", JSONObject(catalog()).toString()).commit()

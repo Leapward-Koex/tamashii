@@ -11,6 +11,7 @@ import 'package:tamashii/config/torrent_config.dart';
 import 'package:tamashii/pages/home_page.dart';
 import 'package:tamashii/providers/api_cache_sync_provider.dart';
 import 'package:tamashii/providers/foreground_torrent_provider.dart';
+import 'package:tamashii/providers/show_catalog_match_provider.dart';
 import 'package:tamashii/services/notification_service.dart';
 import 'package:tamashii/services/widget_catalog.dart';
 import 'package:tamashii/theme/paper_lantern.dart';
@@ -56,6 +57,7 @@ class TamashiiApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final catalogCache = ref.watch(catalogCacheReadyProvider);
     if (Platform.isAndroid) {
       ref.listen(widgetCatalogProvider, (_, catalog) {
         catalog.whenData((value) => unawaited(publishWidgetCatalog(value)));
@@ -72,7 +74,9 @@ class TamashiiApp extends ConsumerWidget {
       title: 'Tamashii',
       debugShowCheckedModeBanner: false,
       theme: PaperLantern.theme,
-      home: Platform.isAndroid
+      home: catalogCache.isLoading && !catalogCache.hasValue
+          ? const Scaffold(body: Center(child: CircularProgressIndicator()))
+          : Platform.isAndroid
           ? const WidgetDownloadSetup(child: HomePage())
           : const HomePage(),
     );

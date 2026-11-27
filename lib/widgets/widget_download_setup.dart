@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:tamashii/providers/settings_provider.dart';
+import 'package:tamashii/models/show_catalog_match.dart';
+import 'package:tamashii/providers/show_catalog_match_provider.dart';
 import 'package:tamashii/services/permission_service.dart';
 
 /// The launcher can start a configured download directly. Android's folder
@@ -44,11 +46,19 @@ class _WidgetDownloadSetupState extends ConsumerState<WidgetDownloadSetup> {
         'takeSetupTitle',
       );
       if (!mounted || title == null) return;
+      final displayTitle =
+          ref
+              .read(
+                cachedShowCatalogMatchProvider(ShowCatalogTarget(title: title)),
+              )
+              ?.entry
+              ?.displayTitle ??
+          title;
       final proceed = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
           scrollable: true,
-          title: Text('Set up downloads for $title'),
+          title: Text('Set up downloads for $displayTitle'),
           content: const Text(
             'Allow download notifications and folder access. The widget will then be able to save episodes from your home screen.',
           ),
@@ -89,7 +99,7 @@ class _WidgetDownloadSetupState extends ConsumerState<WidgetDownloadSetup> {
           await PermissionService.validateDownloadDirectory(currentPath) !=
               null) {
         final path = await FilePicker.getDirectoryPath(
-          dialogTitle: 'Choose a download folder for $title',
+          dialogTitle: 'Choose a download folder for $displayTitle',
         );
         if (!mounted || path == null) return;
         final error = await PermissionService.validateDownloadDirectory(path);
@@ -102,7 +112,9 @@ class _WidgetDownloadSetupState extends ConsumerState<WidgetDownloadSetup> {
       await WidgetDownloadSetup.channel.invokeMethod<void>('redraw');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$title is set up for widget downloads.')),
+          SnackBar(
+            content: Text('$displayTitle is set up for widget downloads.'),
+          ),
         );
       }
     } on MissingPluginException {

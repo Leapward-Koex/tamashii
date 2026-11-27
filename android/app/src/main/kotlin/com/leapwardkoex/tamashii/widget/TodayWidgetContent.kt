@@ -16,6 +16,7 @@ data class TodayWidgetRow(
     val episode: String? = null,
     val progress: Int? = null,
     val imageUrl: String? = null,
+    val displayTitle: String = title,
 )
 
 enum class TodayWidgetState {

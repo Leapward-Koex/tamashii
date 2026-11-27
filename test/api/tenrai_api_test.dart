@@ -137,6 +137,83 @@ void main() {
       );
     });
 
+    test('loads related anime with full metadata in a single batch', () async {
+      final requests = <Uri>[];
+      final api = TenraiApi(
+        httpClient: MockClient((request) async {
+          requests.add(request.url);
+          if (request.url.path.endsWith('/relations')) {
+            return http.Response(
+              jsonEncode({
+                'data': [
+                  {
+                    'entry': [
+                      {'type': 'manga', 'mal_id': 22},
+                      {'type': 'anime', 'mal_id': 23},
+                      {'type': 'anime', 'mal_id': 23},
+                    ],
+                  },
+                ],
+              }),
+              200,
+            );
+          }
+          return http.Response(
+            jsonEncode({
+              'data': [
+                {
+                  'mal_id': 23,
+                  'title': 'Another title',
+                  'status': 'Currently Airing',
+                  'airing': true,
+                },
+              ],
+            }),
+            200,
+          );
+        }),
+      );
+      addTearDown(api.close);
+      final result = (await api.relatedAnime(12)).single;
+      expect(requests.map((uri) => uri.path), [
+        '/v1/anime/12/relations',
+        '/v1/anime',
+      ]);
+      expect(requests.last.queryParameters, {'ids': '12,23', 'limit': '2'});
+      expect(result.airingLabel, 'Currently Airing');
+      expect(result.isCurrentlyAiring, isTrue);
+      expect(TenraiAnimeSearchResult.fromJson(result.toJson()), result);
+    });
+
+    test(
+      'legacy entries retain unknown status and use the best valid poster',
+      () {
+        final result = TenraiAnimeSearchResult.fromJson({
+          'mal_id': 1,
+          'title': 'Legacy',
+        });
+        expect(result.airingLabel, 'Airing status unknown');
+        expect(result.posterUrl, isNull);
+        expect(
+          result.copyWith(airing: false).airingLabel,
+          'Not currently airing',
+        );
+        expect(
+          result.copyWith(status: 'Not yet aired').airingLabel,
+          'Not yet aired',
+        );
+        expect(
+          result
+              .copyWith(
+                largeImageUrl: 'bad.jpg',
+                imageUrl: 'https://example.org/show.jpg',
+              )
+              .posterUrl,
+          'https://example.org/show.jpg',
+        );
+      },
+    );
+
     test('preserves the large poster alongside the schedule artwork', () {
       final result = TenraiAnimeSearchResult.fromJson({
         'mal_id': 52991,
@@ -149,6 +226,7 @@ void main() {
 
       expect(result.imageUrl, 'https://cdn.example.com/frieren.jpg');
       expect(result.largeImageUrl, 'https://cdn.example.com/frieren.webp');
+      expect(result.posterUrl, 'https://cdn.example.com/frieren.webp');
       expect(TenraiAnimeSearchResult.fromJson(result.toJson()), result);
     });
 

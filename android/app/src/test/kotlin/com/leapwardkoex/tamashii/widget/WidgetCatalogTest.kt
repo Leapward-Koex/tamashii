@@ -31,6 +31,17 @@ class WidgetCatalogTest {
             content.rows.map { it.state })
     }
 
+    @Test fun rendersCanonicalTitlesWhileKeepingSetupAndTransferIdentities() {
+        val title = watched("Source", 5).copy(displayTitle = "Catalog")
+        val release = episode("Source").copy(displayTitle = "Catalog Special")
+        val expected = project(listOf(title), emptyList()).rows.single()
+        assertEquals("Catalog", expected.displayTitle)
+        val row = project(listOf(title), listOf(release), allowed = false).rows.single()
+        assertEquals("Catalog Special", row.displayTitle)
+        assertEquals("Source", row.title)
+        assertEquals("Source-03", row.episodeKey)
+    }
+
     @Test fun queueHistoryAndProgressPreserveOneRowPerEpisode() {
         val title = watched("Today", 5)
         val episodes = listOf(episode("Today"), episode("Today", "04"), episode("Today", "05"))

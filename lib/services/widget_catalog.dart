@@ -7,10 +7,12 @@ import 'package:http/http.dart' as http;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:tamashii/api/api_client.dart';
 import 'package:tamashii/models/show_models.dart';
+import 'package:tamashii/models/show_catalog_match.dart';
 import 'package:tamashii/providers/bookmarked_series_provider.dart';
 import 'package:tamashii/providers/cached_episodes_provider.dart';
 import 'package:tamashii/providers/downloaded_torrents_provider.dart';
 import 'package:tamashii/providers/settings_provider.dart';
+import 'package:tamashii/providers/show_catalog_match_provider.dart';
 import 'package:tamashii/providers/subsplease_api_providers.dart';
 import 'package:tamashii/services/torrent_service_options.dart';
 
@@ -34,6 +36,7 @@ List<Map<String, Object>> _releaseRows(
   Iterable<ShowInfo> releases,
   DateTime now,
   Uri imageBase,
+  ShowCatalogMatch? Function(ShowCatalogTarget)? matchFor,
 ) {
   final oldest = now.subtract(const Duration(days: 2));
   final rows = <String, Map<String, Object>>{};
@@ -43,13 +46,16 @@ List<Map<String, Object>> _releaseRows(
     }
     final download = show.bestDownload;
     if (download == null) continue;
+    final entry = matchFor?.call(ShowCatalogTarget.fromRelease(show))?.entry;
     rows[show.torrentKey] = {
       'key': show.torrentKey,
       'title': show.show,
+      if (entry != null) 'displayTitle': entry.displayTitle,
       'episode': show.episode,
       'releasedAt': show.releaseDate.millisecondsSinceEpoch,
       'magnet': download.magnet.trim(),
       'imageUrl': _artworkUrl(show.imageUrl, imageBase),
+      if (entry?.posterUrl case final String poster) 'catalogImageUrl': poster,
     };
   }
   return rows.values.toList();
@@ -62,26 +68,29 @@ Map<String, Object> buildWidgetCatalog({
   required Set<String> downloaded,
   required DateTime now,
   required Uri imageBase,
+  ShowCatalogMatch? Function(ShowCatalogTarget)? matchFor,
 }) {
   final feedTitles = watching
       .where((show) => show.showsOnHomePage)
       .map((show) => show.showName)
       .toSet();
   return {
-    'watching': [
-      for (final show in watching)
-        {
-          'title': show.showName,
-          'weekday': show.releaseDayOfWeek,
-          'manual': show.isManualEntry,
-          'folder': folders[show.showName] ?? '',
-          'imageUrl': _artworkUrl(show.imageUrl, imageBase),
-        },
-    ],
+    'watching': watching.map((show) {
+      final entry = matchFor?.call(ShowCatalogTarget.fromSchedule(show))?.entry;
+      return {
+        'title': show.showName,
+        if (entry != null) 'displayTitle': entry.displayTitle,
+        'weekday': show.releaseDayOfWeek,
+        'manual': show.isManualEntry,
+        'folder': folders[show.showName] ?? '',
+        'imageUrl': _artworkUrl(entry?.posterUrl ?? show.imageUrl, imageBase),
+      };
+    }).toList(),
     'releases': _releaseRows(
       releases.where((episode) => feedTitles.contains(episode.show)),
       now,
       imageBase,
+      matchFor,
     ),
     'downloaded': downloaded.toList(),
   };
@@ -93,12 +102,14 @@ Future<Map<String, Object>> widgetCatalog(Ref ref) async {
   final imageBase = Uri.parse(
     ref.watch(subsPleaseApiProvider.select((api) => api.baseUrl)),
   );
-  final (watching, releases, folders, downloaded) = await (
+  final (watching, releases, folders, downloaded, _) = await (
     ref.watch(bookmarkedSeriesProvider.future),
     ref.watch(cachedEpisodesProvider.future),
     ref.watch(seriesFolderMappingProvider.future),
     ref.watch(downloadedTorrentsProvider.future),
+    ref.watch(catalogCacheReadyProvider.future),
   ).wait;
+  if (!ref.mounted) return {};
   return buildWidgetCatalog(
     watching: watching,
     releases: releases,
@@ -106,6 +117,7 @@ Future<Map<String, Object>> widgetCatalog(Ref ref) async {
     downloaded: downloaded,
     now: DateTime.now(),
     imageBase: imageBase,
+    matchFor: (target) => ref.watch(cachedShowCatalogMatchProvider(target)),
   );
 }
 
@@ -130,8 +142,13 @@ Future<void> refreshWidgetCatalog() async {
   try {
     await runWidgetRefresh(
       channel: _widgetChannel,
-      fetch: api.fetchLatestReleases,
+      fetch: () async {
+        await container.read(catalogCacheReadyProvider.future);
+        return api.fetchLatestReleases();
+      },
       imageBase: Uri.parse(api.baseUrl),
+      matchFor: (target) =>
+          container.read(cachedShowCatalogMatchProvider(target)),
       serviceOptions: torrentWidgetStartOptions(),
       readSavedCatalog: () {
         // The headless engine has its own preferences cache and providers.
@@ -151,6 +168,7 @@ Future<void> runWidgetRefresh({
   required Future<Map<String, Object>> Function() readSavedCatalog,
   required Uri imageBase,
   required Map<String, dynamic> serviceOptions,
+  ShowCatalogMatch? Function(ShowCatalogTarget)? matchFor,
 }) async {
   var success = false;
   try {
@@ -166,7 +184,7 @@ Future<void> runWidgetRefresh({
     // A delayed response must never replace bookmarks, folders or completion
     // history changed by the user while this refresh was in flight.
     await channel.invokeMethod<void>('publishCatalog', {
-      'releases': _releaseRows(releases, DateTime.now(), imageBase),
+      'releases': _releaseRows(releases, DateTime.now(), imageBase, matchFor),
       'serviceOptions': serviceOptions,
     });
     success = true;

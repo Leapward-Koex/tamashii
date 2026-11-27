@@ -16,6 +16,7 @@ import 'package:tamashii/providers/tenrai_api_providers.dart';
 import 'package:tamashii/providers/subsplease_api_providers.dart';
 import 'package:tamashii/providers/torrent_download_provider.dart';
 import 'package:tamashii/widgets/add_schedule_show_sheet.dart';
+import 'package:tamashii/widgets/release_download_button.dart';
 import 'package:tamashii/widgets/schedule_show_actions_sheet.dart';
 import 'package:tamashii/widgets/show_card.dart';
 import 'package:tamashii/widgets/show_info_match_sheet.dart';
@@ -58,6 +59,12 @@ class FakeTenraiApi extends TenraiApi {
 }
 
 void main() {
+  Future<void> tapWeekday(WidgetTester tester, int weekday) async {
+    final day = find.byKey(SchedulePage.weekdayKey(weekday));
+    await tester.ensureVisible(day);
+    await tester.tap(day);
+  }
+
   Future<void> pumpSchedulePage(
     WidgetTester tester, {
     required FakeTenraiApi tenraiApi,
@@ -180,7 +187,7 @@ void main() {
       await tester.pump();
       await tester.tap(find.text('Use this match'));
       await tester.pumpAndSettle();
-      expect(find.text('Tenrai · MAL #49200'), findsOneWidget);
+      expect(find.text('MyAnimeList #49200'), findsOneWidget);
       await tester.pageBack();
       await tester.pumpAndSettle();
 
@@ -192,14 +199,14 @@ void main() {
       await tester.ensureVisible(standardTitle);
       await tester.tap(standardTitle);
       await tester.pumpAndSettle();
-      expect(find.text('Tenrai · MAL #44074'), findsOneWidget);
+      expect(find.text('MyAnimeList #44074'), findsOneWidget);
       await tester.pageBack();
       await tester.pumpAndSettle();
       await tester.tap(find.text('Schedule'));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(SchedulePage.showTileKey(series)));
       await tester.pumpAndSettle();
-      expect(find.text('Tenrai · MAL #44074'), findsOneWidget);
+      expect(find.text('MyAnimeList #44074'), findsOneWidget);
       expect(find.text('Matched automatically'), findsOneWidget);
 
       for (final ep in ['SP2', 'SP1']) {
@@ -209,7 +216,7 @@ void main() {
         await tester.pumpAndSettle();
         if (ep == 'SP1') {
           expect(find.text('Chosen by you'), findsOneWidget);
-          expect(find.text('Tenrai · MAL #49200'), findsOneWidget);
+          expect(find.text('MyAnimeList #49200'), findsOneWidget);
         } else {
           expect(find.text('Review 1 match'), findsOneWidget);
           expect(find.text('Chosen by you'), findsNothing);
@@ -245,7 +252,7 @@ void main() {
           ),
         ],
       );
-      await tester.tap(find.text('Mon'));
+      await tapWeekday(tester, DateTime.monday);
       await tester.pumpAndSettle();
       final now = DateTime.now();
       final monday = DateTime(now.year, now.month, now.day - now.weekday + 1);
@@ -275,6 +282,8 @@ void main() {
   testWidgets(
     'a new week follows today and keeps an explicitly browsed weekday',
     (tester) async {
+      await tester.binding.setSurfaceSize(const Size(420, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
       SharedPreferences.setMockInitialValues({});
       Future<void> show(DateTime now) async {
         await tester.pumpWidget(
@@ -294,12 +303,114 @@ void main() {
       await show(DateTime(2024));
       expect(find.text('Monday'), findsOneWidget);
       expect(find.text('1–7 JANUARY'), findsOneWidget);
-      await tester.tap(find.text('Fri'));
+      await tester.binding.setSurfaceSize(const Size(720, 500));
+      await tester.pumpAndSettle();
+      final monday = find.byKey(SchedulePage.weekdayKey(DateTime.monday));
+      expect(tester.widget<Semantics>(monday).properties.selected, isTrue);
+      await tapWeekday(tester, DateTime.friday);
       await tester.pumpAndSettle();
       await show(DateTime(2024, 1, 2));
-      expect(find.text('Friday'), findsOneWidget);
+      final friday = find.byKey(SchedulePage.weekdayKey(DateTime.friday));
+      expect(tester.widget<Semantics>(friday).properties.selected, isTrue);
       await show(DateTime(2024, 1, 30));
       expect(find.text('29 JAN–4 FEBRUARY'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'unfolded planner keeps the selected day through folds, shows the newest episode, and opens the selected show',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(760, 840);
+      addTearDown(tester.view.reset);
+      const watched = BookmarkedShowInfo(
+        showName: 'Witch Hat Atelier',
+        imageUrl: '',
+        releaseDayOfWeek: DateTime.friday,
+      );
+      const manual = BookmarkedShowInfo(
+        showName: 'My manual show',
+        imageUrl: '',
+        releaseDayOfWeek: DateTime.sunday,
+        source: BookmarkedShowSource.manual,
+      );
+      final releases = [
+        for (final episode in [4, 3])
+          ShowInfo(
+            downloads: [
+              ShowDownloadInfo(
+                resolution: ShowResolution.r1080,
+                magnet: 'magnet:?xt=sample',
+              ),
+            ],
+            episode: '0$episode',
+            imageUrl: '',
+            page: 'witch-hat',
+            releaseDate: DateTime(2026, 11, episode),
+            show: watched.showName,
+            timeLabel: '',
+            xdcc: '',
+          ),
+      ];
+      await pumpSchedulePage(
+        tester,
+        tenraiApi: createFakeTenraiApi(),
+        openAddSheet: false,
+        initialBookmarks: [watched, manual],
+        releases: releases,
+      );
+      final friday = find.byKey(SchedulePage.weekdayKey(DateTime.friday));
+      final sunday = find.byKey(SchedulePage.weekdayKey(DateTime.sunday));
+      final releaseTile = find.byKey(
+        SchedulePage.showTileKey(watched.showName),
+      );
+      await tester.ensureVisible(friday);
+      await tester.tap(friday);
+      await tester.pumpAndSettle();
+      expect(
+        tester.getBottomRight(friday).dx,
+        lessThan(tester.getTopLeft(releaseTile).dx),
+      );
+      expect(tester.widget<Semantics>(friday).properties.selected, isTrue);
+      expect(find.text('Latest · Episode 04 · 1080p'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: releaseTile,
+          matching: find.byType(ReleaseDownloadButton),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Up next · Sunday'), findsOneWidget);
+      expect(find.text('Today'), findsOneWidget);
+
+      tester.view.physicalSize = const Size(380, 840);
+      await tester.pumpAndSettle();
+      expect(releaseTile, findsOneWidget);
+      expect(find.text('Fri'), findsOneWidget);
+      expect(tester.widget<Semantics>(friday).properties.selected, isTrue);
+      await tester.tap(sunday);
+      await tester.pumpAndSettle();
+      tester.view.physicalSize = const Size(760, 840);
+      await tester.pumpAndSettle();
+      expect(tester.widget<Semantics>(sunday).properties.selected, isTrue);
+      final manualTile = find.byKey(SchedulePage.showTileKey(manual.showName));
+      expect(
+        find.descendant(
+          of: manualTile,
+          matching: find.byType(ReleaseDownloadButton),
+        ),
+        findsNothing,
+      );
+      await tester.tap(manualTile);
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<ShowInfoPage>(find.byType(ShowInfoPage)).bookmark,
+        manual,
+      );
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(tester.widget<Semantics>(sunday).properties.selected, isTrue);
+      expect(tester.takeException(), isNull);
     },
   );
 
@@ -315,7 +426,7 @@ void main() {
         openAddSheet: false,
       );
       final week = find.byType(PageView);
-      await tester.tap(find.text('Mon'));
+      await tapWeekday(tester, DateTime.monday);
       await tester.pumpAndSettle();
       await tester.fling(week, const Offset(-550, 0), 850);
       await tester.pumpAndSettle();
@@ -414,7 +525,7 @@ void main() {
 
     await tester.tap(find.text('Add by title'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Mon'));
+    await tapWeekday(tester, DateTime.monday);
     await tester.pumpAndSettle();
 
     final tile = find.byKey(SchedulePage.showTileKey('hero'));
@@ -430,7 +541,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Use this match'));
     await tester.pumpAndSettle();
-    expect(find.text('Tenrai · MAL #31964'), findsOneWidget);
+    expect(find.text('MyAnimeList #31964'), findsOneWidget);
     await tester.pageBack();
     await tester.pumpAndSettle();
     final preferences = await SharedPreferences.getInstance();
@@ -438,11 +549,15 @@ void main() {
     final bookmark = BookmarkedShowInfo.fromJson(jsonDecode(storedEntry));
     expect(bookmark.showName, 'hero');
     expect(bookmark.releaseDayOfWeek, DateTime.monday);
+    expect(
+      find.descendant(of: tile, matching: find.text('My Hero Academia')),
+      findsOneWidget,
+    );
 
     await tester.tap(tile);
     await tester.pumpAndSettle();
     expect(find.byType(ShowInfoPage), findsOneWidget);
-    expect(find.text('Tenrai · MAL #31964'), findsOneWidget);
+    expect(find.text('MyAnimeList #31964'), findsOneWidget);
     expect(find.text('Chosen by you'), findsOneWidget);
   });
 
@@ -509,7 +624,7 @@ void main() {
       ],
     );
 
-    await tester.tap(find.text('Mon'));
+    await tapWeekday(tester, DateTime.monday);
     await tester.pumpAndSettle();
 
     const targetWeekday = 5;
@@ -543,7 +658,7 @@ void main() {
       findsNothing,
     );
 
-    await tester.tap(find.text('Fri'));
+    await tapWeekday(tester, DateTime.friday);
     await tester.pumpAndSettle();
 
     expect(
@@ -572,7 +687,7 @@ void main() {
       ],
     );
 
-    await tester.tap(find.text('Mon'));
+    await tapWeekday(tester, DateTime.monday);
     await tester.pumpAndSettle();
 
     await tester.tap(

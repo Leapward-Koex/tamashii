@@ -9,6 +9,13 @@ abstract final class PaperLantern {
   static const wash = Color(0xFFE9E0D0);
   static const serif = 'Baskervville';
 
+  /// Allow a wider reading column when the user enlarges system text.
+  static bool supportsTwoPanes(BuildContext context, double width) {
+    final bodySize = MediaQuery.textScalerOf(context).scale(16);
+    // At 600 logical pixels the reader has a 240px index and a 360px detail.
+    return width >= 600 + (bodySize - 16).clamp(0, double.infinity) * 18;
+  }
+
   static const folio = TextStyle(
     fontFamily: 'monospace',
     fontFamilyFallback: ['Consolas', 'Menlo'],

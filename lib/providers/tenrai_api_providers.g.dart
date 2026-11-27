@@ -217,6 +217,88 @@ final class CatalogEntryByIdFamily extends $Family
   String toString() => r'catalogEntryByIdProvider';
 }
 
+@ProviderFor(relatedTenraiShows)
+final relatedTenraiShowsProvider = RelatedTenraiShowsFamily._();
+
+final class RelatedTenraiShowsProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<List<TenraiAnimeSearchResult>>,
+          List<TenraiAnimeSearchResult>,
+          FutureOr<List<TenraiAnimeSearchResult>>
+        >
+    with
+        $FutureModifier<List<TenraiAnimeSearchResult>>,
+        $FutureProvider<List<TenraiAnimeSearchResult>> {
+  RelatedTenraiShowsProvider._({
+    required RelatedTenraiShowsFamily super.from,
+    required (int, String) super.argument,
+  }) : super(
+         retry: _noRetry,
+         name: r'relatedTenraiShowsProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$relatedTenraiShowsHash();
+
+  @override
+  String toString() {
+    return r'relatedTenraiShowsProvider'
+        ''
+        '$argument';
+  }
+
+  @$internal
+  @override
+  $FutureProviderElement<List<TenraiAnimeSearchResult>> $createElement(
+    $ProviderPointer pointer,
+  ) => $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<List<TenraiAnimeSearchResult>> create(Ref ref) {
+    final argument = this.argument as (int, String);
+    return relatedTenraiShows(ref, argument.$1, argument.$2);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is RelatedTenraiShowsProvider && other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$relatedTenraiShowsHash() =>
+    r'6181e6101f32be7f460a73b800674c3991da497b';
+
+final class RelatedTenraiShowsFamily extends $Family
+    with
+        $FunctionalFamilyOverride<
+          FutureOr<List<TenraiAnimeSearchResult>>,
+          (int, String)
+        > {
+  RelatedTenraiShowsFamily._()
+    : super(
+        retry: _noRetry,
+        name: r'relatedTenraiShowsProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  RelatedTenraiShowsProvider call(int malId, String title) =>
+      RelatedTenraiShowsProvider._(argument: (malId, title), from: this);
+
+  @override
+  String toString() => r'relatedTenraiShowsProvider';
+}
+
 @ProviderFor(featuredTenraiPoster)
 final featuredTenraiPosterProvider = FeaturedTenraiPosterFamily._();
 

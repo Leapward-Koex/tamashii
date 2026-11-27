@@ -79,10 +79,11 @@ class AddScheduleShowSheet extends HookConsumerWidget {
         final notifier = ref.read(bookmarkedSeriesProvider.notifier);
         final saved = await notifier.add(
           BookmarkedShowInfo(
-            imageUrl: match?.imageUrl ?? '',
+            imageUrl: match?.posterUrl ?? '',
             releaseDayOfWeek: selectedDay.value,
             showName: title,
             malId: match?.malId,
+            catalogEntry: match,
             source: BookmarkedShowSource.manual,
           ),
         );
@@ -266,7 +267,7 @@ class _SearchResults extends StatelessWidget {
                   vertical: 8,
                 ),
                 leading: ShowImage(
-                  imageUrl: result.imageUrl,
+                  imageUrl: result.posterUrl ?? '',
                   width: 42,
                   height: 56,
                 ),
@@ -294,12 +295,13 @@ class _SearchResults extends StatelessWidget {
 
   String _searchSubtitle(TenraiAnimeSearchResult result, bool alreadyWatching) {
     if (alreadyWatching) {
-      return 'Already in your watching list';
+      return 'Already in your watching list • ${result.airingLabel}';
     }
 
     final details = <String>[
       if (result.type case final type? when type.trim().isNotEmpty) type.trim(),
       if (result.episodes case final episodes?) '$episodes eps',
+      result.airingLabel,
       _weekdayName(selectedDay),
     ];
     return details.join(' • ');

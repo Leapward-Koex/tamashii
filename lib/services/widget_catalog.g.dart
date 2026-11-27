@@ -52,4 +52,4 @@ final class WidgetCatalogProvider
   }
 }
 
-String _$widgetCatalogHash() => r'dafa7a3f018a0075adf960d68d3103257278b477';
+String _$widgetCatalogHash() => r'cc15b615dd141f7f718a541d35e268ccfd716ec4';

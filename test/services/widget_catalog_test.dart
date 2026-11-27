@@ -11,6 +11,8 @@ import 'package:shared_preferences_platform_interface/in_memory_shared_preferenc
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:tamashii/api/api_client.dart';
 import 'package:tamashii/models/show_models.dart';
+import 'package:tamashii/models/show_catalog_match.dart';
+import 'package:tamashii/models/tenrai_models.dart';
 import 'package:tamashii/providers/bookmarked_series_provider.dart';
 import 'package:tamashii/providers/downloaded_torrents_provider.dart';
 import 'package:tamashii/providers/settings_provider.dart';
@@ -47,6 +49,45 @@ ShowInfo _episode(
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('widget publication separates canonical names and posters from download keys', () {
+    final now = DateTime.utc(2026, 11, 27);
+    final catalog = buildWidgetCatalog(
+      watching: [_bookmark],
+      releases: [_episode('Ferry', '01', now)],
+      folders: {'Ferry': '/downloads/ferry'},
+      downloaded: {},
+      now: now,
+      imageBase: _imageBase,
+      matchFor: (target) => ShowCatalogMatch(
+        entry: TenraiAnimeSearchResult(
+          malId: 43,
+          title: target.episode == null ? 'Night Ferry' : 'Night Ferry special',
+          imageUrl: 'https://mal.test/cover.jpg',
+        ),
+      ),
+    );
+    final watching = (catalog['watching'] as List).single as Map;
+    final release = (catalog['releases'] as List).single as Map;
+    expect(
+      [watching['title'], watching['displayTitle'], watching['folder']],
+      ['Ferry', 'Night Ferry', '/downloads/ferry'],
+    );
+    expect(
+      [
+        release['title'],
+        release['displayTitle'],
+        release['key'],
+        release['catalogImageUrl'],
+      ],
+      [
+        'Ferry',
+        'Night Ferry special',
+        'Ferry-01',
+        'https://mal.test/cover.jpg',
+      ],
+    );
+  });
 
   test(
     'publishes watched feed titles and editable weekly schedule separately',

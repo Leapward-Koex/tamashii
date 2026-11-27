@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tamashii/api/tenrai_api.dart';
 import 'package:tamashii/models/show_catalog_match.dart';
 import 'package:tamashii/models/show_models.dart';
 import 'package:tamashii/models/tenrai_models.dart';
@@ -185,25 +186,55 @@ void main() {
     },
   );
 
-  testWidgets('removing a featured show from watching restores SubsPlease', (
+  testWidgets(
+    'removing a featured show from watching keeps its catalog identity',
+    (tester) async {
+      await _pumpCard(
+        tester,
+        isBookmarked: true,
+        findPoster: () async => _tenraiPoster,
+      );
+      expect(_imageFor(_tenraiPoster), findsOneWidget);
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ShowCard)),
+      );
+      await container
+          .read(bookmarkedSeriesProvider.notifier)
+          .remove(_showTitle);
+      await tester.pump();
+
+      expect(_imageFor(_tenraiPoster), findsOneWidget);
+      expect(_showImageFor(tester, _tenraiPoster).faceAware, isFalse);
+      expect(find.text('Star Detective'), findsOneWidget);
+    },
+  );
+
+  testWidgets('unwatched index rows use the saved canonical title and poster', (
     tester,
   ) async {
+    final target = const ShowCatalogTarget(title: _showTitle);
+    SharedPreferences.setMockInitialValues({
+      'catalog_match.${target.scopeKey}':
+          '{"mal_id":1,"title":"Star Detective","images":{"jpg":{"image_url":"$_tenraiPoster"}}}',
+    });
     await _pumpCard(
       tester,
-      isBookmarked: true,
-      findPoster: () async => _tenraiPoster,
+      featured: false,
+      isBookmarked: false,
+      findPoster: () => throw StateError('unexpected discovery'),
     );
+    expect(find.text('Star Detective'), findsOneWidget);
     expect(_imageFor(_tenraiPoster), findsOneWidget);
-
+    await tester.tap(find.byTooltip('Mark as watching'));
+    await tester.pump();
     final container = ProviderScope.containerOf(
       tester.element(find.byType(ShowCard)),
     );
-    await container.read(bookmarkedSeriesProvider.notifier).remove(_showTitle);
-    await tester.pump();
-
-    expect(_imageFor(_subsPleasePoster), findsOneWidget);
-    expect(_showImageFor(tester, _posterPath).faceAware, isFalse);
-    expect(_imageFor(_tenraiPoster), findsNothing);
+    expect(
+      (await container.read(bookmarkedSeriesProvider.future)).single.showName,
+      _showTitle,
+    );
   });
 
   testWidgets('no matching Tenrai poster keeps the SubsPlease artwork', (
@@ -302,10 +333,7 @@ void main() {
     );
 
     expect(inspectedUrls, isEmpty);
-    expect(
-      tester.widget<RawImage>(_renderedPoster(_subsPleasePoster)).alignment,
-      Alignment.center,
-    );
+    expect(_renderedPoster(_subsPleasePoster), findsNothing);
 
     failure.complete();
     await tester.pumpAndSettle();
@@ -410,8 +438,7 @@ Future<void> _pumpCard(
           () => _BookmarkedSeries(isBookmarked),
         ),
         torrentManagerProvider.overrideWithValue(const TorrentManagerState()),
-        featuredTenraiPosterProvider(_showTitle)
-            .overrideWith((ref) => findPoster()),
+        tenraiApiProvider.overrideWithValue(_PosterCatalog(findPoster)),
         for (final url in [_subsPleasePoster, _tenraiPoster])
           featuredPosterFacesProvider(url)
               .overrideWith((ref) async => detectFaces?.call(url)),
@@ -447,6 +474,29 @@ class _BookmarkedSeries extends BookmarkedSeriesNotifier {
         showName: _showTitle,
       ),
   ];
+}
+
+class _PosterCatalog extends Fake implements TenraiApi {
+  _PosterCatalog(this.findPoster);
+  final Future<String?> Function() findPoster;
+
+  @override
+  Future<List<TenraiAnimeSearchResult>> searchAnime(
+    String query, {
+    int limit = 10,
+  }) async {
+    final poster = await findPoster();
+    return [
+      if (poster != null)
+        TenraiAnimeSearchResult(
+          malId: 1,
+          title: _showTitle,
+          titleEnglish: 'Star Detective',
+          type: 'TV',
+          largeImageUrl: poster,
+        ),
+    ];
+  }
 }
 
 class _PosterCache extends Fake implements BaseCacheManager {

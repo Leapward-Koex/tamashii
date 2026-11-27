@@ -2,6 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:tamashii/models/download_transfer_metrics.dart';
+import 'package:tamashii/models/show_catalog_match.dart';
+import 'package:tamashii/models/show_models.dart';
+import 'package:tamashii/providers/show_catalog_match_provider.dart';
 import 'package:tamashii/providers/download_queue_provider.dart';
 import 'package:tamashii/providers/foreground_torrent_provider.dart';
 import 'package:tamashii/services/download_transfer_metrics.dart';
@@ -15,7 +18,12 @@ import 'package:tamashii/widgets/transfer_policy_banner.dart';
 /// Completed downloads intentionally leave this view. This screen is a live
 /// monitor rather than a download-history page.
 class DownloadQueuePage extends ConsumerStatefulWidget {
-  const DownloadQueuePage({this.platform, super.key});
+  const DownloadQueuePage({
+    this.platform,
+    this.releasesByKey = const {},
+    super.key,
+  });
+  final Map<String, ShowInfo> releasesByKey;
 
   static const Key emptyStateKey = ValueKey<String>('download-queue-empty');
   static const Key summaryCardKey = ValueKey<String>('download-queue-summary');
@@ -90,7 +98,23 @@ class _DownloadQueuePageState extends ConsumerState<DownloadQueuePage> {
     final activeItems = <DownloadTransferItem>[];
     final pausedItems = <DownloadTransferItem>[];
     final failedItems = <DownloadTransferItem>[];
-    for (final item in report.items) {
+    for (final transfer in report.items) {
+      final release = widget.releasesByKey[transfer.key];
+      final match = release == null
+          ? null
+          : ref
+                .watch(
+                  cachedShowCatalogMatchProvider(
+                    ShowCatalogTarget.fromRelease(release),
+                  ),
+                )
+                ?.entry;
+      final item = match == null
+          ? transfer
+          : transfer.copyWith(
+              displayName:
+                  '${match.displayTitle} · Episode ${release!.episode}',
+            );
       switch (item.status) {
         case DownloadTransferStatus.preparing:
         case DownloadTransferStatus.downloading:

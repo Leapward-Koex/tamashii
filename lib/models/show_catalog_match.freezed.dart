@@ -291,6 +291,7 @@ as String?,
 
 }
 
+
 /// @nodoc
 mixin _$ShowCatalogMatch {
 
@@ -301,6 +302,8 @@ mixin _$ShowCatalogMatch {
 @pragma('vm:prefer-inline')
 $ShowCatalogMatchCopyWith<ShowCatalogMatch> get copyWith => _$ShowCatalogMatchCopyWithImpl<ShowCatalogMatch>(this as ShowCatalogMatch, _$identity);
 
+  /// Serializes this ShowCatalogMatch to a JSON map.
+  Map<String, dynamic> toJson();
 
 
 @override
@@ -309,7 +312,7 @@ bool operator ==(Object other) {
   return identical(this, other) || (other.runtimeType == runtimeType&&other is ShowCatalogMatch&&(identical(other.entry, _this.entry) || other.entry == _this.entry)&&const DeepCollectionEquality().equals(other.candidates, _this.candidates)&&(identical(other.userSelected, _this.userSelected) || other.userSelected == _this.userSelected)&&(identical(other.releaseOnly, _this.releaseOnly) || other.releaseOnly == _this.releaseOnly)&&(identical(other.evidence, _this.evidence) || other.evidence == _this.evidence));
 }
 
-
+@JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
   final _this = this as ShowCatalogMatch;
@@ -504,11 +507,11 @@ return $default(_that.entry,_that.candidates,_that.userSelected,_that.releaseOnl
 }
 
 /// @nodoc
-
+@JsonSerializable()
 
 class _ShowCatalogMatch implements ShowCatalogMatch {
   const _ShowCatalogMatch({this.entry,  List<TenraiAnimeSearchResult> candidates = const <TenraiAnimeSearchResult>[], this.userSelected = false, this.releaseOnly = false, this.evidence}): _candidates = candidates;
-  
+  factory _ShowCatalogMatch.fromJson(Map<String, dynamic> json) => _$ShowCatalogMatchFromJson(json);
 
 @override final  TenraiAnimeSearchResult? entry;
  final  List<TenraiAnimeSearchResult> _candidates;
@@ -528,14 +531,17 @@ class _ShowCatalogMatch implements ShowCatalogMatch {
 @pragma('vm:prefer-inline')
 _$ShowCatalogMatchCopyWith<_ShowCatalogMatch> get copyWith => __$ShowCatalogMatchCopyWithImpl<_ShowCatalogMatch>(this, _$identity);
 
-
+@override
+Map<String, dynamic> toJson() {
+  return _$ShowCatalogMatchToJson(this, );
+}
 
 @override
 bool operator ==(Object other) {
     return identical(this, other) || (other.runtimeType == runtimeType&&other is _ShowCatalogMatch&&(identical(other.entry, entry) || other.entry == entry)&&const DeepCollectionEquality().equals(other.candidates, _candidates)&&(identical(other.userSelected, userSelected) || other.userSelected == userSelected)&&(identical(other.releaseOnly, releaseOnly) || other.releaseOnly == releaseOnly)&&(identical(other.evidence, evidence) || other.evidence == evidence));
 }
 
-
+@JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
     return Object.hash(runtimeType,entry,const DeepCollectionEquality().hash(_candidates),userSelected,releaseOnly,evidence);

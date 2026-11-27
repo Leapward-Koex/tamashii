@@ -5,6 +5,7 @@ import 'package:tamashii/models/show_models.dart';
 import 'package:tamashii/models/tenrai_models.dart';
 
 part 'show_catalog_match.freezed.dart';
+part 'show_catalog_match.g.dart';
 
 @freezed
 abstract class ShowCatalogTarget with _$ShowCatalogTarget {
@@ -103,4 +104,7 @@ abstract class ShowCatalogMatch with _$ShowCatalogMatch {
     @Default(false) bool releaseOnly,
     String? evidence,
   }) = _ShowCatalogMatch;
+
+  factory ShowCatalogMatch.fromJson(Map<String, dynamic> json) =>
+      _$ShowCatalogMatchFromJson(json);
 }
