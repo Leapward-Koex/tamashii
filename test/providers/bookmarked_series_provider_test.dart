@@ -3,10 +3,105 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tamashii/models/show_catalog_match.dart';
 import 'package:tamashii/models/show_models.dart';
+import 'package:tamashii/models/tenrai_models.dart';
 import 'package:tamashii/providers/bookmarked_series_provider.dart';
+import 'package:tamashii/providers/show_catalog_match_provider.dart';
 
 void main() {
+  const alias = BookmarkedShowInfo(
+    showName: 'My alias',
+    imageUrl: '',
+    releaseDayOfWeek: DateTime.monday,
+    source: BookmarkedShowSource.manual,
+  );
+  const catalog = TenraiAnimeSearchResult(
+    malId: 12,
+    title: 'Catalog title',
+    imageUrl: 'cover.jpg',
+  );
+  final target = ShowCatalogTarget.fromSchedule(alias);
+  test('manual series corrections update schedule artwork, duplicate checks and explicit unmatched across restart', () async {
+    SharedPreferences.setMockInitialValues({});
+    final c = ProviderContainer.test();
+    final bookmarks = c.read(bookmarkedSeriesProvider.notifier);
+    await bookmarks.add(alias);
+    final choices = c.read(catalogMatchOverridesProvider.notifier);
+    await bookmarks.saveCatalogChoice(target, catalog);
+    final other = alias.copyWith(showName: 'Other alias', malId: catalog.malId);
+    expect(await bookmarks.add(other), isFalse);
+    expect(
+      (await c.read(bookmarkedSeriesProvider.future)).single,
+      alias.copyWith(malId: 12, imageUrl: 'cover.jpg'),
+    );
+    await bookmarks.saveCatalogChoice(
+      target,
+      catalog.copyWith(malId: 13, imageUrl: 'corrected.jpg'),
+    );
+    expect(await bookmarks.add(other), isTrue);
+    expect(
+      (await c.read(bookmarkedSeriesProvider.future)).first,
+      alias.copyWith(malId: 13, imageUrl: 'corrected.jpg'),
+    );
+    await expectLater(
+      bookmarks.saveCatalogChoice(target, catalog),
+      throwsA(isA<DuplicateScheduleMatch>()),
+    );
+    await choices.save(target.copyWith(episode: 'SP1', page: 'alias'), catalog);
+    expect((await c.read(bookmarkedSeriesProvider.future)).first.malId, 13);
+    await bookmarks.saveCatalogChoice(target, null);
+    final restored = ProviderContainer.test();
+    final items = await restored.read(bookmarkedSeriesProvider.future);
+    expect(items, [alias, other]);
+  });
+  test('adding a manual title honors a saved correction while a feed bookmark keeps its source artwork', () async {
+    SharedPreferences.setMockInitialValues({});
+    final c = ProviderContainer.test();
+    final choices = c.read(catalogMatchOverridesProvider.notifier);
+    await choices.save(target, catalog);
+    final bookmarks = c.read(bookmarkedSeriesProvider.notifier);
+    expect(await bookmarks.add(alias), isTrue);
+    expect(
+      (await c.read(bookmarkedSeriesProvider.future)).single.imageUrl,
+      'cover.jpg',
+    );
+    expect(await bookmarks.remove(alias.showName), isTrue);
+    final source = alias.copyWith(
+      source: BookmarkedShowSource.subsplease,
+      imageUrl: 'subs.jpg',
+    );
+    expect(await bookmarks.add(source), isTrue);
+    expect((await c.read(bookmarkedSeriesProvider.future)).single, source);
+  });
+  test(
+    'concurrent correction and alias addition cannot leave duplicate IDs',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final c = ProviderContainer.test();
+      final bookmarks = c.read(bookmarkedSeriesProvider.notifier);
+      await bookmarks.add(alias);
+      final correction = bookmarks
+          .saveCatalogChoice(target, catalog)
+          .then(
+            (_) => true,
+            onError: (Object error) {
+              expect(error, isA<DuplicateScheduleMatch>());
+              return false;
+            },
+          );
+      final addition = bookmarks.add(
+        alias.copyWith(showName: 'Other alias', malId: 12),
+      );
+      final saved = await Future.wait([correction, addition]);
+      expect(saved.where((yes) => yes), hasLength(1));
+      expect(
+        (await c.read(bookmarkedSeriesProvider.future))
+            .where((show) => show.malId == 12),
+        hasLength(1),
+      );
+    },
+  );
   test('saved Jikan matches load and block duplicate Tenrai matches', () async {
     const savedImage = 'https://cdn.example.com/frieren.jpg';
     SharedPreferences.setMockInitialValues({

@@ -4,7 +4,15 @@ import 'package:tamashii/models/tenrai_models.dart';
 TenraiAnimeSearchResult? matchTenraiPoster(
   String showTitle,
   Iterable<TenraiAnimeSearchResult> candidates,
-) {
+) => matchTenraiTitle(showTitle, candidates, requireLargeArtwork: true);
+
+/// Returns a unique, installment-aware title match, including either title
+/// language. Catalog identity does not require a usable poster.
+TenraiAnimeSearchResult? matchTenraiTitle(
+  String showTitle,
+  Iterable<TenraiAnimeSearchResult> candidates, {
+  bool requireLargeArtwork = false,
+}) {
   final title = _titleKey(showTitle);
   if (title.isEmpty) return null;
 
@@ -23,12 +31,18 @@ TenraiAnimeSearchResult? matchTenraiPoster(
     final isMovie = candidate.type?.trim().toLowerCase() == 'movie';
     if (isMovie && !_movieMarker.hasMatch(title)) continue;
     if (!matchesPrimary && !_aliasKeepsInstallment(title, primary)) continue;
-    if (poster == null && candidate.largeImageUrl?.trim().isNotEmpty == true) {
+    if (poster == null &&
+        (!requireLargeArtwork ||
+            candidate.largeImageUrl?.trim().isNotEmpty == true)) {
       poster = candidate;
     }
   }
   return poster;
 }
+
+/// Normalizes title punctuation and equivalent explicit season spellings
+/// without dropping the installment information.
+String catalogTitleKey(String value) => _expandRomanSeason(_titleKey(value));
 
 final _apostrophes = RegExp("[’']");
 final _titleWords = RegExp(r'[\p{L}\p{N}\p{M}]+', unicode: true);

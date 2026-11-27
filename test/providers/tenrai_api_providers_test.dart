@@ -19,6 +19,13 @@ class FakeTenraiApi extends TenraiApi {
 
   final List<TenraiAnimeSearchResult> results;
   final List<String> searchedQueries = <String>[];
+  final List<int> requestedIds = [];
+
+  @override
+  Future<TenraiAnimeSearchResult?> getAnimeById(int malId) async {
+    requestedIds.add(malId);
+    return results.where((entry) => entry.malId == malId).firstOrNull;
+  }
 
   @override
   Future<List<TenraiAnimeSearchResult>> searchAnime(
@@ -46,6 +53,25 @@ class ThrowingTenraiApi extends TenraiApi {
 }
 
 void main() {
+  test(
+    'keeps successful catalog ID lookups across visits and retries misses',
+    () async {
+      final api = FakeTenraiApi();
+      final container = ProviderContainer.test(
+        overrides: [tenraiApiProvider.overrideWithValue(api)],
+      );
+      for (final id in [1, 2, 1, 2]) {
+        final provider = catalogEntryByIdProvider(id);
+        final sub = container.listen(provider, (_, _) {});
+        final result = await container.read(provider.future);
+        expect(result?.malId, id == 1 ? 1 : null);
+        sub.close();
+        await container.pump();
+      }
+      expect(api.requestedIds, [1, 2, 2]);
+    },
+  );
+
   group('searchTenraiShowsProvider', () {
     test(
       'keeps cached results for the same query after listeners are removed',

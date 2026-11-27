@@ -3,8 +3,8 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:tamashii/models/show_models.dart';
+import 'package:tamashii/pages/show_info_page.dart';
 import 'package:tamashii/providers/bookmarked_series_provider.dart';
-import 'package:tamashii/widgets/add_schedule_show_sheet.dart';
 import 'package:tamashii/widgets/schedule_show_actions_sheet.dart';
 import 'package:tamashii/widgets/show_image.dart';
 
@@ -14,6 +14,9 @@ class SchedulePage extends HookConsumerWidget {
 
   static Key showTileKey(String showName) =>
       ValueKey<String>('schedule-show-tile-$showName');
+
+  static Key showActionsKey(String showName) =>
+      ValueKey<String>('schedule-show-actions-$showName');
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -65,6 +68,15 @@ class SchedulePage extends HookConsumerWidget {
       shows.sort((a, b) => a.showName.compareTo(b.showName));
     }
 
+    void openInfo(BookmarkedShowInfo show, {bool openMatchPicker = false}) {
+      Navigator.of(context).push<void>(
+        MaterialPageRoute(
+          builder: (_) =>
+              ShowInfoPage.schedule(show, openMatchPicker: openMatchPicker),
+        ),
+      );
+    }
+
     Future<void> openActions(BookmarkedShowInfo show) async {
       final action = await showModalBottomSheet<ScheduleShowAction>(
         context: context,
@@ -78,21 +90,7 @@ class SchedulePage extends HookConsumerWidget {
 
       switch (action.type) {
         case ScheduleShowActionType.match:
-          final matchedTitle = await showModalBottomSheet<String>(
-            context: context,
-            isScrollControlled: true,
-            builder: (_) => AddScheduleShowSheet.match(show: show),
-          );
-
-          if (!context.mounted || matchedTitle == null) {
-            return;
-          }
-
-          ScaffoldMessenger.of(context)
-            ..hideCurrentSnackBar()
-            ..showSnackBar(
-              SnackBar(content: Text('Matched to "$matchedTitle" on Tenrai.')),
-            );
+          openInfo(show, openMatchPicker: true);
           return;
         case ScheduleShowActionType.remove:
           final removed = await ref
@@ -139,54 +137,58 @@ class SchedulePage extends HookConsumerWidget {
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: List.generate(7, (index) {
-              final dayIndex = index + 1;
-              final isToday = dayIndex == DateTime.now().weekday;
-              final isSelected = index == selectedIndex.value;
-              final dayName = _weekdayName(dayIndex, pattern: 'E');
+          child: SizedBox(
+            width: double.infinity,
+            child: Wrap(
+              alignment: WrapAlignment.spaceAround,
+              runSpacing: 4,
+              children: List.generate(7, (index) {
+                final dayIndex = index + 1;
+                final isToday = dayIndex == DateTime.now().weekday;
+                final isSelected = index == selectedIndex.value;
+                final dayName = _weekdayName(dayIndex, pattern: 'E');
 
-              return InkWell(
-                onTap: () {
-                  selectedIndex.value = index;
-                  controller.animateToPage(
-                    index,
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeInOut,
-                  );
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? Theme.of(context).primaryColor
-                        : (isToday
-                              ? Theme.of(context).primaryColor
-                                    .withValues(alpha: 0.1)
-                              : Colors.transparent),
-                    borderRadius: BorderRadius.circular(16),
-                    border: isToday && !isSelected
-                        ? Border.all(color: Theme.of(context).primaryColor)
-                        : null,
-                  ),
-                  child: Text(
-                    dayName,
-                    style: TextStyle(
-                      fontWeight: (isSelected || isToday)
-                          ? FontWeight.bold
-                          : FontWeight.normal,
+                return InkWell(
+                  onTap: () {
+                    selectedIndex.value = index;
+                    controller.animateToPage(
+                      index,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
                       color: isSelected
-                          ? Theme.of(context).colorScheme.onPrimary
-                          : (isToday ? Theme.of(context).primaryColor : null),
+                          ? Theme.of(context).primaryColor
+                          : (isToday
+                                ? Theme.of(context).primaryColor
+                                      .withValues(alpha: 0.1)
+                                : Colors.transparent),
+                      borderRadius: BorderRadius.circular(16),
+                      border: isToday && !isSelected
+                          ? Border.all(color: Theme.of(context).primaryColor)
+                          : null,
+                    ),
+                    child: Text(
+                      dayName,
+                      style: TextStyle(
+                        fontWeight: (isSelected || isToday)
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                        color: isSelected
+                            ? Theme.of(context).colorScheme.onPrimary
+                            : (isToday ? Theme.of(context).primaryColor : null),
+                      ),
                     ),
                   ),
-                ),
-              );
-            }),
+                );
+              }),
+            ),
           ),
         ),
         const Divider(height: 1),
@@ -241,7 +243,7 @@ class SchedulePage extends HookConsumerWidget {
                                   ),
                                   child: ListTile(
                                     key: showTileKey(show.showName),
-                                    onTap: () => openActions(show),
+                                    onTap: () => openInfo(show),
                                     contentPadding: const EdgeInsets.symmetric(
                                       horizontal: 16.0,
                                       vertical: 8.0,
@@ -255,7 +257,13 @@ class SchedulePage extends HookConsumerWidget {
                                     subtitle: show.isManualEntry
                                         ? const Text('Manual entry')
                                         : null,
-                                    trailing: const Icon(Icons.more_horiz),
+                                    trailing: IconButton(
+                                      key: showActionsKey(show.showName),
+                                      tooltip:
+                                          'Schedule options for ${show.showName}',
+                                      icon: const Icon(Icons.more_horiz),
+                                      onPressed: () => openActions(show),
+                                    ),
                                     leading: ClipRRect(
                                       borderRadius: BorderRadius.circular(4),
                                       child: ShowImage(

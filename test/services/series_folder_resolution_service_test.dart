@@ -17,6 +17,7 @@ class FakeOnDeviceTextGenerator implements OnDeviceTextGenerator {
   @override
   Future<OnDeviceGenerationResponse> generateText({
     required String prompt,
+    bool allowModelDownload = true,
   }) async {
     if (throwOnGenerate) {
       throw Exception('generation failed');

@@ -10,6 +10,41 @@ import 'package:tamashii/models/tenrai_models.dart';
 
 void main() {
   group('TenraiApi', () {
+    test('loads one exact MAL ID and distinguishes a missing entry', () async {
+      final api = TenraiApi(
+        httpClient: MockClient((request) async {
+          expect(request.url.query, isEmpty);
+          if (request.url.path == '/v1/anime/20') {
+            return http.Response(
+              '{"data":{"mal_id":20,"title":"Naruto"}}',
+              200,
+            );
+          }
+          expect(request.url.path, '/v1/anime/999');
+          return http.Response('Not found', 404);
+        }),
+      );
+      addTearDown(api.close);
+      expect((await api.getAnimeById(20))?.title, 'Naruto');
+      expect(await api.getAnimeById(999), isNull);
+      expect(await api.getAnimeById(0), isNull);
+    });
+
+    test('an unexpected ID or malformed result never becomes a link', () async {
+      for (final data in ['{"mal_id":21,"title":"Other"}', '[]', 'null']) {
+        final api = TenraiApi(
+          httpClient: MockClient(
+            (_) async => http.Response('{"data":$data}', 200),
+          ),
+        );
+        addTearDown(api.close);
+        await expectLater(
+          api.getAnimeById(20),
+          throwsA(isA<TenraiApiException>()),
+        );
+      }
+    });
+
     test('searchAnime parses anime search results', () async {
       final api = TenraiApi(
         httpClient: MockClient((request) async {

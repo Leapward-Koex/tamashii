@@ -33,6 +33,13 @@ Future<List<TenraiAnimeSearchResult>> searchTenraiShows(
 }
 
 @Riverpod(retry: _noRetry)
+Future<TenraiAnimeSearchResult?> catalogEntryById(Ref ref, int malId) async {
+  final entry = await ref.watch(tenraiApiProvider).getAnimeById(malId);
+  if (ref.mounted && entry != null) ref.keepAlive();
+  return entry;
+}
+
+@Riverpod(retry: _noRetry)
 Future<String?> featuredTenraiPoster(Ref ref, String showTitle) async {
   final results = await ref.watch(
     searchTenraiShowsProvider(showTitle.trim()).future,

@@ -10,21 +10,26 @@ import 'package:tamashii/models/tenrai_models.dart';
 import 'package:tamashii/models/show_models.dart';
 import 'package:tamashii/pages/home_page.dart';
 import 'package:tamashii/pages/schedule_page.dart';
+import 'package:tamashii/pages/show_info_page.dart';
 import 'package:tamashii/providers/tenrai_api_providers.dart';
 import 'package:tamashii/providers/subsplease_api_providers.dart';
 import 'package:tamashii/providers/torrent_download_provider.dart';
 import 'package:tamashii/widgets/add_schedule_show_sheet.dart';
 import 'package:tamashii/widgets/schedule_show_actions_sheet.dart';
+import 'package:tamashii/widgets/show_card.dart';
+import 'package:tamashii/widgets/show_info_match_sheet.dart';
 
 class FakeSubsPleaseApi extends SubsPleaseApi {
-  FakeSubsPleaseApi();
+  FakeSubsPleaseApi([this.releases = const []]);
+
+  final List<ShowInfo> releases;
 
   @override
-  Future<List<ShowInfo>> getLatestShowList() async => const <ShowInfo>[];
+  Future<List<ShowInfo>> getLatestShowList() async => releases;
 
   @override
   Future<List<ShowInfo>> getShowsFromSearch(String searchTerm) async =>
-      const <ShowInfo>[];
+      releases.where((show) => show.show == searchTerm).toList();
 
   @override
   Future<String?> getShowSynopsis(String showPage) async => null;
@@ -55,6 +60,7 @@ void main() {
     WidgetTester tester, {
     required FakeTenraiApi tenraiApi,
     List<BookmarkedShowInfo> initialBookmarks = const <BookmarkedShowInfo>[],
+    List<ShowInfo> releases = const [],
     bool openAddSheet = true,
   }) async {
     SharedPreferences.setMockInitialValues(<String, Object>{
@@ -71,7 +77,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          subsPleaseApiProvider.overrideWithValue(FakeSubsPleaseApi()),
+          subsPleaseApiProvider.overrideWithValue(FakeSubsPleaseApi(releases)),
           tenraiApiProvider.overrideWithValue(tenraiApi),
           torrentManagerProvider.overrideWithValue(const TorrentManagerState()),
         ],
@@ -107,6 +113,113 @@ void main() {
       },
     );
   }
+
+  testWidgets(
+    'fixing a Home special leaves its Schedule series and sibling special alone',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(450, 1000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      const series = 'Link Click';
+      const regular = TenraiAnimeSearchResult(
+        malId: 44074,
+        title: 'Shiguang Dailiren',
+        titleEnglish: series,
+        type: 'ONA',
+      );
+      const special = TenraiAnimeSearchResult(
+        malId: 49200,
+        title: 'Link Click Episode 5.5',
+        type: 'ONA',
+      );
+      final shows = [
+        for (final (ep, day) in [('SP1', 3), ('03', 2), ('SP2', 1)])
+          ShowInfo(
+            downloads: [],
+            episode: ep,
+            imageUrl: '',
+            page: 'link-click',
+            releaseDate: DateTime.utc(2026, 11, day),
+            show: series,
+            timeLabel: '',
+            xdcc: '',
+          ),
+      ];
+      await pumpSchedulePage(
+        tester,
+        tenraiApi: FakeTenraiApi(
+          resultsByQuery: {
+            series: [regular, special],
+            '$series SP1': [special],
+            '$series SP2': [special],
+          },
+        ),
+        openAddSheet: false,
+        releases: shows,
+        initialBookmarks: [
+          BookmarkedShowInfo(
+            showName: series,
+            imageUrl: '',
+            releaseDayOfWeek: DateTime.now().weekday,
+          ),
+        ],
+      );
+      await tester.tap(find.text('Home'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(ShowCard.featuredCardKey(series)),
+          matching: find.text(series),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(ShowInfoPage), findsOneWidget);
+      await tester.tap(find.text('Review 1 match'));
+      await tester.pumpAndSettle();
+      expect(find.text('Applies only to this release.'), findsOneWidget);
+      await tester.tap(find.byKey(ShowInfoMatchSheet.entryKey(special.malId)));
+      await tester.pump();
+      await tester.tap(find.text('Use this match'));
+      await tester.pumpAndSettle();
+      expect(find.text('Tenrai · MAL #49200'), findsOneWidget);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+
+      // The standard Home card also opens its own release.
+      final standardTitle = find.descendant(
+        of: find.byKey(ShowCard.standardCardKey(series)).first,
+        matching: find.text(series),
+      );
+      await tester.ensureVisible(standardTitle);
+      await tester.tap(standardTitle);
+      await tester.pumpAndSettle();
+      expect(find.text('Tenrai · MAL #44074'), findsOneWidget);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Schedule'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(SchedulePage.showTileKey(series)));
+      await tester.pumpAndSettle();
+      expect(find.text('Tenrai · MAL #44074'), findsOneWidget);
+      expect(find.text('Matched automatically'), findsOneWidget);
+
+      for (final ep in ['SP2', 'SP1']) {
+        final release = find.widgetWithText(ListTile, ep);
+        await tester.ensureVisible(release);
+        await tester.tap(release);
+        await tester.pumpAndSettle();
+        if (ep == 'SP1') {
+          expect(find.text('Chosen by you'), findsOneWidget);
+          expect(find.text('Tenrai · MAL #49200'), findsOneWidget);
+        } else {
+          expect(find.text('Review 1 match'), findsOneWidget);
+          expect(find.text('Chosen by you'), findsNothing);
+        }
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+      }
+    },
+  );
 
   testWidgets('schedule search waits 2 seconds before querying Tenrai', (
     WidgetTester tester,
@@ -182,32 +295,31 @@ void main() {
 
     final tile = find.byKey(SchedulePage.showTileKey('hero'));
     expect(tile, findsOneWidget);
-    await tester.tap(tile);
+    await tester.tap(find.byKey(SchedulePage.showActionsKey('hero')));
     await tester.pumpAndSettle();
-    expect(find.text('Match with Tenrai'), findsOneWidget);
+    expect(find.text('Edit catalog match'), findsOneWidget);
     await tester.tap(find.byKey(ScheduleShowActionsSheet.matchButtonKey));
     await tester.pumpAndSettle();
-    expect(find.text('Match with Tenrai'), findsOneWidget);
-    expect(tenraiApi.searchedQueries, ['hero', 'hero']);
+    expect(find.byType(ShowInfoMatchSheet), findsOneWidget);
     expect(find.text('Add by title'), findsNothing);
-    await tester.tap(find.text('My Hero Academia'));
+    await tester.tap(find.byKey(ShowInfoMatchSheet.entryKey(31964)));
     await tester.pumpAndSettle();
-
-    expect(
-      find.text('Matched to "My Hero Academia" on Tenrai.'),
-      findsOneWidget,
-    );
-    expect(tile, findsOneWidget);
+    await tester.tap(find.text('Use this match'));
+    await tester.pumpAndSettle();
+    expect(find.text('Tenrai · MAL #31964'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
     final preferences = await SharedPreferences.getInstance();
     final storedEntry = preferences.getStringList('bookmarked_series')!.single;
     final bookmark = BookmarkedShowInfo.fromJson(jsonDecode(storedEntry));
     expect(bookmark.showName, 'hero');
     expect(bookmark.releaseDayOfWeek, DateTime.monday);
-    expect(bookmark.malId, 31964);
 
     await tester.tap(tile);
     await tester.pumpAndSettle();
-    expect(find.byKey(ScheduleShowActionsSheet.matchButtonKey), findsNothing);
+    expect(find.byType(ShowInfoPage), findsOneWidget);
+    expect(find.text('Tenrai · MAL #31964'), findsOneWidget);
+    expect(find.text('Chosen by you'), findsOneWidget);
   });
 
   testWidgets('schedule page can add and remove a manual watching show', (
@@ -238,7 +350,9 @@ void main() {
     );
     expect(find.text('Manual entry'), findsOneWidget);
 
-    await tester.tap(find.byKey(SchedulePage.showTileKey('My Hero Academia')));
+    await tester.tap(
+      find.byKey(SchedulePage.showActionsKey('My Hero Academia')),
+    );
     await tester.pumpAndSettle();
 
     expect(find.byType(ScheduleShowActionsSheet), findsOneWidget);
@@ -281,7 +395,9 @@ void main() {
       findsOneWidget,
     );
 
-    await tester.tap(find.byKey(SchedulePage.showTileKey('My Hero Academia')));
+    await tester.tap(
+      find.byKey(SchedulePage.showActionsKey('My Hero Academia')),
+    );
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(ScheduleShowActionsSheet.changeDayButtonKey));
@@ -335,7 +451,9 @@ void main() {
     await tester.tap(find.text('Mon'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(SchedulePage.showTileKey('My Hero Academia')));
+    await tester.tap(
+      find.byKey(SchedulePage.showActionsKey('My Hero Academia')),
+    );
     await tester.pumpAndSettle();
 
     final changeDayLeft = tester

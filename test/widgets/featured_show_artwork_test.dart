@@ -9,9 +9,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tamashii/models/show_catalog_match.dart';
 import 'package:tamashii/models/show_models.dart';
+import 'package:tamashii/models/tenrai_models.dart';
 import 'package:tamashii/providers/bookmarked_series_provider.dart';
 import 'package:tamashii/providers/featured_poster_faces_provider.dart';
+import 'package:tamashii/providers/show_catalog_match_provider.dart';
 import 'package:tamashii/providers/tenrai_api_providers.dart';
 import 'package:tamashii/providers/torrent_download_provider.dart';
 import 'package:tamashii/services/featured_poster_faces.dart';
@@ -87,6 +90,100 @@ void main() {
       },
     );
   }
+
+  testWidgets(
+    'a featured special uses only its own saved match until explicitly left unmatched',
+    (tester) async {
+      var lookups = 0;
+      await _pumpCard(
+        tester,
+        isBookmarked: true,
+        episode: 'SP1',
+        findPoster: () async {
+          lookups++;
+          return _tenraiPoster;
+        },
+      );
+      final card = tester.widget<ShowCard>(find.byType(ShowCard));
+      final target = ShowCatalogTarget.fromRelease(card.show);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ShowCard)),
+      );
+      final choices = container.read(catalogMatchOverridesProvider.notifier);
+      const special = TenraiAnimeSearchResult(
+        malId: 42,
+        title: 'Special',
+        imageUrl: _tenraiPoster,
+      );
+
+      expect(_imageFor(_subsPleasePoster), findsOneWidget);
+      await choices.save(target.copyWith(episode: '03'), special);
+      await choices.save(target.copyWith(episode: 'SP2'), special);
+      await tester.pump();
+      expect(_imageFor(_tenraiPoster), findsNothing);
+      await choices.save(target, special);
+      await tester.pump();
+      expect(_imageFor(_tenraiPoster), findsOneWidget);
+      await choices.save(target, null);
+      await tester.pump();
+      expect(_imageFor(_subsPleasePoster), findsOneWidget);
+      expect(_imageFor(_tenraiPoster), findsNothing);
+      expect(lookups, 0);
+    },
+  );
+
+  testWidgets(
+    'a regular series correction replaces the automatic poster across regular releases',
+    (tester) async {
+      var lookups = 0;
+      await _pumpCard(
+        tester,
+        isBookmarked: true,
+        findPoster: () async {
+          lookups++;
+          return _tenraiPoster;
+        },
+      );
+      final card = tester.widget<ShowCard>(find.byType(ShowCard));
+      final season = ShowCatalogTarget.fromRelease(card.show)
+          .copyWith(episode: '02');
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ShowCard)),
+      );
+      final choices = container.read(catalogMatchOverridesProvider.notifier);
+      const preferred = 'https://example.test/correct-season.jpg';
+      await choices.save(
+        season,
+        const TenraiAnimeSearchResult(
+          malId: 2,
+          title: 'Season',
+          largeImageUrl: preferred,
+        ),
+      );
+      await tester.pump();
+      expect(_imageFor(preferred), findsOneWidget);
+      await choices.save(season, null);
+      await tester.pump();
+      expect(_imageFor(_subsPleasePoster), findsOneWidget);
+      expect(_imageFor(_tenraiPoster), findsNothing);
+      final numberedExtra = ShowCatalogTarget.fromRelease(card.show)
+          .forThisRelease;
+      await choices.save(
+        numberedExtra,
+        const TenraiAnimeSearchResult(
+          malId: 9,
+          title: 'Bonus',
+          imageUrl: preferred,
+        ),
+      );
+      await tester.pump();
+      expect(_imageFor(preferred), findsOneWidget);
+      await choices.save(numberedExtra, null);
+      await tester.pump();
+      expect(_imageFor(_subsPleasePoster), findsOneWidget);
+      expect(lookups, 1);
+    },
+  );
 
   testWidgets('removing a featured show from watching restores SubsPlease', (
     tester,
@@ -291,13 +388,14 @@ Future<void> _primeDecodedPoster(WidgetTester tester, String url) async {
 Future<void> _pumpCard(
   WidgetTester tester, {
   bool featured = true,
+  String episode = '1',
   required bool isBookmarked,
   required Future<String?> Function() findPoster,
   Future<FeaturedPosterFaceResult?> Function(String)? detectFaces,
 }) async {
   final show = ShowInfo(
     downloads: const [],
-    episode: '1',
+    episode: episode,
     imageUrl: _posterPath,
     page: 'meitantei-precure',
     releaseDate: DateTime(2026, 2),
@@ -328,6 +426,9 @@ Future<void> _pumpCard(
       ),
     ),
   );
+  // The saved watching state and scoped match are read before starting
+  // the optional catalog poster lookup.
+  await tester.pump();
   await tester.pump();
   await tester.pump();
 }

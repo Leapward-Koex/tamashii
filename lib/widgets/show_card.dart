@@ -7,12 +7,15 @@ import 'package:material_ui/material_ui.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:simple_torrent/simple_torrent.dart';
+import 'package:tamashii/models/show_catalog_match.dart';
 import 'package:tamashii/models/show_models.dart';
+import 'package:tamashii/pages/show_info_page.dart';
 import 'package:tamashii/providers/bookmarked_series_provider.dart';
 import 'package:tamashii/providers/downloaded_torrents_provider.dart';
 import 'package:tamashii/providers/foreground_torrent_provider.dart';
 import 'package:tamashii/providers/on_device_ai_provider.dart';
 import 'package:tamashii/providers/settings_provider.dart';
+import 'package:tamashii/providers/show_catalog_match_provider.dart';
 import 'package:tamashii/providers/tenrai_api_providers.dart';
 import 'package:tamashii/providers/torrent_download_provider.dart';
 import 'package:tamashii/services/gemini_nano_service.dart';
@@ -345,7 +348,7 @@ class ShowCard extends ConsumerWidget {
     }
 
     final posterLookup = featured && isBookmarked
-        ? ref.watch(featuredTenraiPosterProvider(show.show))
+        ? _watchFeaturedPoster(ref)
         : null;
     final cardBody = featured
         ? _buildFeaturedCard(
@@ -389,6 +392,42 @@ class ShowCard extends ConsumerWidget {
     return StaggeredReveal(index: revealIndex, child: cardBody);
   }
 
+  AsyncValue<String?> _watchFeaturedPoster(WidgetRef ref) {
+    final target = ShowCatalogTarget.fromRelease(show);
+    final overrides = ref.watch(catalogMatchOverridesProvider);
+    if (!overrides.hasValue) return overrides.whenData((_) => null);
+    final choice = target.effectiveOverride(overrides.requireValue);
+    if (!target.isReleaseScoped && !choice.exists) {
+      return ref.watch(featuredTenraiPosterProvider(show.show));
+    }
+    // A title-only lookup identifies the regular season, even when the
+    // featured release is a special with its own MyAnimeList identity.
+    final entry = choice.entry;
+    for (final url in [entry?.largeImageUrl, entry?.imageUrl]) {
+      final uri = Uri.tryParse(url?.trim() ?? '');
+      if (uri != null &&
+          uri.host.isNotEmpty &&
+          (uri.isScheme('https') || uri.isScheme('http'))) {
+        return AsyncData(uri.toString());
+      }
+    }
+    return const AsyncData(null);
+  }
+
+  Widget _tappableSurface(
+    BuildContext context, {
+    required double radius,
+    required Widget child,
+  }) => ClipRRect(
+    borderRadius: BorderRadius.circular(radius),
+    child: InkWell(
+      onTap: () => Navigator.of(context).push<void>(
+        MaterialPageRoute(builder: (_) => ShowInfoPage.release(show)),
+      ),
+      child: child,
+    ),
+  );
+
   Widget _buildFeaturedCard({
     required BuildContext context,
     required bool isBookmarked,
@@ -431,8 +470,9 @@ class ShowCard extends ConsumerWidget {
           ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(30),
+      child: _tappableSurface(
+        context,
+        radius: 30,
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -696,8 +736,9 @@ class ShowCard extends ConsumerWidget {
           ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(26),
+      child: _tappableSurface(
+        context,
+        radius: 26,
         child: Stack(
           children: [
             PositionedDirectional(

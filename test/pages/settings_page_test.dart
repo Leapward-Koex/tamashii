@@ -25,7 +25,10 @@ class _FakeOnDeviceTextGenerator implements OnDeviceTextGenerator {
   }
 
   @override
-  Future<OnDeviceGenerationResponse> generateText({required String prompt}) {
+  Future<OnDeviceGenerationResponse> generateText({
+    required String prompt,
+    bool allowModelDownload = true,
+  }) {
     throw UnimplementedError();
   }
 }

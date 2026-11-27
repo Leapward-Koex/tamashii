@@ -11,12 +11,7 @@ import 'package:tamashii/providers/tenrai_api_providers.dart';
 import 'package:tamashii/widgets/show_image.dart';
 
 class AddScheduleShowSheet extends HookConsumerWidget {
-  const AddScheduleShowSheet({super.key}) : showToMatch = null;
-
-  const AddScheduleShowSheet.match({
-    super.key,
-    required BookmarkedShowInfo show,
-  }) : showToMatch = show;
+  const AddScheduleShowSheet({super.key});
 
   static const Key dayDropdownKey = ValueKey<String>(
     'add-schedule-show-day-dropdown',
@@ -25,18 +20,12 @@ class AddScheduleShowSheet extends HookConsumerWidget {
     'add-schedule-show-search-field',
   );
 
-  final BookmarkedShowInfo? showToMatch;
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final existingShow = showToMatch;
-    final initialQuery = existingShow?.showName ?? '';
-    final queryController = useTextEditingController(text: initialQuery);
-    final selectedDay = useState(
-      existingShow?.releaseDayOfWeek ?? DateTime.now().weekday,
-    );
-    final pendingQuery = useState(initialQuery);
-    final submittedQuery = useState(initialQuery);
+    final queryController = useTextEditingController();
+    final selectedDay = useState(DateTime.now().weekday);
+    final pendingQuery = useState('');
+    final submittedQuery = useState('');
     final debounceTimer = useRef<Timer?>(null);
     final isSaving = useState(false);
     final saveError = useState<String?>(null);
@@ -87,21 +76,15 @@ class AddScheduleShowSheet extends HookConsumerWidget {
       saveError.value = null;
       try {
         final notifier = ref.read(bookmarkedSeriesProvider.notifier);
-        final saved = existingShow == null
-            ? await notifier.add(
-                BookmarkedShowInfo(
-                  imageUrl: match?.imageUrl ?? '',
-                  releaseDayOfWeek: selectedDay.value,
-                  showName: title,
-                  malId: match?.malId,
-                  source: BookmarkedShowSource.manual,
-                ),
-              )
-            : await notifier.matchManualEntry(
-                existingShow.showName,
-                malId: match!.malId,
-                imageUrl: match.imageUrl,
-              );
+        final saved = await notifier.add(
+          BookmarkedShowInfo(
+            imageUrl: match?.imageUrl ?? '',
+            releaseDayOfWeek: selectedDay.value,
+            showName: title,
+            malId: match?.malId,
+            source: BookmarkedShowSource.manual,
+          ),
+        );
 
         if (!context.mounted) {
           return;
@@ -111,9 +94,7 @@ class AddScheduleShowSheet extends HookConsumerWidget {
           return;
         }
 
-        saveError.value = existingShow == null
-            ? 'This show is already on your schedule.'
-            : 'The show could not be matched. It may already be on your schedule.';
+        saveError.value = 'This show is already on your schedule.';
       } catch (_) {
         if (context.mounted) {
           saveError.value = 'Unable to save your schedule. Please try again.';
@@ -153,39 +134,37 @@ class AddScheduleShowSheet extends HookConsumerWidget {
               ),
               const SizedBox(height: 16),
               Text(
-                existingShow == null ? 'Add show' : 'Match with Tenrai',
+                'Add show',
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
               const SizedBox(height: 16),
-              if (existingShow == null) ...[
-                DropdownButtonFormField<int>(
-                  key: dayDropdownKey,
-                  initialValue: selectedDay.value,
-                  decoration: const InputDecoration(
-                    labelText: 'Day',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: List<DropdownMenuItem<int>>.generate(7, (index) {
-                    final weekday = index + 1;
-                    return DropdownMenuItem<int>(
-                      value: weekday,
-                      child: Text(_weekdayName(weekday)),
-                    );
-                  }),
-                  onChanged: isSaving.value
-                      ? null
-                      : (value) {
-                          if (value != null) {
-                            selectedDay.value = value;
-                          }
-                        },
+              DropdownButtonFormField<int>(
+                key: dayDropdownKey,
+                initialValue: selectedDay.value,
+                decoration: const InputDecoration(
+                  labelText: 'Day',
+                  border: OutlineInputBorder(),
                 ),
-                const SizedBox(height: 12),
-              ],
+                items: List<DropdownMenuItem<int>>.generate(7, (index) {
+                  final weekday = index + 1;
+                  return DropdownMenuItem<int>(
+                    value: weekday,
+                    child: Text(_weekdayName(weekday)),
+                  );
+                }),
+                onChanged: isSaving.value
+                    ? null
+                    : (value) {
+                        if (value != null) {
+                          selectedDay.value = value;
+                        }
+                      },
+              ),
+              const SizedBox(height: 12),
               TextField(
                 key: searchFieldKey,
                 controller: queryController,
-                autofocus: existingShow == null,
+                autofocus: true,
                 enabled: !isSaving.value,
                 textInputAction: TextInputAction.search,
                 onSubmitted: runSearch,
@@ -195,7 +174,7 @@ class AddScheduleShowSheet extends HookConsumerWidget {
                   border: OutlineInputBorder(),
                 ),
               ),
-              if (existingShow == null && pendingQuery.value.isNotEmpty) ...[
+              if (pendingQuery.value.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Align(
                   alignment: Alignment.centerLeft,
@@ -226,7 +205,6 @@ class AddScheduleShowSheet extends HookConsumerWidget {
                     pendingQuery.value != submittedQuery.value,
                 results: searchResults,
                 selectedDay: selectedDay.value,
-                matching: existingShow != null,
                 canSave: canSave,
                 watchingShows: bookmarks.value ?? const [],
                 onRetry: () => ref.invalidate(searchProvider),
@@ -245,7 +223,6 @@ class _SearchResults extends StatelessWidget {
     required this.waitingForQuery,
     required this.results,
     required this.selectedDay,
-    required this.matching,
     required this.canSave,
     required this.watchingShows,
     required this.onRetry,
@@ -255,7 +232,6 @@ class _SearchResults extends StatelessWidget {
   final bool waitingForQuery;
   final AsyncValue<List<TenraiAnimeSearchResult>> results;
   final int selectedDay;
-  final bool matching;
   final bool canSave;
   final List<BookmarkedShowInfo> watchingShows;
   final VoidCallback onRetry;
@@ -265,9 +241,7 @@ class _SearchResults extends StatelessWidget {
   Widget build(BuildContext context) {
     if (waitingForQuery) {
       return _SearchStatus(
-        label: matching
-            ? 'Search Tenrai for the matching show.'
-            : 'Search for a show to add it to ${_weekdayName(selectedDay)}.',
+        label: 'Search for a show to add it to ${_weekdayName(selectedDay)}.',
       );
     }
 
@@ -297,9 +271,8 @@ class _SearchResults extends StatelessWidget {
               final alreadyWatching = watchingShows.any(
                 (show) =>
                     show.malId == result.malId ||
-                    (!matching &&
-                        show.showName.trim().toLowerCase() ==
-                            showName.trim().toLowerCase()),
+                    show.showName.trim().toLowerCase() ==
+                        showName.trim().toLowerCase(),
               );
 
               return ListTile(
@@ -322,8 +295,6 @@ class _SearchResults extends StatelessWidget {
                 trailing: Icon(
                   alreadyWatching
                       ? Icons.check_circle
-                      : matching
-                      ? Icons.link
                       : Icons.add_circle_outline,
                 ),
                 onTap: canSave && !alreadyWatching
@@ -345,9 +316,9 @@ class _SearchResults extends StatelessWidget {
     final details = <String>[
       if (result.type case final type? when type.trim().isNotEmpty) type.trim(),
       if (result.episodes case final episodes?) '$episodes eps',
-      if (!matching) _weekdayName(selectedDay),
+      _weekdayName(selectedDay),
     ];
-    return details.isEmpty ? 'Match this show' : details.join(' • ');
+    return details.join(' • ');
   }
 }
 

@@ -47,7 +47,10 @@ class OnDeviceGenerationResponse {
 abstract class OnDeviceTextGenerator {
   Future<OnDeviceModelCatalog> getModelCatalog();
 
-  Future<OnDeviceGenerationResponse> generateText({required String prompt});
+  Future<OnDeviceGenerationResponse> generateText({
+    required String prompt,
+    bool allowModelDownload = true,
+  });
 }
 
 class PlatformGeminiNanoService implements OnDeviceTextGenerator {
@@ -93,6 +96,7 @@ class PlatformGeminiNanoService implements OnDeviceTextGenerator {
   @override
   Future<OnDeviceGenerationResponse> generateText({
     required String prompt,
+    bool allowModelDownload = true,
   }) async {
     if (!_isAndroidBuild) {
       throw PlatformException(
@@ -105,7 +109,10 @@ class PlatformGeminiNanoService implements OnDeviceTextGenerator {
     try {
       result = await _channel.invokeMapMethod<Object?, Object?>(
         'generateText',
-        <String, Object?>{'prompt': prompt},
+        <String, Object?>{
+          'prompt': prompt,
+          'allowModelDownload': allowModelDownload,
+        },
       );
     } on MissingPluginException {
       throw PlatformException(

@@ -1,8 +1,13 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tamashii/models/show_catalog_match.dart';
 import 'package:tamashii/models/show_models.dart';
+import 'package:tamashii/models/tenrai_models.dart';
+import 'package:tamashii/providers/show_catalog_match_provider.dart';
+import 'package:tamashii/services/show_catalog_matcher.dart';
 
 part 'bookmarked_series_provider.g.dart';
 
@@ -14,6 +19,13 @@ class BookmarkedSeriesNotifier extends _$BookmarkedSeriesNotifier {
 
   @override
   Future<List<BookmarkedShowInfo>> build() async {
+    ref.listen(catalogMatchOverridesProvider, (_, next) {
+      final choices = next.asData?.value;
+      final current = state.asData?.value;
+      if (choices == null || current == null) return;
+      final updated = [for (final show in current) _effective(show, choices)];
+      if (!listEquals(current, updated)) state = AsyncData(updated);
+    });
     final SharedPreferences preferences = await SharedPreferences.getInstance();
     final List<String> rawList =
         preferences.getStringList(_storageKey) ?? <String>[];
@@ -26,21 +38,37 @@ class BookmarkedSeriesNotifier extends _$BookmarkedSeriesNotifier {
         // Skip legacy or invalid entries
       }
     }
-    return bookmarks;
+    final choices = await ref.read(catalogMatchOverridesProvider.future);
+    return [for (final show in bookmarks) _effective(show, choices)];
+  }
+
+  BookmarkedShowInfo _effective(
+    BookmarkedShowInfo show,
+    Map<String, TenraiAnimeSearchResult?> choices,
+  ) {
+    if (!show.isManualEntry) return show;
+    final key = ShowCatalogTarget.fromSchedule(show).scopeKey;
+    if (!choices.containsKey(key)) return show;
+    final entry = choices[key];
+    return show.copyWith(malId: entry?.malId, imageUrl: entry?.imageUrl ?? '');
   }
 
   /// Add [series] to the bookmarks (if not already present).
   Future<bool> add(BookmarkedShowInfo series) {
-    final title = series.showName.trim().toLowerCase();
     return _update((current) {
+      final effective = _effective(
+        series,
+        ref.read(catalogMatchOverridesProvider).requireValue,
+      );
+      final title = effective.showName.trim().toLowerCase();
       final exists = current.any(
         (show) =>
             (series.isManualEntry
                 ? show.showName.trim().toLowerCase() == title
                 : show.showName == series.showName) ||
-            (series.malId != null && show.malId == series.malId),
+            (effective.malId != null && show.malId == effective.malId),
       );
-      return exists ? null : [...current, series];
+      return exists ? null : [...current, effective];
     });
   }
 
@@ -93,25 +121,45 @@ class BookmarkedSeriesNotifier extends _$BookmarkedSeriesNotifier {
 
   Future<bool> _update(
     List<BookmarkedShowInfo>? Function(List<BookmarkedShowInfo>) update,
-  ) {
-    final link = ref.keepAlive();
-    final result = _pendingWrite
-        .then((_) async {
-          if (state.isLoading) {
-            await future;
-          }
-          final updated = update(state.requireValue);
-          if (updated == null) {
-            return false;
-          }
+  ) => _serialize(() async {
+    final updated = update(await future);
+    if (updated == null) return false;
+    await _save(updated);
+    if (ref.mounted) state = AsyncValue.data(updated);
+    return true;
+  });
 
-          await _save(updated);
-          if (ref.mounted) {
-            state = AsyncValue.data(updated);
-          }
-          return true;
-        })
-        .whenComplete(link.close);
+  /// A manual correction and a concurrent addition must see each other's MAL
+  /// IDs. Only existing manual bookmark corrections enter this write queue.
+  Future<void> saveCatalogChoice(
+    ShowCatalogTarget target,
+    TenraiAnimeSearchResult? entry,
+  ) async {
+    final choices = ref.read(catalogMatchOverridesProvider.notifier);
+    bool isTarget(BookmarkedShowInfo show) =>
+        show.isManualEntry &&
+        ShowCatalogTarget.fromSchedule(show).scopeKey == target.scopeKey;
+    if (target.isReleaseScoped ||
+        target.episode != null &&
+            entry != null &&
+            catalogEntryIsSpecial(entry) ||
+        !(await future).any(isTarget)) {
+      return choices.save(target, entry);
+    }
+    return _serialize(() async {
+      final current = await future;
+      if (entry != null &&
+          current.any(isTarget) &&
+          current.any((show) => !isTarget(show) && show.malId == entry.malId)) {
+        throw const DuplicateScheduleMatch();
+      }
+      await choices.save(target, entry);
+    });
+  }
+
+  Future<T> _serialize<T>(Future<T> Function() write) {
+    final link = ref.keepAlive();
+    final result = _pendingWrite.then((_) => write()).whenComplete(link.close);
     _pendingWrite = result.then<void>(
       (_) {},
       onError: (Object _, StackTrace _) {},
@@ -128,4 +176,10 @@ class BookmarkedSeriesNotifier extends _$BookmarkedSeriesNotifier {
       throw StateError('Unable to save your schedule.');
     }
   }
+}
+
+class DuplicateScheduleMatch implements Exception {
+  const DuplicateScheduleMatch();
+  @override
+  String toString() => 'That catalog entry is already on your schedule.';
 }

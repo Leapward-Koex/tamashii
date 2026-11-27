@@ -58,6 +58,7 @@ class GeminiNanoMethodChannelHandler(
 
                 generateText(
                     prompt = prompt,
+                    allowModelDownload = call.argument<Boolean>("allowModelDownload") ?: true,
                     result = result,
                 )
             }
@@ -107,6 +108,7 @@ class GeminiNanoMethodChannelHandler(
 
     private fun generateText(
         prompt: String,
+        allowModelDownload: Boolean,
         result: MethodChannel.Result,
     ) {
         val modelFutures = getGenerativeModelFutures()
@@ -130,11 +132,13 @@ class GeminiNanoMethodChannelHandler(
                             )
                         }
 
-                        else -> {
+                        else -> if (allowModelDownload) {
                             downloadAndRunGeneration(
                                 prompt = prompt,
                                 result = result,
                             )
+                        } else {
+                            result.error("model_not_ready", "Gemini Nano is not installed yet.", null)
                         }
                     }
                 }

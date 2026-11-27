@@ -140,6 +140,83 @@ final class SearchTenraiShowsFamily extends $Family
   String toString() => r'searchTenraiShowsProvider';
 }
 
+@ProviderFor(catalogEntryById)
+final catalogEntryByIdProvider = CatalogEntryByIdFamily._();
+
+final class CatalogEntryByIdProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<TenraiAnimeSearchResult?>,
+          TenraiAnimeSearchResult?,
+          FutureOr<TenraiAnimeSearchResult?>
+        >
+    with
+        $FutureModifier<TenraiAnimeSearchResult?>,
+        $FutureProvider<TenraiAnimeSearchResult?> {
+  CatalogEntryByIdProvider._({
+    required CatalogEntryByIdFamily super.from,
+    required int super.argument,
+  }) : super(
+         retry: _noRetry,
+         name: r'catalogEntryByIdProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$catalogEntryByIdHash();
+
+  @override
+  String toString() {
+    return r'catalogEntryByIdProvider'
+        ''
+        '($argument)';
+  }
+
+  @$internal
+  @override
+  $FutureProviderElement<TenraiAnimeSearchResult?> $createElement(
+    $ProviderPointer pointer,
+  ) => $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<TenraiAnimeSearchResult?> create(Ref ref) {
+    final argument = this.argument as int;
+    return catalogEntryById(ref, argument);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is CatalogEntryByIdProvider && other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$catalogEntryByIdHash() => r'232396f1db77d8ac0cea41152e12a9e4fc700641';
+
+final class CatalogEntryByIdFamily extends $Family
+    with $FunctionalFamilyOverride<FutureOr<TenraiAnimeSearchResult?>, int> {
+  CatalogEntryByIdFamily._()
+    : super(
+        retry: _noRetry,
+        name: r'catalogEntryByIdProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  CatalogEntryByIdProvider call(int malId) =>
+      CatalogEntryByIdProvider._(argument: malId, from: this);
+
+  @override
+  String toString() => r'catalogEntryByIdProvider';
+}
+
 @ProviderFor(featuredTenraiPoster)
 final featuredTenraiPosterProvider = FeaturedTenraiPosterFamily._();
 

@@ -61,4 +61,18 @@ void main() {
     expect(catalog.availableModels, isEmpty);
     expect(catalog.hasUsableModel, isFalse);
   });
+
+  test('lets a lookup use only an installed model', () async {
+    final flags = <bool>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          expect(call.method, 'generateText');
+          flags.add(call.arguments['allowModelDownload'] as bool);
+          return <String, Object?>{'text': 'ok', 'modelUsed': 'gemini-nano'};
+        });
+    const service = PlatformGeminiNanoService();
+    await service.generateText(prompt: 'catalog', allowModelDownload: false);
+    await service.generateText(prompt: 'folder');
+    expect(flags, [false, true]);
+  });
 }

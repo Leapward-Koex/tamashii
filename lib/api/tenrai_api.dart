@@ -39,16 +39,47 @@ class TenraiApi {
       return const <TenraiAnimeSearchResult>[];
     }
 
-    final retryAt = _retryAt;
-    if (retryAt != null && _now().isBefore(retryAt)) {
-      throw _rateLimitError();
-    }
-
     final uri = Uri.https(_host, '/v1/anime', <String, String>{
       'q': trimmedQuery,
       'limit': '$limit',
     });
+    return _get(uri, (data) {
+      final rows = data as List<dynamic>;
+      return rows
+          .map(
+            (row) =>
+                TenraiAnimeSearchResult.fromJson(row as Map<String, dynamic>),
+          )
+          .toList(growable: false);
+    });
+  }
 
+  Future<TenraiAnimeSearchResult?> getAnimeById(int malId) async {
+    if (malId <= 0) return null;
+    return _get<TenraiAnimeSearchResult?>(
+      Uri.https(_host, '/v1/anime/$malId'),
+      (data) {
+        final entry = TenraiAnimeSearchResult.fromJson(
+          data as Map<String, dynamic>,
+        );
+        if (entry.malId != malId) {
+          throw const FormatException('Unexpected MAL ID');
+        }
+        return entry;
+      },
+      onNotFound: () => null,
+    );
+  }
+
+  Future<T> _get<T>(
+    Uri uri,
+    T Function(Object?) parse, {
+    T Function()? onNotFound,
+  }) async {
+    final retryAt = _retryAt;
+    if (retryAt != null && _now().isBefore(retryAt)) {
+      throw _rateLimitError();
+    }
     final abort = Completer<void>();
     final request = http.AbortableRequest(
       'GET',
@@ -84,22 +115,15 @@ class TenraiApi {
       throw _rateLimitError();
     }
 
+    if (response.statusCode == 404 && onNotFound != null) return onNotFound();
     if (response.statusCode != 200) {
       throw TenraiApiException(_errorMessageForResponse(response));
     }
 
     try {
-      final json = jsonDecode(utf8.decode(response.bodyBytes));
-      if (json is! Map<String, dynamic> || json['data'] is! List<dynamic>) {
-        throw const FormatException('Missing Tenrai search results');
-      }
-
-      return (json['data'] as List<dynamic>)
-          .map(
-            (entry) =>
-                TenraiAnimeSearchResult.fromJson(entry as Map<String, dynamic>),
-          )
-          .toList(growable: false);
+      final json =
+          jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+      return parse(json['data']);
     } on FormatException {
       throw const TenraiApiException('Tenrai returned an unreadable response.');
     } on TypeError {

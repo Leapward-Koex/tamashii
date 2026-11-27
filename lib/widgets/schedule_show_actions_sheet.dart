@@ -76,11 +76,11 @@ class ScheduleShowActionsSheet extends StatelessWidget {
                     '${_weekdayName(show.releaseDayOfWeek)} • ${show.isManualEntry ? 'Manual entry' : 'Watching list'}',
                   ),
                 ),
-                if (show.isManualEntry && show.malId == null)
+                if (show.isManualEntry)
                   ListTile(
                     key: matchButtonKey,
                     leading: const Icon(Icons.link),
-                    title: const Text('Match with Tenrai'),
+                    title: const Text('Edit catalog match'),
                     onTap: () {
                       Navigator.of(context).pop(ScheduleShowAction.match);
                     },
