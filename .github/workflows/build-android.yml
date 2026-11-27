@@ -29,6 +29,8 @@ jobs:
 
       - name: Validate Gradle wrappers and restore build cache
         uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: true
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4

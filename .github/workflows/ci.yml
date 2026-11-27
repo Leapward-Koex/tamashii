@@ -121,7 +121,9 @@ jobs:
       - name: Validate Gradle wrappers and restore build cache
         uses: gradle/actions/setup-gradle@v6
         with:
-          cache-read-only: ${{ github.event_name == 'pull_request' }}
+          # The unit tests already warm the debug dependencies. Saving all
+          # three Gradle homes can evict the shared Flutter SDK caches.
+          cache-read-only: ${{ matrix.mode == 'debug' || github.event_name == 'pull_request' }}
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
