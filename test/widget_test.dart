@@ -11,6 +11,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:tamashii/providers/download_queue_provider.dart';
 
 import 'package:tamashii/main.dart';
+import 'package:tamashii/theme/paper_lantern.dart';
 
 void main() {
   testWidgets('App loads without crashing', (WidgetTester tester) async {
@@ -22,7 +23,9 @@ void main() {
       ),
     );
 
-    // Verify that our app loads without crashing
-    expect(find.byType(MaterialApp), findsOneWidget);
+    final theme = tester.widget<MaterialApp>(find.byType(MaterialApp)).theme!;
+    expect(theme.scaffoldBackgroundColor, PaperLantern.paper);
+    expect(theme.colorScheme.primary, PaperLantern.red);
+    expect(theme.textTheme.headlineLarge?.fontFamily, PaperLantern.serif);
   });
 }

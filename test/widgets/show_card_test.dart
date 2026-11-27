@@ -116,16 +116,11 @@ void main() {
       find.byKey(ShowCard.standardActionsKey(_standardShowName)),
     );
 
-    expect(actionsRect.top - statusRect.bottom, greaterThanOrEqualTo(16));
-    expect(
-      tester
-          .getSize(find.byKey(ShowCard.standardCardKey(_standardShowName)))
-          .height,
-      greaterThanOrEqualTo(180),
-    );
+    expect(statusRect.top, greaterThan(actionsRect.bottom));
     expect(find.text('DOWNLOADING'), findsOneWidget);
+    expect(find.textContaining('Down 2.0 MB/s'), findsOneWidget);
     final poster = find.byType(ShowImage);
-    expect(tester.getSize(poster).width, 132);
+    expect(tester.getSize(poster), const Size(42, 60));
     expect(
       find.ancestor(of: poster, matching: find.byType(IntrinsicHeight)),
       findsNothing,
@@ -232,7 +227,7 @@ void main() {
       tester
           .getSize(find.byKey(ShowCard.standardCardKey(_standardShowName)))
           .height,
-      inInclusiveRange(180, 220),
+      lessThan(130),
     );
     expect(tester.takeException(), isNull);
   });
@@ -261,13 +256,19 @@ void main() {
       find.byKey(ShowCard.featuredContentKey(_featuredShowName)),
     );
 
-    expect(cardRect.height, greaterThanOrEqualTo(424));
-    expect(contentRect.top - badgeRect.bottom, greaterThanOrEqualTo(12));
+    final posterRect = tester.getRect(find.byType(ShowImage));
+    expect(posterRect.left, greaterThan(contentRect.right));
+    expect(posterRect.height, greaterThan(posterRect.width));
+    expect(contentRect.top, greaterThan(badgeRect.bottom));
     expect(cardRect.left, lessThanOrEqualTo(contentRect.left));
     expect(cardRect.right, greaterThanOrEqualTo(contentRect.right));
     expect(cardRect.bottom, greaterThanOrEqualTo(contentRect.bottom));
     expect(find.text('DOWNLOADING'), findsOneWidget);
     expect(find.byType(GlowingProgressBar), findsOneWidget);
+    expect(
+      tester.getRect(find.byType(GlowingProgressBar)).top,
+      greaterThan(contentRect.bottom),
+    );
     expect(tester.takeException(), isNull);
   });
 
@@ -295,6 +296,58 @@ void main() {
     expect(find.text('DOWNLOADED'), findsOneWidget);
     expect(find.text('SEEDING'), findsNothing);
     expect(find.byType(GlowingProgressBar), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final featured in [false, true]) {
+    testWidgets(
+      'watching and best quality work in the ${featured ? 'feature' : 'index'}',
+      (tester) async {
+        await _pumpShowCard(
+          tester,
+          featured: featured,
+          showName: _standardShowName,
+          torrentState: const TorrentDownloadState(),
+          downloads: [
+            ShowDownloadInfo(resolution: ShowResolution.r720, magnet: '720'),
+            ShowDownloadInfo(resolution: ShowResolution.r1080, magnet: '1080'),
+          ],
+        );
+
+        expect(find.textContaining('Episode 12 · 1080p'), findsOneWidget);
+        await tester.tap(find.byTooltip('Mark as watching'));
+        await tester.pumpAndSettle();
+        expect(find.byTooltip('Remove from watching'), findsOneWidget);
+        await tester.tap(find.byTooltip('Remove from watching'));
+        await tester.pumpAndSettle();
+        expect(find.byTooltip('Mark as watching'), findsOneWidget);
+      },
+    );
+  }
+
+  testWidgets('the narrow feature stacks its portrait above enlarged text', (
+    tester,
+  ) async {
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await _pumpShowCard(
+      tester,
+      featured: true,
+      showName: _featuredShowName,
+      torrentState: const TorrentDownloadState(),
+      surfaceSize: const Size(320, 880),
+    );
+    expect(
+      tester.getRect(find.byType(ShowImage)).bottom,
+      lessThan(
+        tester
+            .getRect(
+              find.byKey(ShowCard.featuredTopBadgeKey(_featuredShowName)),
+            )
+            .top,
+      ),
+    );
+    expect(find.text('Download'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

@@ -8,6 +8,7 @@ import 'package:tamashii/providers/bookmarked_series_provider.dart';
 import 'package:tamashii/providers/show_catalog_match_provider.dart';
 import 'package:tamashii/providers/tenrai_api_providers.dart';
 import 'package:tamashii/services/show_catalog_matcher.dart';
+import 'package:tamashii/theme/paper_lantern.dart';
 
 class ShowInfoMatchSheet extends ConsumerStatefulWidget {
   const ShowInfoMatchSheet({required this.target, super.key});
@@ -178,23 +179,17 @@ class _ShowInfoMatchSheetState extends ConsumerState<ShowInfoMatchSheet> {
                   keyboardDismissBehavior:
                       ScrollViewKeyboardDismissBehavior.onDrag,
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            currentId != null ? 'Fix match' : 'Find a match',
-                            style: theme.textTheme.headlineSmall,
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: _saving
-                              ? null
-                              : () => Navigator.of(context).pop(),
-                          tooltip: 'Close',
-                          icon: const Icon(Icons.close),
-                        ),
-                      ],
+                    PaperSectionHeading(
+                      currentId != null ? 'Fix match' : 'Find a match',
+                      trailing: IconButton(
+                        onPressed: _saving
+                            ? null
+                            : () => Navigator.of(context).pop(),
+                        tooltip: 'Close',
+                        icon: const Icon(Icons.close),
+                      ),
                     ),
+                    const SizedBox(height: 8),
                     Text(
                       [
                         target.title,
@@ -225,13 +220,11 @@ class _ShowInfoMatchSheetState extends ConsumerState<ShowInfoMatchSheet> {
                       decoration: const InputDecoration(
                         labelText: 'Search by title or MAL ID',
                         prefixIcon: Icon(Icons.search),
-                        border: OutlineInputBorder(),
                       ),
                     ),
                     const SizedBox(height: 12),
-                    Text(
+                    PaperSectionHeading(
                       _query.isEmpty ? 'Possible entries' : 'Search results',
-                      style: theme.textTheme.titleSmall,
                     ),
                     if (results.isLoading || _typed != _query)
                       const Padding(
@@ -262,14 +255,24 @@ class _ShowInfoMatchSheetState extends ConsumerState<ShowInfoMatchSheet> {
                           key: ShowInfoMatchSheet.entryKey(entry.malId),
                           enabled: !_saving,
                           selected: selectedId == entry.malId,
-                          selectedTileColor:
-                              theme.colorScheme.secondaryContainer,
+                          selectedTileColor: PaperLantern.wash,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                          ),
+                          shape: const Border(
+                            bottom: BorderSide(color: PaperLantern.rule),
+                          ),
                           leading: Icon(
                             selectedId == entry.malId
                                 ? Icons.radio_button_checked
                                 : Icons.radio_button_off,
                           ),
-                          title: Text(entry.displayTitle),
+                          title: Text(
+                            entry.displayTitle,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontFamily: PaperLantern.serif,
+                            ),
+                          ),
                           subtitle: Text(
                             [
                               if (entry.title != entry.displayTitle)

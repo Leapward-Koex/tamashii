@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:intl/intl.dart';
 import 'package:tamashii/models/show_models.dart';
+import 'package:tamashii/theme/paper_lantern.dart';
 
 enum ScheduleShowActionType { remove, changeDay, match }
 
@@ -58,22 +59,15 @@ class ScheduleShowActionsSheet extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.outlineVariant,
-                      borderRadius: BorderRadius.circular(999),
+                PaperSectionHeading(show.showName),
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Text(
+                      '${_weekdayName(show.releaseDayOfWeek)} · ${show.isManualEntry ? 'Manual entry' : 'Watching list'}',
+                      style: PaperLantern.folio,
                     ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(show.showName, style: theme.textTheme.titleLarge),
-                  subtitle: Text(
-                    '${_weekdayName(show.releaseDayOfWeek)} • ${show.isManualEntry ? 'Manual entry' : 'Watching list'}',
                   ),
                 ),
                 if (show.isManualEntry)

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:tamashii/services/transfer_policy.dart';
+import 'package:tamashii/theme/paper_lantern.dart';
 
 /// Displays session-wide suspension separately from per-download pause state.
 class TransferPolicyBanner extends StatelessWidget {
@@ -32,11 +33,21 @@ class TransferPolicyBanner extends StatelessWidget {
       label: 'Downloads suspended: $statusText',
       child: Material(
         key: bannerKey,
-        color: Theme.of(context).colorScheme.tertiaryContainer,
+        color: PaperLantern.wash,
+        shape: const Border(
+          left: BorderSide(width: 3, color: PaperLantern.red),
+          bottom: BorderSide(color: PaperLantern.rule),
+        ),
         child: ListTile(
           dense: true,
-          leading: const Icon(Icons.pause_circle_outline),
-          title: Text(statusText),
+          leading: const Icon(
+            Icons.pause_circle_outline,
+            color: PaperLantern.red,
+          ),
+          title: Text(
+            statusText,
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
           subtitle: const Text(
             'Existing per-download pause choices are unchanged.',
           ),

@@ -47,6 +47,7 @@ class _WidgetDownloadSetupState extends ConsumerState<WidgetDownloadSetup> {
       final proceed = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
+          scrollable: true,
           title: Text('Set up downloads for $title'),
           content: const Text(
             'Allow download notifications and folder access. The widget will then be able to save episodes from your home screen.',

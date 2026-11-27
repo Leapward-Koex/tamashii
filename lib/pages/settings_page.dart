@@ -12,6 +12,7 @@ import 'package:tamashii/providers/foreground_torrent_provider.dart';
 import 'package:tamashii/providers/on_device_ai_provider.dart';
 import 'package:tamashii/providers/settings_provider.dart';
 import 'package:tamashii/services/transfer_policy.dart';
+import 'package:tamashii/theme/paper_lantern.dart';
 
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({this.platform, super.key});
@@ -39,9 +40,16 @@ class SettingsPage extends ConsumerWidget {
         ? ref.watch(foregroundTransferPolicyStatusProvider)
         : null;
 
-    return ListView(
+    final theme = Theme.of(context);
+    final settings = ListView(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
       children: <Widget>[
-        // Base download folder
+        Semantics(
+          header: true,
+          child: Text('Settings', style: theme.textTheme.headlineLarge),
+        ),
+        const SizedBox(height: 16),
+        const PaperSectionHeading('Storage'),
         basePath.when(
           data: (path) => ListTile(
             title: const Text('Download Base Folder'),
@@ -65,9 +73,58 @@ class SettingsPage extends ConsumerWidget {
             subtitle: Text('Error: $e'),
           ),
         ),
-        const Divider(),
+        const Divider(height: 1),
+
+        autoGen.when(
+          data: (value) => SwitchListTile(
+            title: const Text('Auto-generate Series Folders'),
+            value: value,
+            onChanged: (bool newVal) async {
+              await ref
+                  .read(autoGenerateFoldersProvider.notifier)
+                  .setAutoGenerate(newVal);
+            },
+          ),
+          loading: () => const ListTile(
+            title: Text('Auto-generate Series Folders'),
+            subtitle: Text('Loading...'),
+          ),
+          error: (e, _) => ListTile(
+            title: const Text('Auto-generate Series Folders'),
+            subtitle: Text('Error: $e'),
+          ),
+        ),
+
+        if (autoGenValue == true) ...[
+          const Divider(height: 1),
+          modelCatalog!.when(
+            data: (catalog) => ListTile(
+              key: const ValueKey<String>('onDeviceAiStatus'),
+              title: const Text('On-device AI'),
+              subtitle: Text(
+                catalog.availableModels.isEmpty
+                    ? 'Unavailable. Folder generation will fall back to plain series names.'
+                    : 'Detected model: ${catalog.activeModel ?? catalog.availableModels.first}',
+              ),
+            ),
+            loading: () => const ListTile(
+              key: ValueKey<String>('onDeviceAiStatus'),
+              title: Text('On-device AI'),
+              subtitle: Text('Checking model availability...'),
+            ),
+            error: (_, _) => const ListTile(
+              key: ValueKey<String>('onDeviceAiStatus'),
+              title: Text('On-device AI'),
+              subtitle: Text(
+                'Unavailable. Folder generation will fall back to plain series names.',
+              ),
+            ),
+          ),
+        ],
 
         if (isAndroid) ...[
+          const SizedBox(height: 20),
+          const PaperSectionHeading('Network'),
           allowMobileData!.when(
             data: (allowed) => SwitchListTile(
               key: const ValueKey<String>('allowMobileDataSwitch'),
@@ -110,6 +167,7 @@ class SettingsPage extends ConsumerWidget {
               subtitle: Text('Error: $error'),
             ),
           ),
+          const Divider(height: 1),
           allowMeteredDownloads!.when(
             data: (allowed) => SwitchListTile(
               key: const ValueKey<String>('allowMeteredDownloadsSwitch'),
@@ -151,6 +209,7 @@ class SettingsPage extends ConsumerWidget {
               subtitle: Text('Error: $error'),
             ),
           ),
+          const Divider(height: 1),
           ListTile(
             key: const ValueKey<String>('transferPolicyStatus'),
             leading: Icon(
@@ -161,143 +220,122 @@ class SettingsPage extends ConsumerWidget {
             title: const Text('Torrent transfer policy'),
             subtitle: Text(transferPolicyStatusText(transferPolicy)),
           ),
-          const Divider(),
         ],
 
-        // Auto-generate toggle
-        autoGen.when(
-          data: (value) => SwitchListTile(
-            title: const Text('Auto-generate Series Folders'),
-            value: value,
-            onChanged: (bool newVal) async {
-              await ref
-                  .read(autoGenerateFoldersProvider.notifier)
-                  .setAutoGenerate(newVal);
-            },
-          ),
-          loading: () => const ListTile(
-            title: Text('Auto-generate Series Folders'),
-            subtitle: Text('Loading...'),
-          ),
-          error: (e, _) => ListTile(
-            title: const Text('Auto-generate Series Folders'),
-            subtitle: Text('Error: $e'),
-          ),
-        ),
-        const Divider(),
-
-        if (autoGenValue == true) ...[
-          modelCatalog!.when(
-            data: (catalog) => ListTile(
-              key: const ValueKey<String>('onDeviceAiStatus'),
-              title: const Text('On-device AI'),
-              subtitle: Text(
-                catalog.availableModels.isEmpty
-                    ? 'Unavailable. Folder generation will fall back to plain series names.'
-                    : 'Detected model: ${catalog.activeModel ?? catalog.availableModels.first}',
-              ),
-            ),
-            loading: () => const ListTile(
-              key: ValueKey<String>('onDeviceAiStatus'),
-              title: Text('On-device AI'),
-              subtitle: Text('Checking model availability...'),
-            ),
-            error: (_, _) => const ListTile(
-              key: ValueKey<String>('onDeviceAiStatus'),
-              title: Text('On-device AI'),
-              subtitle: Text(
-                'Unavailable. Folder generation will fall back to plain series names.',
-              ),
-            ),
-          ),
-          const Divider(),
-        ],
-
-        // Custom folder per series
-        const Padding(
-          padding: EdgeInsets.all(16),
-          child: Text(
-            'Series Folder Overrides',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-        ),
+        const SizedBox(height: 20),
+        const PaperSectionHeading('Series Folder Overrides'),
         mapping.when(
-          data: (map) => Column(
-            children: map.entries.map((entry) {
-              return ListTile(
-                title: Text(entry.key),
-                subtitle: Text(entry.value),
-                onTap: () async {
-                  // Open folder in system file explorer
-                  try {
-                    await OpenFile.open(entry.value);
-                  } catch (e) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Could not open folder: $e')),
-                      );
-                    }
-                  }
-                },
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline),
-                      onPressed: () async {
-                        final bool? confirm = await showDialog<bool>(
-                          context: context,
-                          builder: (ctx) => AlertDialog(
-                            title: const Text('Delete Series Folder'),
-                            content: Text(
-                              'This will delete the folder and all files for "${entry.key}". Continue?',
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(ctx, false),
-                                child: const Text('Cancel'),
-                              ),
-                              TextButton(
-                                onPressed: () => Navigator.pop(ctx, true),
-                                child: const Text('Delete'),
-                              ),
-                            ],
-                          ),
-                        );
-                        if (confirm == true) {
+          data: (map) => map.isEmpty
+              ? Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: Text(
+                    'No series folders assigned.',
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                )
+              : Column(
+                  children: ListTile.divideTiles(
+                    context: context,
+                    tiles: map.entries.map((entry) {
+                      return ListTile(
+                        title: Text(entry.key),
+                        subtitle: Text(entry.value),
+                        onTap: () async {
+                          // Open folder in system file explorer
                           try {
-                            await Directory(entry.value)
-                                .delete(recursive: true);
-                          } catch (_) {}
-                          await ref
-                              .read(seriesFolderMappingProvider.notifier)
-                              .removeFolder(entry.key);
-                          await ref
-                              .read(downloadedTorrentsProvider.notifier)
-                              .removeByShow(entry.key);
-                        }
-                      },
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.edit),
-                      onPressed: () async {
-                        final selected = await FilePicker.getDirectoryPath();
-                        if (selected != null) {
-                          await ref
-                              .read(seriesFolderMappingProvider.notifier)
-                              .setFolder(entry.key, selected);
-                        }
-                      },
-                    ),
-                  ],
+                            await OpenFile.open(entry.value);
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Could not open folder: $e'),
+                                ),
+                              );
+                            }
+                          }
+                        },
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              tooltip: 'Delete folder for ${entry.key}',
+                              icon: const Icon(Icons.delete_outline),
+                              onPressed: () async {
+                                final bool? confirm = await showDialog<bool>(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    scrollable: true,
+                                    title: const Text('Delete Series Folder'),
+                                    content: Text(
+                                      'This will delete the folder and all files for "${entry.key}". Continue?',
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(ctx, false),
+                                        child: const Text('Cancel'),
+                                      ),
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(ctx, true),
+                                        child: const Text('Delete'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                if (confirm == true) {
+                                  try {
+                                    await Directory(entry.value)
+                                        .delete(recursive: true);
+                                  } catch (_) {}
+                                  await ref
+                                      .read(
+                                        seriesFolderMappingProvider.notifier,
+                                      )
+                                      .removeFolder(entry.key);
+                                  await ref
+                                      .read(downloadedTorrentsProvider.notifier)
+                                      .removeByShow(entry.key);
+                                }
+                              },
+                            ),
+                            IconButton(
+                              tooltip: 'Edit folder for ${entry.key}',
+                              icon: const Icon(Icons.edit_outlined),
+                              onPressed: () async {
+                                final selected =
+                                    await FilePicker.getDirectoryPath();
+                                if (selected != null) {
+                                  await ref
+                                      .read(
+                                        seriesFolderMappingProvider.notifier,
+                                      )
+                                      .setFolder(entry.key, selected);
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ).toList(),
                 ),
-              );
-            }).toList(),
-          ),
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(child: Text('Error: $e')),
         ),
       ],
+    );
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 760),
+        child: ListTileTheme(
+          data: ListTileTheme.of(
+            context,
+          ).copyWith(contentPadding: const EdgeInsets.symmetric(vertical: 4)),
+          child: settings,
+        ),
+      ),
     );
   }
 }

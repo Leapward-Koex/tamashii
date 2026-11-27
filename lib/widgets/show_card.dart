@@ -21,6 +21,7 @@ import 'package:tamashii/providers/torrent_download_provider.dart';
 import 'package:tamashii/services/gemini_nano_service.dart';
 import 'package:tamashii/services/permission_service.dart';
 import 'package:tamashii/services/series_folder_resolution_service.dart';
+import 'package:tamashii/theme/paper_lantern.dart';
 import 'package:tamashii/widgets/download_preparation_dialog.dart';
 import 'package:tamashii/widgets/glowing_progress_bar.dart';
 import 'package:tamashii/widgets/series_folder_confirmation_dialog.dart';
@@ -203,18 +204,10 @@ class ShowCard extends ConsumerWidget {
       ),
     );
 
-    final progressFraction = torrentDownloadState.progressFraction;
-    final downloadRate = torrentDownloadState.downloadRate;
-    final uploadRate = torrentDownloadState.uploadRate;
-    final isLoadingTorrent = torrentDownloadState.isLoading;
     final isDownloading = torrentDownloadState.isDownloading;
-    final isPaused = torrentDownloadState.isPaused;
     final hasActiveTorrent = torrentDownloadState.torrentId != null;
     final showTorrentDetails =
         hasActiveTorrent && !torrentDownloadState.isCompleted;
-    final torrentStateColor = _getTorrentStateColor(
-      torrentDownloadState.currentState,
-    );
 
     Future<void> performDownloadAction() async {
       if (isDownloading) {
@@ -350,46 +343,70 @@ class ShowCard extends ConsumerWidget {
     final posterLookup = featured && isBookmarked
         ? _watchFeaturedPoster(ref)
         : null;
-    final cardBody = featured
-        ? _buildFeaturedCard(
-            context: context,
-            isBookmarked: isBookmarked,
-            posterLookup: posterLookup,
-            isDownloaded: isDownloaded,
-            isLoadingTorrent: isLoadingTorrent,
-            isPaused: isPaused,
-            isDownloading: isDownloading,
-            progressFraction: progressFraction,
-            showTorrentDetails: showTorrentDetails,
-            torrentDownloadState: torrentDownloadState,
-            torrentStateColor: torrentStateColor,
-            downloadRate: downloadRate,
-            uploadRate: uploadRate,
-            onDownloadPressed: isLoadingTorrent
-                ? null
-                : () => handleDownloadPressed(),
-            onBookmarkPressed: () => handleBookmarkPressed(),
+    final preferredPoster = posterLookup?.asData?.value;
+    final poster = ShowImage(
+      imageUrl: preferredPoster ?? show.imageUrl,
+      fallbackImageUrl: preferredPoster == null ? null : show.imageUrl,
+      faceAware: posterLookup != null && !posterLookup.isLoading,
+    );
+    final downloadLabel = _downloadActionLabel(
+      isLoadingTorrent: torrentDownloadState.isLoading,
+      isDownloading: isDownloading,
+      isPaused: showTorrentDetails && !isDownloading,
+      isDownloaded: isDownloaded,
+      isCompleted: torrentDownloadState.isCompleted,
+    );
+    final actionIcon = torrentDownloadState.isLoading
+        ? const SizedBox.square(
+            dimension: 17,
+            child: CircularProgressIndicator(strokeWidth: 2),
           )
-        : _buildStandardCard(
-            context: context,
-            isBookmarked: isBookmarked,
-            isDownloaded: isDownloaded,
-            isLoadingTorrent: isLoadingTorrent,
-            isPaused: isPaused,
-            isDownloading: isDownloading,
-            progressFraction: progressFraction,
-            showTorrentDetails: showTorrentDetails,
-            torrentDownloadState: torrentDownloadState,
-            torrentStateColor: torrentStateColor,
-            downloadRate: downloadRate,
-            uploadRate: uploadRate,
-            onDownloadPressed: isLoadingTorrent
-                ? null
-                : () => handleDownloadPressed(),
-            onBookmarkPressed: () => handleBookmarkPressed(),
+        : Icon(
+            _downloadActionIcon(
+              isDownloading: isDownloading,
+              isPaused: showTorrentDetails && !isDownloading,
+              isDownloaded: isDownloaded,
+            ),
+            size: 19,
           );
-
-    return StaggeredReveal(index: revealIndex, child: cardBody);
+    final download = featured
+        ? FilledButton.icon(
+            onPressed: torrentDownloadState.isLoading
+                ? null
+                : handleDownloadPressed,
+            icon: actionIcon,
+            label: Text(downloadLabel),
+          )
+        : IconButton(
+            tooltip: downloadLabel,
+            onPressed: torrentDownloadState.isLoading
+                ? null
+                : handleDownloadPressed,
+            icon: actionIcon,
+          );
+    final watching = IconButton(
+      tooltip: isBookmarked ? 'Remove from watching' : 'Mark as watching',
+      icon: Icon(
+        isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+        size: 20,
+      ),
+      color: isBookmarked ? PaperLantern.red : PaperLantern.muted,
+      onPressed: handleBookmarkPressed,
+    );
+    final status = showTorrentDetails
+        ? _transferStatus(context, torrentDownloadState)
+        : null;
+    final card = featured
+        ? _feature(context, poster, download, watching, isDownloaded, status)
+        : _releaseRow(
+            context,
+            poster,
+            download,
+            watching,
+            isDownloaded,
+            status,
+          );
+    return StaggeredReveal(index: revealIndex, child: card);
   }
 
   AsyncValue<String?> _watchFeaturedPoster(WidgetRef ref) {
@@ -414,600 +431,302 @@ class ShowCard extends ConsumerWidget {
     return const AsyncData(null);
   }
 
-  Widget _tappableSurface(
+  Widget _releaseSurface(
     BuildContext context, {
-    required double radius,
+    required Key key,
     required Widget child,
-  }) => ClipRRect(
-    borderRadius: BorderRadius.circular(radius),
-    child: InkWell(
-      onTap: () => Navigator.of(context).push<void>(
-        MaterialPageRoute(builder: (_) => ShowInfoPage.release(show)),
-      ),
-      child: child,
-    ),
-  );
-
-  Widget _buildFeaturedCard({
-    required BuildContext context,
-    required bool isBookmarked,
-    required AsyncValue<String?>? posterLookup,
-    required bool isDownloaded,
-    required bool isLoadingTorrent,
-    required bool isPaused,
-    required bool isDownloading,
-    required double progressFraction,
-    required bool showTorrentDetails,
-    required TorrentDownloadState torrentDownloadState,
-    required Color torrentStateColor,
-    required int downloadRate,
-    required int uploadRate,
-    required Future<void> Function()? onDownloadPressed,
-    required Future<void> Function() onBookmarkPressed,
   }) {
-    final theme = Theme.of(context);
-    final preferredPoster = posterLookup?.asData?.value;
-    final poster = ShowImage(
-      imageUrl: preferredPoster ?? show.imageUrl,
-      fallbackImageUrl: preferredPoster == null ? null : show.imageUrl,
-      faceAware: posterLookup != null && !posterLookup.isLoading,
-    );
-    final parallax = posterParallax;
-
-    return AnimatedContainer(
-      key: featuredCardKey(show.show),
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-      height: showTorrentDetails ? 424 : 324,
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(30),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.16),
-            blurRadius: 30,
-            offset: const Offset(0, 20),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Material(
+        key: key,
+        color: PaperLantern.paper,
+        child: InkWell(
+          onTap: () => Navigator.of(context).push<void>(
+            MaterialPageRoute(builder: (_) => ShowInfoPage.release(show)),
           ),
-        ],
-      ),
-      child: _tappableSurface(
-        context,
-        radius: 30,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Positioned.fill(
-              child: parallax == null
-                  ? poster
-                  : ValueListenableBuilder<double>(
-                      valueListenable: parallax,
-                      child: poster,
-                      builder: (context, offset, child) => Transform.translate(
-                        key: featuredPosterTransformKey(show.show),
-                        offset: Offset(0, offset),
-                        child: child,
-                      ),
-                    ),
-            ),
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.black.withValues(alpha: 0.1),
-                      Colors.black.withValues(alpha: 0.24),
-                      Colors.black.withValues(alpha: 0.88),
-                    ],
-                  ),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border(
+                top: featured
+                    ? const BorderSide(color: PaperLantern.ink)
+                    : BorderSide.none,
+                bottom: BorderSide(
+                  color: featured ? PaperLantern.ink : PaperLantern.rule,
                 ),
               ),
             ),
-            Positioned(
-              top: 18,
-              left: 18,
-              child: KeyedSubtree(
-                key: featuredTopBadgeKey(show.show),
-                child: _buildInfoPill(
-                  label: 'Latest release',
-                  foregroundColor: Colors.white,
-                  backgroundColor: Colors.white.withValues(alpha: 0.14),
-                ),
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: featured ? 14 : 8),
+              child: child,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String get _episodeLine {
+    final resolution = show.bestDownload?.resolution;
+    return [
+      'Episode ${show.episode}',
+      if (resolution != null) '${resolution.toJson()}p',
+    ].join(' · ');
+  }
+
+  Widget _feature(
+    BuildContext context,
+    Widget poster,
+    Widget download,
+    Widget watching,
+    bool isDownloaded,
+    Widget? status,
+  ) {
+    final theme = Theme.of(context);
+    final parallax = posterParallax;
+    final editionDate = DateFormat.MMMd().format(show.releaseDate.toLocal());
+    final title = show.show.trim();
+    final lastWord = title.lastIndexOf(' ');
+    final copy = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'Featured release',
+          key: featuredTopBadgeKey(show.show),
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontFamily: PaperLantern.serif,
+            fontStyle: FontStyle.italic,
+            fontWeight: FontWeight.w600,
+            color: PaperLantern.red,
+          ),
+        ),
+        const SizedBox(height: 9),
+        Column(
+          key: featuredContentKey(show.show),
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text.rich(
+              TextSpan(
+                children: [
+                  if (lastWord != -1)
+                    TextSpan(text: title.substring(0, lastWord + 1)),
+                  TextSpan(
+                    text: title.substring(lastWord + 1),
+                    style: lastWord == -1
+                        ? null
+                        : const TextStyle(
+                            fontStyle: FontStyle.italic,
+                            color: PaperLantern.red,
+                          ),
+                  ),
+                ],
+              ),
+              maxLines: 4,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.headlineMedium?.copyWith(
+                fontFamily: PaperLantern.serif,
+                color: PaperLantern.ink,
+                height: 1.04,
+              ),
+            ),
+            const SizedBox(height: 9),
+            Text(_episodeLine, style: PaperLantern.folio),
+            Text(
+              [
+                editionDate,
+                if (show.timeLabel.trim().isNotEmpty) show.timeLabel,
+              ].join(' · '),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: PaperLantern.muted,
               ),
             ),
             if (isDownloaded)
-              Positioned(
-                top: 18,
-                right: 18,
-                child: _buildInfoPill(
-                  label: 'DOWNLOADED',
-                  foregroundColor: Colors.white,
-                  backgroundColor: Colors.green.withValues(alpha: 0.85),
-                ),
+              Text(
+                'DOWNLOADED',
+                style: PaperLantern.folio.copyWith(color: PaperLantern.red),
               ),
-            Positioned(
-              left: 18,
-              right: 18,
-              bottom: 18,
-              child: Container(
-                key: featuredContentKey(show.show),
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.18),
+            const SizedBox(height: 7),
+            Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [download, watching],
+            ),
+          ],
+        ),
+      ],
+    );
+    final portrait = ClipRect(
+      child: parallax == null
+          ? poster
+          : Stack(
+              fit: StackFit.expand,
+              children: [
+                Positioned.fill(
+                  top: -28,
+                  child: ValueListenableBuilder<double>(
+                    valueListenable: parallax,
+                    child: poster,
+                    builder: (context, offset, child) => Transform.translate(
+                      key: featuredPosterTransformKey(show.show),
+                      offset: Offset(0, offset.clamp(0.0, 28.0)),
+                      child: child,
+                    ),
                   ),
                 ),
+              ],
+            ),
+    );
+    return _releaseSurface(
+      context,
+      key: featuredCardKey(show.show),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final width = constraints.maxWidth;
+              final posterWidth = (width * .42).clamp(0.0, 220.0);
+              final frame = SizedBox(
+                width: posterWidth,
+                height: posterWidth * 1.32,
+                child: ColoredBox(color: PaperLantern.wash, child: portrait),
+              );
+              // Give large accessibility type the entire column on a narrow phone.
+              if (width < 260 ||
+                  width < 440 &&
+                      MediaQuery.textScalerOf(context).scale(16) >= 26) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [frame, const SizedBox(height: 14), copy],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(child: copy),
+                  const SizedBox(width: 12),
+                  frame,
+                ],
+              );
+            },
+          ),
+          if (status != null) ...[const SizedBox(height: 10), status],
+        ],
+      ),
+    );
+  }
+
+  Widget _releaseRow(
+    BuildContext context,
+    Widget poster,
+    Widget download,
+    Widget watching,
+    bool isDownloaded,
+    Widget? status,
+  ) {
+    final theme = Theme.of(context);
+    return _releaseSurface(
+      context,
+      key: standardCardKey(show.show),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              SizedBox(
+                width: 42,
+                height: 60,
+                child: ColoredBox(color: PaperLantern.wash, child: poster),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       show.show,
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        height: 1.05,
-                      ),
-                      maxLines: 2,
+                      maxLines: 3,
                       overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        _buildInfoPill(
-                          label: 'Episode ${show.episode}',
-                          foregroundColor: Colors.white,
-                          backgroundColor: Colors.white.withValues(alpha: 0.12),
-                        ),
-                        _buildInfoPill(
-                          label:
-                              '${DateFormat.MMMd().format(show.releaseDate.toLocal())} • ${show.timeLabel}',
-                          foregroundColor: Colors.white,
-                          backgroundColor: Colors.white.withValues(alpha: 0.12),
-                        ),
-                        if (showTorrentDetails)
-                          _buildInfoPill(
-                            label: _torrentStateLabel(
-                              torrentDownloadState.currentState,
-                            ),
-                            foregroundColor: Colors.white,
-                            backgroundColor: torrentStateColor.withValues(
-                              alpha: 0.28,
-                            ),
-                          ),
-                      ],
-                    ),
-                    if (showTorrentDetails) ...[
-                      const SizedBox(height: 14),
-                      Row(
-                        children: [
-                          Icon(
-                            _getTorrentStateIcon(
-                              torrentDownloadState.currentState,
-                            ),
-                            color: Colors.white,
-                            size: 16,
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              _featuredStatusText(
-                                torrentDownloadState: torrentDownloadState,
-                                downloadRate: downloadRate,
-                                uploadRate: uploadRate,
-                              ),
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: Colors.white.withValues(alpha: 0.84),
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontFamily: PaperLantern.serif,
+                        fontSize: 18,
+                        height: 1.12,
+                        color: PaperLantern.ink,
+                        fontWeight: FontWeight.w600,
                       ),
-                      const SizedBox(height: 14),
-                      GlowingProgressBar(
-                        progress: progressFraction,
-                        height: 8,
-                        color: theme.colorScheme.primary,
-                        backgroundColor: Colors.white.withValues(alpha: 0.16),
-                      ),
-                    ],
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: FilledButton.tonalIcon(
-                            onPressed: onDownloadPressed,
-                            style: FilledButton.styleFrom(
-                              foregroundColor: Colors.white,
-                              backgroundColor: Colors.white.withValues(
-                                alpha: 0.16,
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 18,
-                                vertical: 14,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(18),
-                              ),
-                            ),
-                            icon: isLoadingTorrent
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : Icon(
-                                    _downloadActionIcon(
-                                      isDownloading: isDownloading,
-                                      isPaused: isPaused,
-                                      isDownloaded: isDownloaded,
-                                    ),
-                                  ),
-                            label: Text(
-                              _downloadActionLabel(
-                                isLoadingTorrent: isLoadingTorrent,
-                                isDownloading: isDownloading,
-                                isPaused: isPaused,
-                                isDownloaded: isDownloaded,
-                                isCompleted: torrentDownloadState.isCompleted,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        FilledButton.tonal(
-                          onPressed: onBookmarkPressed,
-                          style: FilledButton.styleFrom(
-                            minimumSize: const Size(52, 52),
-                            foregroundColor: Colors.white,
-                            backgroundColor: isBookmarked
-                                ? Colors.white.withValues(alpha: 0.22)
-                                : Colors.white.withValues(alpha: 0.12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                          ),
-                          child: Icon(
-                            isBookmarked
-                                ? Icons.bookmark
-                                : Icons.bookmark_border,
-                          ),
-                        ),
-                      ],
                     ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '$_episodeLine · ${DateFormat.MMMd().format(show.releaseDate.toLocal())}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: PaperLantern.muted,
+                      ),
+                    ),
+                    if (isDownloaded)
+                      Text(
+                        'DONE',
+                        style: PaperLantern.folio.copyWith(
+                          color: PaperLantern.red,
+                        ),
+                      ),
                   ],
                 ),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStandardCard({
-    required BuildContext context,
-    required bool isBookmarked,
-    required bool isDownloaded,
-    required bool isLoadingTorrent,
-    required bool isPaused,
-    required bool isDownloading,
-    required double progressFraction,
-    required bool showTorrentDetails,
-    required TorrentDownloadState torrentDownloadState,
-    required Color torrentStateColor,
-    required int downloadRate,
-    required int uploadRate,
-    required Future<void> Function()? onDownloadPressed,
-    required Future<void> Function() onBookmarkPressed,
-  }) {
-    final theme = Theme.of(context);
-
-    return Container(
-      key: standardCardKey(show.show),
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(26),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            theme.colorScheme.surface,
-            theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.92),
-          ],
-        ),
-        border: Border.all(
-          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.2),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 24,
-            offset: const Offset(0, 14),
+              Row(
+                key: standardActionsKey(show.show),
+                mainAxisSize: MainAxisSize.min,
+                children: [download, watching],
+              ),
+            ],
           ),
+          if (status != null) ...[const SizedBox(height: 8), status],
         ],
       ),
-      child: _tappableSurface(
-        context,
-        radius: 26,
-        child: Stack(
+    );
+  }
+
+  Widget _transferStatus(BuildContext context, TorrentDownloadState state) {
+    final muted = Theme.of(context).textTheme.bodySmall
+        ?.copyWith(color: PaperLantern.muted);
+    final progress = state.progressFraction.isFinite
+        ? state.progressFraction.clamp(0.0, 1.0)
+        : 0.0;
+    final rateText = [
+      if (state.metadata != null)
+        featured ? state.displayName : state.formattedSize,
+      'Down ${_formatBytes(state.downloadRate)}/s',
+      'Up ${_formatBytes(state.uploadRate)}/s',
+      if (!featured && state.stats != null)
+        '${state.seeds} seeds · ${state.peers} peers',
+    ].join(' · ');
+    return Column(
+      key: featured ? null : standardStatusKey(show.show),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
           children: [
-            PositionedDirectional(
-              start: 0,
-              top: 0,
-              bottom: 0,
-              width: 132,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  ShowImage(imageUrl: show.imageUrl),
-                  Positioned.fill(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.transparent,
-                            Colors.black.withValues(alpha: 0.24),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (isDownloaded)
-                    Positioned(
-                      top: 10,
-                      right: 10,
-                      child: _buildInfoPill(
-                        label: 'DONE',
-                        foregroundColor: Colors.white,
-                        backgroundColor: Colors.green.withValues(alpha: 0.85),
-                      ),
-                    ),
-                ],
+            Expanded(
+              child: Text(
+                _torrentStateLabel(state.currentState),
+                style: PaperLantern.folio.copyWith(color: PaperLantern.red),
               ),
             ),
-            ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 180),
-              child: Padding(
-                padding: const EdgeInsetsDirectional.fromSTEB(150, 16, 14, 14),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          show.show,
-                          style: theme.textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            height: 1.1,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 10),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            _buildInfoPill(
-                              label: 'Ep ${show.episode}',
-                              foregroundColor:
-                                  theme.colorScheme.onSurfaceVariant,
-                              backgroundColor:
-                                  theme.colorScheme.secondaryContainer,
-                            ),
-                            _buildInfoPill(
-                              label: DateFormat.MMMd().format(
-                                show.releaseDate.toLocal(),
-                              ),
-                              foregroundColor:
-                                  theme.colorScheme.onSurfaceVariant,
-                              backgroundColor:
-                                  theme.colorScheme.surfaceContainerHigh,
-                            ),
-                          ],
-                        ),
-                        if (showTorrentDetails) ...[
-                          const SizedBox(height: 14),
-                          GlowingProgressBar(
-                            progress: progressFraction,
-                            fillKey: ValueKey<String>(
-                              'show-progress-fill-${show.show}-${show.episode}',
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                          Container(
-                            key: standardStatusKey(show.show),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 10,
-                            ),
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.surface.withValues(
-                                alpha: 0.72,
-                              ),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Icon(
-                                      _getTorrentStateIcon(
-                                        torrentDownloadState.currentState,
-                                      ),
-                                      size: 16,
-                                      color: torrentStateColor,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Expanded(
-                                      child: Text(
-                                        _torrentStateLabel(
-                                          torrentDownloadState.currentState,
-                                        ),
-                                        style: theme.textTheme.labelMedium
-                                            ?.copyWith(
-                                              color: torrentStateColor,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  _compactStatusText(
-                                    torrentDownloadState: torrentDownloadState,
-                                    downloadRate: downloadRate,
-                                    uploadRate: uploadRate,
-                                  ),
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                  ),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.only(top: 16),
-                      child: Row(
-                        key: standardActionsKey(show.show),
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          FilledButton.tonal(
-                            onPressed: onDownloadPressed,
-                            style: FilledButton.styleFrom(
-                              minimumSize: const Size(48, 48),
-                              padding: const EdgeInsets.all(0),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                            ),
-                            child: isLoadingTorrent
-                                ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : Icon(
-                                    _downloadActionIcon(
-                                      isDownloading: isDownloading,
-                                      isPaused: isPaused,
-                                      isDownloaded: isDownloaded,
-                                    ),
-                                  ),
-                          ),
-                          const SizedBox(width: 8),
-                          FilledButton.tonal(
-                            onPressed: onBookmarkPressed,
-                            style: FilledButton.styleFrom(
-                              minimumSize: const Size(48, 48),
-                              padding: const EdgeInsets.all(0),
-                              backgroundColor: isBookmarked
-                                  ? theme.colorScheme.primaryContainer
-                                  : theme.colorScheme.surfaceContainerHigh,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                            ),
-                            child: Icon(
-                              isBookmarked
-                                  ? Icons.bookmark
-                                  : Icons.bookmark_border,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            Text('${(progress * 100).round()}%', style: PaperLantern.folio),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildInfoPill({
-    required String label,
-    required Color foregroundColor,
-    required Color backgroundColor,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: foregroundColor,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.2,
+        const SizedBox(height: 4),
+        GlowingProgressBar(
+          progress: progress,
+          height: 3,
+          color: PaperLantern.red,
+          backgroundColor: PaperLantern.wash,
+          fillKey: ValueKey<String>(
+            'show-progress-fill-${show.show}-${show.episode}',
+          ),
         ),
-      ),
+        const SizedBox(height: 4),
+        Text(rateText, style: muted),
+      ],
     );
-  }
-
-  String _featuredStatusText({
-    required TorrentDownloadState torrentDownloadState,
-    required int downloadRate,
-    required int uploadRate,
-  }) {
-    if (torrentDownloadState.metadata != null) {
-      return '${torrentDownloadState.displayName} • ↓ ${_formatBytes(downloadRate)}/s • ↑ ${_formatBytes(uploadRate)}/s';
-    }
-    return '↓ ${_formatBytes(downloadRate)}/s • ↑ ${_formatBytes(uploadRate)}/s';
-  }
-
-  String _compactStatusText({
-    required TorrentDownloadState torrentDownloadState,
-    required int downloadRate,
-    required int uploadRate,
-  }) {
-    final stats = <String>[
-      '↓ ${_formatBytes(downloadRate)}/s',
-      '↑ ${_formatBytes(uploadRate)}/s',
-    ];
-
-    if (torrentDownloadState.stats != null) {
-      stats.add(
-        'S:${torrentDownloadState.stats!.seeds} P:${torrentDownloadState.stats!.peers}',
-      );
-    }
-
-    if (torrentDownloadState.metadata != null) {
-      stats.insert(0, torrentDownloadState.formattedSize);
-    }
-
-    return stats.join(' • ');
   }
 
   String _torrentStateLabel(TorrentState state) {
@@ -1062,50 +781,12 @@ class ShowCard extends ConsumerWidget {
     if (isPaused) {
       return 'Resume';
     }
-    if (isCompleted) {
-      return 'Open';
-    }
     if (isDownloaded) {
       return 'Redownload';
     }
+    if (isCompleted) {
+      return 'Completed';
+    }
     return 'Download';
-  }
-
-  IconData _getTorrentStateIcon(TorrentState state) {
-    switch (state) {
-      case TorrentState.starting:
-        return Icons.play_circle_outline;
-      case TorrentState.downloadingMetadata:
-        return Icons.info_outline;
-      case TorrentState.downloading:
-        return Icons.download;
-      case TorrentState.seeding:
-        return Icons.upload;
-      case TorrentState.paused:
-        return Icons.pause_circle_outline;
-      case TorrentState.error:
-        return Icons.error_outline;
-      case TorrentState.stopped:
-        return Icons.stop;
-    }
-  }
-
-  Color _getTorrentStateColor(TorrentState state) {
-    switch (state) {
-      case TorrentState.starting:
-        return Colors.orange;
-      case TorrentState.downloadingMetadata:
-        return Colors.blue;
-      case TorrentState.downloading:
-        return Colors.green;
-      case TorrentState.seeding:
-        return Colors.purple;
-      case TorrentState.paused:
-        return Colors.grey;
-      case TorrentState.error:
-        return Colors.red;
-      case TorrentState.stopped:
-        return Colors.black54;
-    }
   }
 }

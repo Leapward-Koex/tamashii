@@ -109,6 +109,14 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+  assets:
+    - assets/fonts/baskervville/OFL.txt
+  fonts:
+    - family: Baskervville
+      fonts:
+        - asset: assets/fonts/baskervville/Baskervville.ttf
+        - asset: assets/fonts/baskervville/Baskervville-Italic.ttf
+          style: italic
 
   # To add assets to your application, add an assets section, like this:
   # assets:

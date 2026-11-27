@@ -1,19 +1,21 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui';
+import 'dart:ui' show PointerDeviceKind;
 
 import 'package:flutter/foundation.dart';
-import 'package:material_ui/material_ui.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:intl/intl.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:tamashii/models/show_models.dart';
 import 'package:tamashii/pages/download_queue_page.dart';
-import 'package:tamashii/pages/settings_page.dart';
 import 'package:tamashii/pages/schedule_page.dart';
+import 'package:tamashii/pages/settings_page.dart';
 import 'package:tamashii/providers/download_queue_provider.dart';
 import 'package:tamashii/providers/filter_provider.dart';
 import 'package:tamashii/providers/foreground_torrent_provider.dart';
 import 'package:tamashii/providers/subsplease_api_providers.dart';
+import 'package:tamashii/theme/paper_lantern.dart';
 import 'package:tamashii/widgets/add_schedule_show_sheet.dart';
 import 'package:tamashii/widgets/show_card.dart';
 import 'package:tamashii/widgets/transfer_policy_banner.dart';
@@ -34,408 +36,455 @@ class HomePage extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    const double searchBarMaxHeight = 60;
-    const double searchBarMinHeight = 44;
-    const double searchBarOuterPadding = 16;
-    const double homeListTopInset =
-        searchBarMaxHeight + (searchBarOuterPadding * 2) + 12;
-    const double refreshIndicatorDisplacement = homeListTopInset + 24;
-
-    final TextEditingController searchController = useTextEditingController();
-    final searchBarProgress = useValueNotifier(0.0);
-    final posterParallax = useValueNotifier(0.0);
-    late final ScrollController scrollController;
-    void updateScrollEffects() {
-      final offset = scrollController.hasClients
-          ? scrollController.offset
-          : 0.0;
-      searchBarProgress.value = (offset / 140).clamp(0.0, 1.0);
-      posterParallax.value = math.min(offset * 0.18, 28.0);
-    }
-
-    void restoreScrollEffects(ScrollPosition _) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (context.mounted) {
-          updateScrollEffects();
-        }
-      });
-    }
-
-    scrollController = useScrollController(
-      onAttach: restoreScrollEffects,
-      onDetach: restoreScrollEffects,
-    );
-    final debounceTimerRef = useRef<Timer?>(null);
-    final debouncedQuery = useState<String>('');
-
-    final refreshKey = useMemoized<GlobalKey<RefreshIndicatorState>>(
-      () => GlobalKey<RefreshIndicatorState>(),
-    );
-
+    final today = useState(DateUtils.dateOnly(DateTime.now()));
     useEffect(() {
-      void listener() {
-        if (debounceTimerRef.value != null) {
-          debounceTimerRef.value!.cancel();
-        }
-        debounceTimerRef.value = Timer(const Duration(milliseconds: 500), () {
+      final date = today.value;
+      final midnight = DateTime(date.year, date.month, date.day + 1);
+      final timer = Timer(
+        midnight.difference(DateTime.now()),
+        () => today.value = DateUtils.dateOnly(DateTime.now()),
+      );
+      return timer.cancel;
+    }, [today.value]);
+    final searchController = useTextEditingController();
+    final searching = useState(false);
+    final debouncedQuery = useState('');
+    useEffect(() {
+      Timer? debounce;
+      void updateSearch() {
+        debounce?.cancel();
+        debounce = Timer(const Duration(milliseconds: 500), () {
           debouncedQuery.value = searchController.text;
         });
       }
 
-      searchController.addListener(listener);
+      searchController.addListener(updateSearch);
       return () {
-        searchController.removeListener(listener);
-        if (debounceTimerRef.value != null) {
-          debounceTimerRef.value!.cancel();
-        }
+        debounce?.cancel();
+        searchController.removeListener(updateSearch);
       };
     }, [searchController]);
 
-    useEffect(() {
-      scrollController.addListener(updateScrollEffects);
-      return () => scrollController.removeListener(updateScrollEffects);
-    }, [scrollController, searchBarProgress, posterParallax]);
-
-    final String currentQuery = debouncedQuery.value;
-
-    // Watch the current filter
-    final filterAsync = ref.watch(showFilterProvider);
-    final currentFilter = filterAsync.value ?? ShowFilter.all;
-
-    // Use filtered shows instead of raw shows
-    final AsyncValue<List<ShowInfo>> itemsValue = ref.watch(
-      filteredShowsProvider(currentQuery),
-    );
-
-    Future<void> refresh() async {
-      return await ref.refresh(latestShowsProvider.future);
-    }
-
-    final selectedIndex = useState<int>(0);
-    final visitedTabs = useRef(<int>{0});
-    final isAndroid = defaultTargetPlatform == TargetPlatform.android;
-    final transferPolicy = isAndroid
+    final selected = useState(0);
+    final visited = useRef(<int>{0});
+    final filter = ref.watch(showFilterProvider).value ?? ShowFilter.all;
+    final releases = ref.watch(filteredShowsProvider(debouncedQuery.value));
+    final policy = defaultTargetPlatform == TargetPlatform.android
         ? ref.watch(foregroundTransferPolicyStatusProvider)
         : null;
-    final activeDownloadCount = selectedIndex.value == 0
-        ? ref.watch(activeDownloadCountProvider)
-        : 0;
-    final theme = Theme.of(context);
-    final pages = <Widget>[
-      Stack(
+    final activeDownloads = ref.watch(activeDownloadCountProvider);
+    final refreshKey = useMemoized(GlobalKey<RefreshIndicatorState>.new);
+    Future<void> refresh() async {
+      final query = debouncedQuery.value;
+      final request = query.isEmpty
+          ? ref.refresh(latestShowsProvider.future)
+          : ref.refresh(searchShowsProvider(query).future);
+      // The feed observes this provider and renders any request error itself.
+      await request.then<void>((_) {}, onError: (Object _, StackTrace _) {});
+    }
+
+    void select(int index) {
+      FocusManager.instance.primaryFocus?.unfocus();
+      visited.value.add(index);
+      selected.value = index;
+    }
+
+    Future<void> addToSchedule() async {
+      final name = await showModalBottomSheet<String>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        builder: (_) => const AddScheduleShowSheet(),
+      );
+      if (!context.mounted || name == null) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Added "$name" to your watching list.')),
+      );
+    }
+
+    final pages = [
+      Column(
         children: [
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Theme.of(context).colorScheme.primaryContainer
-                        .withValues(alpha: 0.24),
-                    Theme.of(context).colorScheme.surface,
-                    Theme.of(context).colorScheme.surfaceContainerHighest
-                        .withValues(alpha: 0.84),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Positioned.fill(
-            child: Builder(
-              builder: (context) {
-                final List<ShowInfo> shows =
-                    itemsValue.value ?? const <ShowInfo>[];
-
-                if (shows.isEmpty && itemsValue.isLoading) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                if (shows.isEmpty) {
-                  if (currentFilter == ShowFilter.saved) {
-                    return const Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.bookmark_border,
-                            size: 64,
-                            color: Colors.grey,
-                          ),
-                          SizedBox(height: 16),
-                          Text('No saved series found'),
-                          SizedBox(height: 8),
-                          Text(
-                            'Bookmark some series to see them here',
-                            style: TextStyle(color: Colors.grey),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-                  return const Center(child: Text('No series found'));
-                }
-
-                return RefreshIndicator(
-                  key: refreshKey,
-                  onRefresh: refresh,
-                  edgeOffset: homeListTopInset,
-                  displacement: refreshIndicatorDisplacement,
-                  child: ScrollConfiguration(
-                    behavior: const MaterialScrollBehavior().copyWith(
-                      dragDevices: {
-                        PointerDeviceKind.touch,
-                        PointerDeviceKind.mouse,
-                        PointerDeviceKind.trackpad,
-                      },
-                    ),
-                    child: CustomScrollView(
-                      key: scrollViewKey,
-                      controller: scrollController,
-                      physics: const BouncingScrollPhysics(
-                        parent: AlwaysScrollableScrollPhysics(),
-                      ),
-                      slivers: [
-                        const SliverToBoxAdapter(
-                          child: SizedBox(height: homeListTopInset),
-                        ),
-                        SliverToBoxAdapter(
-                          child: ShowCard(
-                            show: shows.first,
-                            featured: true,
-                            posterParallax: posterParallax,
-                          ),
-                        ),
-                        if (shows.length > 1)
-                          SliverList(
-                            delegate: SliverChildBuilderDelegate((
-                              context,
-                              index,
-                            ) {
-                              final show = shows[index + 1];
-                              return ShowCard(
-                                show: show,
-                                revealIndex: index + 1,
-                              );
-                            }, childCount: shows.length - 1),
-                          ),
-                        const SliverToBoxAdapter(child: SizedBox(height: 24)),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: ValueListenableBuilder<double>(
-              valueListenable: searchBarProgress,
+          if (searching.value)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
               child: TextField(
+                key: searchBarShellKey,
+                autofocus: true,
                 controller: searchController,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: theme.colorScheme.onSurface,
-                  fontWeight: FontWeight.w600,
-                ),
+                textInputAction: TextInputAction.search,
                 decoration: InputDecoration(
                   hintText: 'Search for shows...',
-                  hintStyle: theme.textTheme.titleMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                  border: InputBorder.none,
-                  prefixIcon: Icon(
-                    Icons.search,
-                    color: theme.colorScheme.onSurfaceVariant,
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: IconButton(
+                    tooltip: 'Close search',
+                    icon: const Icon(Icons.close),
+                    onPressed: () {
+                      searchController.clear();
+                      debouncedQuery.value = '';
+                      searching.value = false;
+                    },
                   ),
                 ),
               ),
-              builder: (context, progress, child) {
-                final searchBarHeight = lerpDouble(
-                  searchBarMaxHeight,
-                  searchBarMinHeight,
-                  progress,
-                )!;
-                final horizontalPadding = lerpDouble(
-                  searchBarOuterPadding,
-                  10,
-                  progress,
-                )!;
-                final verticalPadding = lerpDouble(
-                  searchBarOuterPadding,
-                  8,
-                  progress,
-                )!;
-                final blur = lerpDouble(18, 8, progress)!;
-                final radius = lerpDouble(24, 18, progress)!;
-                final background = theme.colorScheme.surface.withValues(
-                  alpha: isAndroid
-                      ? lerpDouble(0.92, 0.98, progress)!
-                      : lerpDouble(0.58, 0.88, progress)!,
-                );
-                final searchShell = Container(
-                  key: searchBarShellKey,
-                  height: searchBarHeight,
-                  padding: const EdgeInsets.symmetric(horizontal: 18),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: background,
-                    borderRadius: BorderRadius.circular(radius),
-                    border: Border.all(
-                      color: Color.lerp(
-                        Colors.white.withValues(alpha: 0.18),
-                        theme.colorScheme.outlineVariant.withValues(
-                          alpha: 0.34,
-                        ),
-                        progress,
-                      )!,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.06),
-                        blurRadius: 24,
-                        offset: const Offset(0, 12),
-                      ),
-                    ],
-                  ),
-                  child: child,
-                );
-                return SafeArea(
-                  bottom: false,
-                  child: Padding(
-                    padding: EdgeInsets.fromLTRB(
-                      horizontalPadding,
-                      verticalPadding,
-                      horizontalPadding,
-                      0,
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(radius),
-                      child: isAndroid
-                          ? searchShell
-                          : BackdropFilter(
-                              filter: ImageFilter.blur(
-                                sigmaX: blur,
-                                sigmaY: blur,
-                              ),
-                              child: searchShell,
-                            ),
-                    ),
-                  ),
-                );
-              },
+            ),
+          if (filter == ShowFilter.saved)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: TextButton.icon(
+                  onPressed: () => ref
+                      .read(showFilterProvider.notifier)
+                      .setFilter(ShowFilter.all),
+                  icon: const Icon(Icons.bookmark_remove_outlined, size: 16),
+                  label: const Text('Watching only · Clear'),
+                ),
+              ),
+            ),
+          Expanded(
+            child: _ReleaseFeed(
+              releases: releases,
+              filter: filter,
+              refreshKey: refreshKey,
+              onRefresh: refresh,
             ),
           ),
         ],
       ),
-      const SchedulePage(),
+      SchedulePage(today: today.value, onAdd: addToSchedule),
       const SettingsPage(),
     ];
-    const titles = ['Tamashii', 'Schedule', 'Settings'];
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(titles[selectedIndex.value]),
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        surfaceTintColor: Colors.transparent,
-        actions: selectedIndex.value == 0
-            ? [
-                IconButton(
-                  key: downloadsButtonKey,
-                  icon: Badge(
-                    isLabelVisible: activeDownloadCount > 0,
-                    label: Text('$activeDownloadCount'),
-                    child: const Icon(Icons.download_outlined),
-                  ),
-                  tooltip: 'Downloads',
-                  onPressed: () {
-                    Navigator.of(context).push<void>(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const DownloadQueuePage(),
-                      ),
-                    );
-                  },
-                ),
-                IconButton(
-                  icon: Icon(currentFilter.icon),
-                  tooltip: currentFilter.displayName,
-                  onPressed: () async {
-                    await ref.read(showFilterProvider.notifier).toggleFilter();
-                  },
-                ),
-                IconButton(
-                  icon: const Icon(Icons.refresh),
-                  tooltip: 'Refresh',
-                  onPressed: () {
-                    refreshKey.currentState?.show();
-                  },
-                ),
-              ]
-            : null,
-      ),
-      body: Column(
-        children: [
-          TransferPolicyBanner(snapshot: transferPolicy),
-          Expanded(
-            child: IndexedStack(
-              index: selectedIndex.value,
+      body: SafeArea(
+        bottom: false,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 860),
+            child: Column(
               children: [
-                for (final (index, page) in pages.indexed)
-                  TickerMode(
-                    enabled: index == selectedIndex.value,
-                    child: visitedTabs.value.contains(index)
-                        ? page
-                        : const SizedBox.shrink(),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 5, 8, 2),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Semantics(
+                              header: true,
+                              label: 'Tamashii',
+                              excludeSemantics: true,
+                              child: Text.rich(
+                                const TextSpan(
+                                  text: 'Tamashii',
+                                  children: [
+                                    TextSpan(
+                                      text: '.',
+                                      style: TextStyle(color: PaperLantern.red),
+                                    ),
+                                  ],
+                                ),
+                                style: Theme.of(context).textTheme.headlineLarge
+                                    ?.copyWith(
+                                      fontFamily: PaperLantern.serif,
+                                      color: PaperLantern.ink,
+                                      fontSize: 38,
+                                      height: 1.2,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: -2.2,
+                                    ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Search shows',
+                        icon: const Icon(Icons.search),
+                        onPressed: () {
+                          select(0);
+                          searching.value = true;
+                        },
+                      ),
+                      IconButton(
+                        key: downloadsButtonKey,
+                        tooltip: 'Downloads',
+                        icon: Badge(
+                          isLabelVisible: activeDownloads > 0,
+                          label: Text('$activeDownloads'),
+                          child: const Icon(Icons.download_outlined),
+                        ),
+                        onPressed: () => Navigator.of(context).push<void>(
+                          MaterialPageRoute(
+                            builder: (_) => const DownloadQueuePage(),
+                          ),
+                        ),
+                      ),
+                      if (selected.value == 0)
+                        PopupMenuButton<String>(
+                          tooltip: 'Release options',
+                          icon: const Icon(Icons.more_vert),
+                          onSelected: (action) {
+                            if (action == 'filter') {
+                              ref
+                                  .read(showFilterProvider.notifier)
+                                  .toggleFilter();
+                            } else {
+                              refreshKey.currentState?.show();
+                            }
+                          },
+                          itemBuilder: (_) => [
+                            CheckedPopupMenuItem(
+                              value: 'filter',
+                              checked: filter == ShowFilter.saved,
+                              child: const Text('Watching only'),
+                            ),
+                            const PopupMenuItem(
+                              value: 'refresh',
+                              child: Text('Refresh releases'),
+                            ),
+                          ],
+                        ),
+                    ],
                   ),
+                ),
+                _EditionLine(today.value),
+                TransferPolicyBanner(snapshot: policy),
+                Expanded(
+                  child: IndexedStack(
+                    index: selected.value,
+                    children: [
+                      for (final (index, page) in pages.indexed)
+                        TickerMode(
+                          enabled: index == selected.value,
+                          child: visited.value.contains(index)
+                              ? page
+                              : const SizedBox.shrink(),
+                        ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
-        ],
+        ),
       ),
-      floatingActionButton: selectedIndex.value == 1
-          ? FloatingActionButton(
-              key: scheduleAddFabKey,
-              onPressed: () async {
-                final addedShowName = await showModalBottomSheet<String>(
-                  context: context,
-                  isScrollControlled: true,
-                  builder: (_) => const AddScheduleShowSheet(),
-                );
-
-                if (!context.mounted || addedShowName == null) {
-                  return;
-                }
-
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'Added "$addedShowName" to your watching list.',
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Align(
+          heightFactor: 1,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 860),
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                border: Border(top: BorderSide(color: PaperLantern.rule)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  FractionallySizedBox(
+                    alignment: [
+                      Alignment.centerLeft,
+                      Alignment.center,
+                      Alignment.centerRight,
+                    ][selected.value],
+                    widthFactor: 1 / 3,
+                    child: const SizedBox(
+                      height: 2,
+                      child: ColoredBox(color: PaperLantern.red),
                     ),
                   ),
-                );
-              },
-              child: const Icon(Icons.add),
-            )
-          : null,
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: selectedIndex.value,
-        onTap: (i) {
-          visitedTabs.value.add(i);
-          selectedIndex.value = i;
-        },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.schedule),
-            label: 'Schedule',
+                  BottomNavigationBar(
+                    currentIndex: selected.value,
+                    onTap: select,
+                    type: BottomNavigationBarType.fixed,
+                    selectedFontSize: 12,
+                    unselectedFontSize: 12,
+                    items: const [
+                      BottomNavigationBarItem(
+                        icon: Icon(Icons.home_outlined),
+                        label: 'Home',
+                      ),
+                      BottomNavigationBarItem(
+                        icon: Icon(Icons.calendar_today_outlined),
+                        label: 'Schedule',
+                      ),
+                      BottomNavigationBarItem(
+                        icon: Icon(Icons.tune),
+                        label: 'Settings',
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
-            label: 'Settings',
+        ),
+      ),
+    );
+  }
+}
+
+class _EditionLine extends StatelessWidget {
+  const _EditionLine(this.date);
+  final DateTime date;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      decoration: const BoxDecoration(
+        border: Border(
+          top: BorderSide(color: PaperLantern.ink, width: 2),
+          bottom: BorderSide(color: PaperLantern.ink),
+        ),
+      ),
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        spacing: 12,
+        children: [
+          Text(
+            '${DateFormat.EEEE().format(date)} edition'.toUpperCase(),
+            style: PaperLantern.folio,
+          ),
+          Text(
+            DateFormat('d MMMM yyyy').format(date).toUpperCase(),
+            style: PaperLantern.folio,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ReleaseFeed extends HookWidget {
+  const _ReleaseFeed({
+    required this.releases,
+    required this.filter,
+    required this.refreshKey,
+    required this.onRefresh,
+  });
+  final AsyncValue<List<ShowInfo>> releases;
+  final ShowFilter filter;
+  final GlobalKey<RefreshIndicatorState> refreshKey;
+  final RefreshCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    final parallax = useValueNotifier(0.0);
+    final controller = useScrollController();
+    useEffect(() {
+      void update() {
+        if (controller.hasClients) {
+          parallax.value = math.min(math.max(0.0, controller.offset) * .18, 28);
+        }
+      }
+
+      controller.addListener(update);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) update();
+      });
+      return () => controller.removeListener(update);
+    }, [controller, parallax]);
+
+    final shows = releases.value ?? const <ShowInfo>[];
+    final isWatching = filter == ShowFilter.saved;
+    return RefreshIndicator(
+      key: refreshKey,
+      onRefresh: onRefresh,
+      child: ScrollConfiguration(
+        behavior: const MaterialScrollBehavior().copyWith(
+          dragDevices: {
+            PointerDeviceKind.touch,
+            PointerDeviceKind.mouse,
+            PointerDeviceKind.trackpad,
+          },
+        ),
+        child: CustomScrollView(
+          key: HomePage.scrollViewKey,
+          controller: controller,
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            if (shows.isEmpty)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(
+                  child: releases.isLoading
+                      ? const CircularProgressIndicator()
+                      : Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                isWatching
+                                    ? Icons.bookmark_border
+                                    : Icons.menu_book_outlined,
+                                color: PaperLantern.muted,
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                releases.hasError
+                                    ? 'Couldn’t load releases'
+                                    : isWatching
+                                    ? 'No saved series found'
+                                    : 'No series found',
+                                style: Theme.of(context).textTheme.titleLarge,
+                                textAlign: TextAlign.center,
+                              ),
+                              if (releases.hasError)
+                                TextButton(
+                                  onPressed: () =>
+                                      refreshKey.currentState?.show(),
+                                  child: const Text('Try again'),
+                                ),
+                              if (isWatching && !releases.hasError)
+                                const Text(
+                                  'Mark a series as watching to see it here.',
+                                  textAlign: TextAlign.center,
+                                ),
+                            ],
+                          ),
+                        ),
+                ),
+              )
+            else ...[
+              SliverToBoxAdapter(
+                child: ShowCard(
+                  show: shows.first,
+                  featured: true,
+                  posterParallax: parallax,
+                ),
+              ),
+              if (shows.length > 1) ...[
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: PaperSectionHeading(
+                      'Release index',
+                      trailing: Text(
+                        (shows.length - 1).toString().padLeft(2, '0'),
+                        style: PaperLantern.folio,
+                      ),
+                    ),
+                  ),
+                ),
+                SliverList.builder(
+                  itemCount: shows.length - 1,
+                  itemBuilder: (context, index) =>
+                      ShowCard(show: shows[index + 1], revealIndex: index + 1),
+                ),
+              ],
+              const SliverToBoxAdapter(child: SizedBox(height: 20)),
+            ],
+          ],
+        ),
       ),
     );
   }

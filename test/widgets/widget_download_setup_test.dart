@@ -30,6 +30,10 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Set up downloads for Night Ferry'), findsOneWidget);
+    expect(
+      tester.widget<AlertDialog>(find.byType(AlertDialog)).scrollable,
+      isTrue,
+    );
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
     expect(find.byType(AlertDialog), findsNothing);

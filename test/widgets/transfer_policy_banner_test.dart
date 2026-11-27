@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tamashii/services/transfer_policy.dart';
+import 'package:tamashii/theme/paper_lantern.dart';
 import 'package:tamashii/widgets/transfer_policy_banner.dart';
 import 'package:tamashii_network_cost/tamashii_network_cost.dart';
 
@@ -35,6 +36,11 @@ void main() {
     );
 
     expect(find.byKey(TransferPolicyBanner.bannerKey), findsOneWidget);
+    final paper = tester.widget<Material>(
+      find.byKey(TransferPolicyBanner.bannerKey),
+    );
+    expect(paper.color, PaperLantern.wash);
+    expect((paper.shape as Border).left.color, PaperLantern.red);
     expect(find.text('Waiting for network'), findsOneWidget);
     expect(
       find.text('Existing per-download pause choices are unchanged.'),

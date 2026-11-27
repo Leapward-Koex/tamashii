@@ -13,6 +13,7 @@ Future<T> runWithDownloadPreparationDialog<T>({
       context: context,
       barrierDismissible: false,
       builder: (_) => const AlertDialog(
+        scrollable: true,
         title: Text('Preparing download'),
         content: Row(
           mainAxisSize: MainAxisSize.min,
@@ -20,7 +21,10 @@ Future<T> runWithDownloadPreparationDialog<T>({
             SizedBox(
               width: 24,
               height: 24,
-              child: CircularProgressIndicator(strokeWidth: 2),
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                semanticsLabel: 'Preparing download',
+              ),
             ),
             SizedBox(width: 16),
             Flexible(child: Text('Working out download folder...')),

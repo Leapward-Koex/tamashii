@@ -11,29 +11,30 @@
             <ImageView android:id="@+id/widget_icon" android:layout_width="22dp"
                 android:layout_height="22dp" android:src="@drawable/widget_calendar"
                 android:importantForAccessibility="no" />
-            <TextView android:id="@+id/widget_title" android:layout_width="wrap_content"
+            <TextView android:id="@+id/widget_title" style="@style/WidgetMasthead" android:layout_width="wrap_content"
                 android:layout_height="wrap_content" android:layout_marginStart="8dp"
-                android:maxLines="1" android:ellipsize="end" android:textSize="17sp"
-                android:textStyle="bold" android:textColor="@color/widget_ink"
+                android:maxLines="1" android:ellipsize="end"
                 android:text="@string/today_widget_title" />
         </LinearLayout>
         <TextView android:id="@+id/widget_setup" android:layout_width="wrap_content"
             android:layout_height="wrap_content" android:minHeight="48dp" android:minWidth="48dp"
             android:paddingStart="6dp" android:paddingEnd="6dp" android:gravity="center"
-            android:textColor="@color/widget_blue" android:textStyle="bold"
+            android:textColor="@color/widget_accent" android:textStyle="bold"
             android:text="@string/today_widget_setup" android:visibility="gone" />
     </LinearLayout>
+    <ImageView style="@style/WidgetRule" />
     <LinearLayout android:id="@+id/widget_empty" android:layout_width="match_parent"
         android:layout_height="0dp" android:layout_weight="1" android:gravity="center_vertical"
         android:orientation="vertical">
-        <TextView android:id="@+id/widget_empty_title" android:layout_width="match_parent"
+        <TextView android:id="@+id/widget_empty_title" style="@style/WidgetShowTitle" android:layout_width="match_parent"
             android:layout_height="wrap_content" android:text="@string/today_widget_loading"
-            android:textSize="17sp" android:textStyle="bold" android:textColor="@color/widget_ink" />
+            android:textSize="17sp" />
         <TextView android:id="@+id/widget_empty_hint" android:layout_width="match_parent"
             android:layout_height="wrap_content" android:textSize="13sp"
             android:textColor="@color/widget_secondary" />
     </LinearLayout>
     <ListView android:id="@+id/widget_list" android:layout_width="match_parent"
         android:layout_height="0dp" android:layout_weight="1" android:visibility="gone"
-        android:divider="@null" android:scrollbars="vertical" android:drawSelectorOnTop="false" />
+        android:divider="@color/widget_rule" android:dividerHeight="1dp"
+        android:scrollbars="vertical" android:drawSelectorOnTop="false" />
 </LinearLayout>

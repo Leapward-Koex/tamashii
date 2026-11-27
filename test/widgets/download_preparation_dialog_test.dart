@@ -35,6 +35,18 @@ void main() {
 
     expect(find.text('Preparing download'), findsOneWidget);
     expect(find.text('Working out download folder...'), findsOneWidget);
+    expect(
+      tester.widget<AlertDialog>(find.byType(AlertDialog)).scrollable,
+      isTrue,
+    );
+    expect(
+      tester
+          .widget<CircularProgressIndicator>(
+            find.byType(CircularProgressIndicator),
+          )
+          .semanticsLabel,
+      'Preparing download',
+    );
 
     operationCompleter.complete();
     await tester.pumpAndSettle();

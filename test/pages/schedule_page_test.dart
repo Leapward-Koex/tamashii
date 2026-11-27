@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tamashii/api/api_client.dart';
 import 'package:tamashii/api/tenrai_api.dart';
@@ -18,6 +19,7 @@ import 'package:tamashii/widgets/add_schedule_show_sheet.dart';
 import 'package:tamashii/widgets/schedule_show_actions_sheet.dart';
 import 'package:tamashii/widgets/show_card.dart';
 import 'package:tamashii/widgets/show_info_match_sheet.dart';
+import 'package:tamashii/theme/paper_lantern.dart';
 
 class FakeSubsPleaseApi extends SubsPleaseApi {
   FakeSubsPleaseApi([this.releases = const []]);
@@ -81,10 +83,7 @@ void main() {
           tenraiApiProvider.overrideWithValue(tenraiApi),
           torrentManagerProvider.overrideWithValue(const TorrentManagerState()),
         ],
-        child: MaterialApp(
-          theme: ThemeData(useMaterial3: true),
-          home: const HomePage(),
-        ),
+        child: MaterialApp(theme: PaperLantern.theme, home: const HomePage()),
       ),
     );
 
@@ -218,6 +217,131 @@ void main() {
         await tester.pageBack();
         await tester.pumpAndSettle();
       }
+    },
+  );
+
+  testWidgets(
+    'weekly listings show dated weekdays and the next scheduled day',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(320, 780);
+      tester.platformDispatcher.textScaleFactorTestValue = 1.6;
+      addTearDown(tester.view.reset);
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await pumpSchedulePage(
+        tester,
+        tenraiApi: createFakeTenraiApi(),
+        openAddSheet: false,
+        initialBookmarks: const [
+          BookmarkedShowInfo(
+            showName: 'Monday series',
+            releaseDayOfWeek: DateTime.monday,
+            imageUrl: '',
+          ),
+          BookmarkedShowInfo(
+            showName: 'Thursday series',
+            releaseDayOfWeek: DateTime.thursday,
+            imageUrl: '',
+          ),
+        ],
+      );
+      await tester.tap(find.text('Mon'));
+      await tester.pumpAndSettle();
+      final now = DateTime.now();
+      final monday = DateTime(now.year, now.month, now.day - now.weekday + 1);
+      expect(
+        find.bySemanticsLabel(RegExp(DateFormat.yMMMMEEEEd().format(monday))),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(SchedulePage.showTileKey('Monday series')),
+        findsOneWidget,
+      );
+      final mondayName = tester.widget<Text>(find.text('Monday series'));
+      expect(mondayName.style?.fontFamily, PaperLantern.serif);
+      await tester.ensureVisible(
+        find.text('Next · Thursday', skipOffstage: false).first,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Next · Thursday'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      await tester.fling(find.byType(PageView), const Offset(-275, 0), 650);
+      await tester.pumpAndSettle();
+      expect(find.text('No shows scheduled for Tuesday'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'a new week follows today and keeps an explicitly browsed weekday',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      Future<void> show(DateTime now) async {
+        await tester.pumpWidget(
+          ProviderScope(
+            child: MaterialApp(
+              theme: PaperLantern.theme,
+              home: Scaffold(body: SchedulePage(today: now)),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      await show(DateTime(2023, 12, 31));
+      expect(find.text('Sunday'), findsOneWidget);
+      expect(find.text('25–31 DECEMBER'), findsOneWidget);
+      await show(DateTime(2024));
+      expect(find.text('Monday'), findsOneWidget);
+      expect(find.text('1–7 JANUARY'), findsOneWidget);
+      await tester.tap(find.text('Fri'));
+      await tester.pumpAndSettle();
+      await show(DateTime(2024, 1, 2));
+      expect(find.text('Friday'), findsOneWidget);
+      await show(DateTime(2024, 1, 30));
+      expect(find.text('29 JAN–4 FEBRUARY'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'landscape Schedule can browse a day and save a title with the keyboard open',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(680, 320);
+      addTearDown(tester.view.reset);
+      await pumpSchedulePage(
+        tester,
+        tenraiApi: createFakeTenraiApi(),
+        openAddSheet: false,
+      );
+      final week = find.byType(PageView);
+      await tester.tap(find.text('Mon'));
+      await tester.pumpAndSettle();
+      await tester.fling(week, const Offset(-550, 0), 850);
+      await tester.pumpAndSettle();
+      final day = find.text('Tuesday', skipOffstage: false);
+      await tester.ensureVisible(day.first);
+      await tester.pumpAndSettle();
+      expect(find.text('Tuesday'), findsOneWidget);
+      await tester.drag(week, const Offset(0, 440));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(HomePage.scheduleAddFabKey).hitTestable());
+      await tester.pumpAndSettle();
+      tester.view.viewInsets = const FakeViewPadding(bottom: 160);
+      await tester.pumpAndSettle();
+      final input = find.byKey(AddScheduleShowSheet.searchFieldKey);
+      await tester.ensureVisible(input);
+      await tester.enterText(input, 'My show');
+      await tester.pumpAndSettle();
+      final save = find.text('Add by title');
+      await tester.ensureVisible(save);
+      await tester.pumpAndSettle();
+      await tester.tap(save);
+      tester.view.viewInsets = FakeViewPadding.zero;
+      await tester.pumpAndSettle();
+      expect(find.byType(AddScheduleShowSheet), findsNothing);
+      expect(find.textContaining('Added "My show"'), findsOneWidget);
+      expect(tester.takeException(), isNull);
     },
   );
 

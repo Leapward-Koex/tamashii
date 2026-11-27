@@ -12,6 +12,8 @@ import 'package:tamashii/pages/show_info_page.dart';
 import 'package:tamashii/providers/subsplease_api_providers.dart';
 import 'package:tamashii/providers/tenrai_api_providers.dart';
 import 'package:tamashii/widgets/show_info_match_sheet.dart';
+import 'package:tamashii/widgets/show_image.dart';
+import 'package:tamashii/theme/paper_lantern.dart';
 
 const special = TenraiAnimeSearchResult(
   malId: 49200,
@@ -27,10 +29,10 @@ const bonus = TenraiAnimeSearchResult(
   type: 'OVA',
 );
 
-ShowInfo episode(String label) => ShowInfo(
+ShowInfo episode(String label, {String imageUrl = ''}) => ShowInfo(
   downloads: [],
   episode: label,
-  imageUrl: '',
+  imageUrl: imageUrl,
   page: 'link-click',
   releaseDate: DateTime.utc(2026, 3),
   show: 'Link Click',
@@ -87,11 +89,41 @@ void main() {
           subsPleaseApiProvider.overrideWithValue(_Feed()),
           tenraiApiProvider.overrideWithValue(catalog),
         ],
-        child: MaterialApp(home: page),
+        child: MaterialApp(theme: PaperLantern.theme, home: page),
       ),
     );
     await tester.pumpAndSettle();
   }
+
+  testWidgets(
+    'series title and portrait reflow together on a narrow display with large text',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(320, 740);
+      addTearDown(tester.view.reset);
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await open(
+        tester,
+        ShowInfoPage.release(episode('03', imageUrl: 'urn:poster')),
+        _Catalog(),
+      );
+      final title = find.text('Link Click');
+      final poster = find.byType(ShowImage);
+      expect(
+        tester.getRect(title).right,
+        lessThanOrEqualTo(tester.getRect(poster).left),
+      );
+      expect(tester.widget<Text>(title).style?.fontFamily, PaperLantern.serif);
+
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      await tester.pumpAndSettle();
+      expect(
+        tester.getRect(title).top,
+        greaterThanOrEqualTo(tester.getRect(poster).bottom),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets(
     'failed lookup preserves release information and can recover to an explicit no-match choice',

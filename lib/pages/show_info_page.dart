@@ -9,6 +9,7 @@ import 'package:tamashii/providers/bookmarked_series_provider.dart';
 import 'package:tamashii/providers/cached_episodes_provider.dart';
 import 'package:tamashii/providers/show_catalog_match_provider.dart';
 import 'package:tamashii/providers/subsplease_api_providers.dart';
+import 'package:tamashii/theme/paper_lantern.dart';
 import 'package:tamashii/widgets/show_image.dart';
 import 'package:tamashii/widgets/show_info_match_sheet.dart';
 
@@ -64,8 +65,6 @@ class ShowInfoPage extends HookConsumerWidget {
     final watched =
         bookmarks.value?.any((show) => show.showName == title) ?? false;
     final updating = useState(false);
-    final theme = Theme.of(context);
-
     Future<void> toggleWatching() async {
       if (updating.value) return;
       updating.value = true;
@@ -140,7 +139,7 @@ class ShowInfoPage extends HookConsumerWidget {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 720),
             child: ListView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+              padding: const EdgeInsets.fromLTRB(18, 6, 18, 24),
               itemCount: scopedEpisodes.length + 1,
               itemBuilder: (context, index) {
                 if (index > 0) {
@@ -159,7 +158,10 @@ class ShowInfoPage extends HookConsumerWidget {
                         ..sort((a, b) => b.compareTo(a));
                   return ListTile(
                     contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.movie_outlined),
+                    shape: const Border(
+                      bottom: BorderSide(color: PaperLantern.rule),
+                    ),
+                    titleTextStyle: Theme.of(context).textTheme.titleMedium,
                     title: Text(_episodeLabel(episode.episode)),
                     subtitle: Text(
                       [
@@ -190,7 +192,7 @@ class ShowInfoPage extends HookConsumerWidget {
                       entry: match?.entry,
                     ),
                     const SizedBox(height: 14),
-                    _MatchCard(
+                    _CatalogMatchPanel(
                       target: target,
                       lookup: lookup,
                       editMatch: editMatch,
@@ -199,19 +201,13 @@ class ShowInfoPage extends HookConsumerWidget {
                     ),
                     if (synopsis != null && synopsis.trim().isNotEmpty) ...[
                       const SizedBox(height: 20),
-                      Text(
-                        'SubsPlease synopsis',
-                        style: theme.textTheme.titleMedium,
-                      ),
+                      const PaperSectionHeading('SubsPlease synopsis'),
                       const SizedBox(height: 4),
                       Text(synopsis),
                     ],
                     const SizedBox(height: 20),
                     if (fromFeed) ...[
-                      Text(
-                        'SubsPlease releases',
-                        style: theme.textTheme.titleMedium,
-                      ),
+                      const PaperSectionHeading('SubsPlease releases'),
                       if (scopedEpisodes.isEmpty)
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 8),
@@ -222,7 +218,8 @@ class ShowInfoPage extends HookConsumerWidget {
                           ),
                         ),
                     ] else ...[
-                      Text('Schedule', style: theme.textTheme.titleMedium),
+                      const PaperSectionHeading('Schedule'),
+                      const SizedBox(height: 8),
                       Text(
                         'Added manually · ${DateFormat('EEEE').format(DateTime.utc(2024, 1, bookmark!.releaseDayOfWeek))}',
                       ),
@@ -272,89 +269,82 @@ class _Hero extends StatelessWidget {
       if (matched == null) sourceLabel,
       if (episode case final ep?) _episodeLabel(ep),
     ];
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: ColoredBox(
-              color: const Color(0xff26323f),
-              child: image.isEmpty && sourceImage.isEmpty
-                  ? const Align(
-                      alignment: Alignment.topRight,
-                      child: Padding(
-                        padding: EdgeInsets.all(18),
-                        child: Icon(
-                          Icons.local_movies_outlined,
-                          size: 58,
-                          color: Colors.white24,
-                        ),
-                      ),
-                    )
-                  : ShowImage(
-                      imageUrl: image.isEmpty ? sourceImage : image,
-                      fallbackImageUrl: sourceImage,
-                      faceAware: true,
-                    ),
-            ),
+    final theme = Theme.of(context);
+    final copy = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (meta.isNotEmpty)
+          Text(
+            meta.join(' · '),
+            style: PaperLantern.folio.copyWith(color: PaperLantern.red),
           ),
-          const Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    Color(0xb3000000),
-                    Color(0xf2000000),
-                  ],
-                  stops: [0, .7, 1],
-                ),
-              ),
-            ),
+        const SizedBox(height: 8),
+        Semantics(
+          header: true,
+          child: Text(
+            title,
+            style: theme.textTheme.headlineLarge?.copyWith(height: 1.05),
           ),
-          ConstrainedBox(
-            constraints: const BoxConstraints(
-              minHeight: 210,
-              minWidth: double.infinity,
-            ),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(18, 44, 18, 18),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  if (meta.isNotEmpty)
-                    Text(
-                      meta.join(' · '),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  Text(
-                    title,
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  if (subtitle != null)
-                    Text(subtitle, style: const TextStyle(color: Colors.white)),
-                ],
-              ),
+        ),
+        if (subtitle != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            subtitle,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontStyle: FontStyle.italic,
             ),
           ),
         ],
+      ],
+    );
+    return Container(
+      decoration: const BoxDecoration(
+        border: Border.symmetric(
+          horizontal: BorderSide(color: PaperLantern.ink),
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (image.isEmpty && sourceImage.isEmpty) return copy;
+          final width = (constraints.maxWidth * .32)
+              .clamp(72.0, 148.0)
+              .toDouble();
+          final poster = SizedBox(
+            width: width,
+            height: width * 1.38,
+            child: ColoredBox(
+              color: PaperLantern.wash,
+              child: ShowImage(
+                imageUrl: image.isEmpty ? sourceImage : image,
+                fallbackImageUrl: sourceImage,
+                faceAware: true,
+              ),
+            ),
+          );
+          if (constraints.maxWidth - width <
+              MediaQuery.textScalerOf(context).scale(160)) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [poster, const SizedBox(height: 12), copy],
+            );
+          }
+          return Row(
+            children: [
+              Expanded(child: copy),
+              const SizedBox(width: 16),
+              poster,
+            ],
+          );
+        },
       ),
     );
   }
 }
 
-class _MatchCard extends HookConsumerWidget {
-  const _MatchCard({
+class _CatalogMatchPanel extends HookConsumerWidget {
+  const _CatalogMatchPanel({
     required this.target,
     required this.lookup,
     required this.editMatch,
@@ -433,14 +423,11 @@ class _MatchCard extends HookConsumerWidget {
       }
     }
 
-    return Card(
-      margin: EdgeInsets.zero,
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-        side: BorderSide(color: theme.colorScheme.outlineVariant),
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        color: PaperLantern.wash,
+        border: Border(left: BorderSide(color: PaperLantern.red, width: 2)),
       ),
-      color: theme.colorScheme.surfaceContainerLowest,
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
@@ -448,23 +435,17 @@ class _MatchCard extends HookConsumerWidget {
           children: [
             Row(
               children: [
-                CircleAvatar(
-                  backgroundColor: theme.colorScheme.secondaryContainer,
-                  child: Icon(
-                    entry != null ? Icons.link : Icons.manage_search_outlined,
-                  ),
+                Icon(
+                  entry != null ? Icons.link : Icons.manage_search_outlined,
+                  color: PaperLantern.red,
+                  size: 20,
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        heading,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      Text(heading, style: theme.textTheme.titleMedium),
                       Text(description, style: theme.textTheme.bodySmall),
                     ],
                   ),
@@ -485,7 +466,7 @@ class _MatchCard extends HookConsumerWidget {
                 children: [
                   SelectableText(
                     'Tenrai · MAL #${entry.malId}',
-                    style: theme.textTheme.bodySmall,
+                    style: PaperLantern.folio,
                   ),
                   if (evidence != null)
                     TextButton(

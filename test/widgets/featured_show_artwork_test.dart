@@ -364,7 +364,7 @@ Finder _renderedPoster(String url) => find.descendant(
 );
 
 Future<void> _primeDecodedPoster(WidgetTester tester, String url) async {
-  // The viewport gives the featured card 390 logical pixels after its margins.
+  // The two-column feature uses the 192px decode bucket at this viewport.
   tester.view.devicePixelRatio = 1;
   tester.view.physicalSize = const Size(422, 760);
   addTearDown(tester.view.resetDevicePixelRatio);
@@ -375,7 +375,7 @@ Future<void> _primeDecodedPoster(WidgetTester tester, String url) async {
   final picture = recorder.endRecording();
   final decoded = picture.toImageSync(40, 60);
   picture.dispose();
-  final resized = ResizeImage(CachedNetworkImageProvider(url), width: 416);
+  final resized = ResizeImage(CachedNetworkImageProvider(url), width: 192);
   final key = await resized.obtainKey(ImageConfiguration.empty);
   PaintingBinding.instance.imageCache.putIfAbsent(
     key,

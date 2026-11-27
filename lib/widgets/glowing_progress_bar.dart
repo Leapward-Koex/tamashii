@@ -22,27 +22,9 @@ class GlowingProgressBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final targetProgress = progress.isFinite ? progress.clamp(0.0, 1.0) : 0.0;
-    final borderRadius = BorderRadius.circular(height / 2);
     final progressColor = color ?? colorScheme.primary;
-    final trackColor =
-        backgroundColor ??
-        colorScheme.surfaceContainerHighest.withValues(alpha: 0.72);
-    final fill = DecoratedBox(
-      key: fillKey,
-      decoration: BoxDecoration(
-        borderRadius: borderRadius,
-        gradient: LinearGradient(
-          begin: AlignmentDirectional.centerStart,
-          end: AlignmentDirectional.centerEnd,
-          stops: const [0, 0.72, 1],
-          colors: [
-            Color.lerp(progressColor, Colors.black, 0.08)!,
-            progressColor,
-            Color.lerp(progressColor, colorScheme.tertiary, 0.28)!,
-          ],
-        ),
-      ),
-    );
+    final trackColor = backgroundColor ?? colorScheme.surfaceContainerHighest;
+    final fill = ColoredBox(key: fillKey, color: progressColor);
 
     Widget alignFill(double fraction, Widget? child) {
       return FractionallySizedBox(
@@ -59,11 +41,8 @@ class GlowingProgressBar extends StatelessWidget {
       child: SizedBox(
         width: double.infinity,
         height: height,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: trackColor,
-            borderRadius: borderRadius,
-          ),
+        child: ColoredBox(
+          color: trackColor,
           child: MediaQuery.disableAnimationsOf(context)
               ? alignFill(targetProgress, fill)
               : TweenAnimationBuilder<double>(

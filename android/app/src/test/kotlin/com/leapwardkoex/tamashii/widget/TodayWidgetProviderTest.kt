@@ -4,6 +4,7 @@ import android.app.Application
 import android.appwidget.AppWidgetHostView
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Color
 import android.view.View
 import android.widget.ListView
 import android.widget.ProgressBar
@@ -83,7 +84,7 @@ class TodayWidgetProviderTest {
     }
 
     @Test
-    fun activeDownloadFillsTheWholePillOrRingAtRealTransferPercent() {
+    fun activeDownloadFillsTheBarOrRingAtRealTransferPercent() {
         for (tall in listOf(false, true)) {
             val root = inflate(TodayWidgetContent(day, listOf(active)), tall)
             val list = root.list()
@@ -115,8 +116,37 @@ class TodayWidgetProviderTest {
         assertEquals(app.getColor(R.color.widget_progress), bar.getPixel(12, 24))
         assertEquals(app.getColor(R.color.widget_track), bar.getPixel(75, 24))
         val ring = painted(true, 44, 44)
-        assertEquals(app.getColor(R.color.widget_blue), ring.getPixel(36, 8))
+        assertEquals(app.getColor(R.color.widget_accent), ring.getPixel(36, 8))
         assertEquals(app.getColor(R.color.widget_track), ring.getPixel(8, 36))
+    }
+
+    @Test
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun pickerAndLiveLayoutsShareThePaperTypographyAndTouchTargets() {
+        val host = AppWidgetHostView(app)
+        val preview = RemoteViews(app.packageName, R.layout.today_widget_preview).apply(app, host)
+        val compact = inflate(TodayWidgetContent(day, listOf(ready)), false)
+        val list = compact.list()
+        val row = list.getChildAt(0)
+        val title = compact.findViewById<TextView>(R.id.widget_title)
+        val series = row.findViewById<TextView>(R.id.widget_series)
+        val episode = row.findViewById<TextView>(R.id.widget_subtitle)
+        assertTrue(title.isAccessibilityHeading)
+        assertEquals(preview.findViewById<TextView>(R.id.widget_title).typeface, title.typeface)
+        assertEquals(preview.findViewById<TextView>(R.id.widget_series).typeface, series.typeface)
+        assertEquals(preview.findViewById<TextView>(R.id.widget_subtitle).typeface, episode.typeface)
+        assertEquals(app.getColor(R.color.widget_ink), series.currentTextColor)
+        assertEquals(app.getColor(R.color.widget_surface), row.findViewById<TextView>(R.id.widget_button_label).currentTextColor)
+        assertEquals(1, list.dividerHeight)
+        assertTrue(row.findViewById<View>(R.id.widget_ready_button).height >= 48)
+        fun luminance(id: Int) = Color.luminance(app.getColor(id)) + 0.05
+        assertTrue(luminance(R.color.widget_track) / luminance(R.color.widget_progress) >= 3)
+        assertTrue(luminance(R.color.widget_progress) / luminance(R.color.widget_progress_ink) >= 4.5)
+        val tall = inflate(TodayWidgetContent(day, listOf(ready)), true).list()
+        val section = tall.getChildAt(0).findViewById<TextView>(R.id.widget_section)
+        assertTrue(section.isAccessibilityHeading)
+        assertTrue(section.typeface.isItalic)
+        assertEquals(app.getColor(R.color.widget_accent), section.currentTextColor)
     }
 
     @Test

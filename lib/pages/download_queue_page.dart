@@ -5,6 +5,7 @@ import 'package:tamashii/models/download_transfer_metrics.dart';
 import 'package:tamashii/providers/download_queue_provider.dart';
 import 'package:tamashii/providers/foreground_torrent_provider.dart';
 import 'package:tamashii/services/download_transfer_metrics.dart';
+import 'package:tamashii/theme/paper_lantern.dart';
 import 'package:tamashii/widgets/glowing_progress_bar.dart';
 import 'package:tamashii/widgets/transfer_policy_banner.dart';
 
@@ -103,67 +104,84 @@ class _DownloadQueuePageState extends ConsumerState<DownloadQueuePage> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Downloads')),
-      body: Column(
-        children: [
-          TransferPolicyBanner(
-            snapshot: transferPolicy,
-            platform: effectivePlatform,
-          ),
-          Expanded(
-            child: report.items.isEmpty
-                ? const _EmptyDownloadsState()
-                : CustomScrollView(
-                    slivers: [
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                        sliver: SliverToBoxAdapter(
-                          child: _DownloadSummaryCard(
-                            summary: summary,
-                            isPausing: _isPausing,
-                            isResuming: _isResuming,
-                            onPauseAll:
-                                (summary.activeCount +
-                                            summary.waitingForNetworkCount) >
-                                        0 &&
-                                    !_isPausing &&
-                                    !_isResuming
-                                ? () => _runBulkAction(pause: true)
-                                : null,
-                            onResumeAll:
-                                summary.pausedCount > 0 &&
-                                    !_isPausing &&
-                                    !_isResuming
-                                ? () => _runBulkAction(pause: false)
-                                : null,
+      appBar: AppBar(
+        title: const Text('Downloads'),
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(height: 1, color: PaperLantern.ink),
+        ),
+      ),
+      body: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 760),
+          child: Column(
+            children: [
+              TransferPolicyBanner(
+                snapshot: transferPolicy,
+                platform: effectivePlatform,
+              ),
+              Expanded(
+                child: report.items.isEmpty
+                    ? const _EmptyDownloadsState()
+                    : CustomScrollView(
+                        slivers: [
+                          SliverPadding(
+                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                            sliver: SliverToBoxAdapter(
+                              child: _TransferSummary(
+                                summary: summary,
+                                isPausing: _isPausing,
+                                isResuming: _isResuming,
+                                onPauseAll:
+                                    (summary.activeCount +
+                                                summary
+                                                    .waitingForNetworkCount) >
+                                            0 &&
+                                        !_isPausing &&
+                                        !_isResuming
+                                    ? () => _runBulkAction(pause: true)
+                                    : null,
+                                onResumeAll:
+                                    summary.pausedCount > 0 &&
+                                        !_isPausing &&
+                                        !_isResuming
+                                    ? () => _runBulkAction(pause: false)
+                                    : null,
+                              ),
+                            ),
                           ),
-                        ),
+                          if (activeItems.isNotEmpty)
+                            _DownloadSection(
+                              key: const ValueKey(
+                                DownloadTransferStatus.downloading,
+                              ),
+                              title: 'Downloading',
+                              items: activeItems,
+                            ),
+                          if (pausedItems.isNotEmpty)
+                            _DownloadSection(
+                              key: const ValueKey(
+                                DownloadTransferStatus.paused,
+                              ),
+                              title: 'Paused',
+                              items: pausedItems,
+                            ),
+                          if (failedItems.isNotEmpty)
+                            _DownloadSection(
+                              key: const ValueKey(
+                                DownloadTransferStatus.failed,
+                              ),
+                              title: 'Needs attention',
+                              items: failedItems,
+                            ),
+                          const SliverToBoxAdapter(child: SizedBox(height: 32)),
+                        ],
                       ),
-                      if (activeItems.isNotEmpty)
-                        _DownloadSection(
-                          key: const ValueKey(
-                            DownloadTransferStatus.downloading,
-                          ),
-                          title: 'Downloading',
-                          items: activeItems,
-                        ),
-                      if (pausedItems.isNotEmpty)
-                        _DownloadSection(
-                          key: const ValueKey(DownloadTransferStatus.paused),
-                          title: 'Paused',
-                          items: pausedItems,
-                        ),
-                      if (failedItems.isNotEmpty)
-                        _DownloadSection(
-                          key: const ValueKey(DownloadTransferStatus.failed),
-                          title: 'Needs attention',
-                          items: failedItems,
-                        ),
-                      const SliverToBoxAdapter(child: SizedBox(height: 32)),
-                    ],
-                  ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -175,21 +193,22 @@ class _EmptyDownloadsState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(32),
         child: Column(
           key: DownloadQueuePage.emptyStateKey,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
+            const Icon(
               Icons.download_done_outlined,
-              size: 64,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              size: 40,
+              color: PaperLantern.red,
             ),
             const SizedBox(height: 16),
             Text(
               'No active downloads',
-              style: Theme.of(context).textTheme.titleLarge,
+              style: Theme.of(context).textTheme.headlineSmall,
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
@@ -206,8 +225,8 @@ class _EmptyDownloadsState extends StatelessWidget {
   }
 }
 
-class _DownloadSummaryCard extends StatelessWidget {
-  const _DownloadSummaryCard({
+class _TransferSummary extends StatelessWidget {
+  const _TransferSummary({
     required this.summary,
     required this.isPausing,
     required this.isResuming,
@@ -223,7 +242,6 @@ class _DownloadSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final progressLabel =
         '${(summary.progressFraction * 100).toStringAsFixed(1)}%${summary.progressIsEstimated ? ' estimated' : ''}';
     final etaLabel = summary.eta != null
@@ -232,115 +250,83 @@ class _DownloadSummaryCard extends StatelessWidget {
         ? 'Calculating…'
         : '—';
 
-    return Card(
+    return Column(
       key: DownloadQueuePage.summaryCardKey,
-      clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const PaperSectionHeading('Live downloads'),
+        const SizedBox(height: 12),
+        Text(
+          '$progressLabel • ${_summaryTransferText(summary)}',
+          style: PaperLantern.folio.copyWith(color: PaperLantern.ink),
+        ),
+        const SizedBox(height: 8),
+        GlowingProgressBar(progress: summary.progressFraction, height: 4),
+        const SizedBox(height: 16),
+        Wrap(
+          spacing: 24,
+          runSpacing: 10,
           children: [
-            Text('Live downloads', style: theme.textTheme.titleLarge),
-            const SizedBox(height: 12),
-            GlowingProgressBar(progress: summary.progressFraction),
-            const SizedBox(height: 8),
-            Text(
-              '$progressLabel • ${_summaryTransferText(summary)}',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+            _SummaryMetric(
+              label: '${summary.activeCount} active',
+              value: _formatRate(summary.downloadRate),
             ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _SummaryMetric(
-                    icon: Icons.downloading_outlined,
-                    label: '${summary.activeCount} active',
-                    value: _formatRate(summary.downloadRate),
-                  ),
-                ),
-                Expanded(
-                  child: _SummaryMetric(
-                    icon: Icons.upload_outlined,
-                    label: 'Upload',
-                    value: _formatRate(summary.uploadRate),
-                  ),
-                ),
-                Expanded(
-                  child: _SummaryMetric(
-                    icon: Icons.schedule_outlined,
-                    label: 'ETA',
-                    value: etaLabel,
-                  ),
-                ),
-              ],
+            _SummaryMetric(
+              label: 'Upload',
+              value: _formatRate(summary.uploadRate),
             ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                OutlinedButton.icon(
-                  key: DownloadQueuePage.pauseAllButtonKey,
-                  onPressed: onPauseAll,
-                  icon: isPausing
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.pause_circle_outline),
-                  label: const Text('Pause all'),
-                ),
-                FilledButton.icon(
-                  key: DownloadQueuePage.resumeAllButtonKey,
-                  onPressed: onResumeAll,
-                  icon: isResuming
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.play_circle_outline),
-                  label: const Text('Resume all'),
-                ),
-              ],
+            _SummaryMetric(label: 'ETA', value: etaLabel),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            OutlinedButton.icon(
+              key: DownloadQueuePage.pauseAllButtonKey,
+              onPressed: onPauseAll,
+              icon: isPausing
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.pause_circle_outline),
+              label: const Text('Pause all'),
+            ),
+            FilledButton.icon(
+              key: DownloadQueuePage.resumeAllButtonKey,
+              onPressed: onResumeAll,
+              icon: isResuming
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.play_circle_outline),
+              label: const Text('Resume all'),
             ),
           ],
         ),
-      ),
+      ],
     );
   }
 }
 
 class _SummaryMetric extends StatelessWidget {
-  const _SummaryMetric({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
+  const _SummaryMetric({required this.label, required this.value});
 
-  final IconData icon;
   final String label;
   final String value;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Row(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 18, color: theme.colorScheme.primary),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: theme.textTheme.labelMedium),
-              const SizedBox(height: 2),
-              Text(value, style: theme.textTheme.bodyMedium),
-            ],
-          ),
-        ),
+        Text(label, style: PaperLantern.folio),
+        const SizedBox(height: 2),
+        Text(value, style: theme.textTheme.titleMedium),
       ],
     );
   }
@@ -365,11 +351,12 @@ class _DownloadSection extends StatelessWidget {
       sliver: SliverMainAxisGroup(
         slivers: [
           SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Text(
-                title,
-                style: Theme.of(context).textTheme.titleMedium,
+            child: PaperSectionHeading(
+              title,
+              trailing: Text(
+                items.length.toString().padLeft(2, '0'),
+                style: PaperLantern.folio,
+                semanticsLabel: '${items.length} transfers',
               ),
             ),
           ),
@@ -378,10 +365,9 @@ class _DownloadSection extends StatelessWidget {
             findChildIndexCallback: (key) => indices[key],
             itemBuilder: (context, index) {
               final item = items[index];
-              return Padding(
+              return _TransferRow(
                 key: DownloadQueuePage.itemKey(item.key),
-                padding: const EdgeInsets.only(bottom: 8),
-                child: _DownloadItemCard(item: item),
+                item: item,
               );
             },
           ),
@@ -391,8 +377,8 @@ class _DownloadSection extends StatelessWidget {
   }
 }
 
-class _DownloadItemCard extends StatelessWidget {
-  const _DownloadItemCard({required this.item});
+class _TransferRow extends StatelessWidget {
+  const _TransferRow({super.key, required this.item});
 
   final DownloadTransferItem item;
 
@@ -409,51 +395,52 @@ class _DownloadItemCard extends StatelessWidget {
         ? 'Calculating…'
         : DownloadTransferFormatters.formatEta(item.eta);
 
-    return Card(
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: PaperLantern.rule)),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(vertical: 14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(status.icon, color: status.color),
-                const SizedBox(width: 12),
+                Icon(status.icon, color: status.color, size: 20),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         item.displayName,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontFamily: PaperLantern.serif,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         status.label,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: status.color,
-                          fontWeight: FontWeight.w600,
-                        ),
+                        style: PaperLantern.folio.copyWith(color: status.color),
                       ),
                     ],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 10),
             GlowingProgressBar(
               progress: item.progressFraction,
               color: status.color,
+              height: 3,
             ),
             const SizedBox(height: 8),
             Text(
               '${(item.progressFraction * 100).toStringAsFixed(1)}% • ${_itemTransferText(item)}',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+              style: PaperLantern.folio,
             ),
             if (hasRates ||
                 item.eta != null ||
@@ -461,18 +448,23 @@ class _DownloadItemCard extends StatelessWidget {
                 item.peers != null ||
                 showLiveTransferMetrics) ...[
               const SizedBox(height: 12),
-              Wrap(
-                spacing: 16,
-                runSpacing: 6,
-                children: [
-                  if (item.downloadRate != null || showLiveTransferMetrics)
-                    Text('↓ ${_formatRate(item.downloadRate)}'),
-                  if (item.uploadRate != null)
-                    Text('↑ ${_formatRate(item.uploadRate)}'),
-                  if (showLiveTransferMetrics) Text('ETA $eta'),
-                  if (item.seeds != null || item.peers != null)
-                    Text('${item.seeds ?? 0} seeds • ${item.peers ?? 0} peers'),
-                ],
+              DefaultTextStyle(
+                style: PaperLantern.folio.copyWith(color: PaperLantern.ink),
+                child: Wrap(
+                  spacing: 16,
+                  runSpacing: 6,
+                  children: [
+                    if (item.downloadRate != null || showLiveTransferMetrics)
+                      Text('↓ ${_formatRate(item.downloadRate)}'),
+                    if (item.uploadRate != null)
+                      Text('↑ ${_formatRate(item.uploadRate)}'),
+                    if (showLiveTransferMetrics) Text('ETA $eta'),
+                    if (item.seeds != null || item.peers != null)
+                      Text(
+                        '${item.seeds ?? 0} seeds • ${item.peers ?? 0} peers',
+                      ),
+                  ],
+                ),
               ),
             ],
             if (item.status == DownloadTransferStatus.waitingForNetwork) ...[

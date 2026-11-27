@@ -27,11 +27,36 @@
     <string name="today_widget_open">Open Tamashii</string>
     <string name="today_widget_preview_show" translatable="false">Night Ferry</string>
     <string name="today_widget_preview_episode">Ep 09 · Released today</string>
-    <color name="widget_surface">#F5F5F2</color>
-    <color name="widget_ink">#182032</color>
-    <color name="widget_secondary">#4D5668</color>
-    <color name="widget_blue">#244DB9</color>
-    <color name="widget_progress">#8BA9FF</color>
-    <color name="widget_track">#DFE7FF</color>
-    <color name="widget_progress_ink">#112D6A</color>
+    <color name="widget_surface">#F6F0E4</color>
+    <color name="widget_ink">#24241E</color>
+    <color name="widget_secondary">#655E54</color>
+    <color name="widget_accent">#963728</color>
+    <color name="widget_rule">#C9BEAC</color>
+    <color name="widget_progress">#AA7256</color>
+    <color name="widget_progress_ink">#15110F</color>
+    <color name="widget_track">#E9E0D0</color>
+    <style name="WidgetMasthead">
+        <item name="android:fontFamily">serif</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textSize">19sp</item>
+        <item name="android:textColor">@color/widget_ink</item>
+        <item name="android:accessibilityHeading">true</item>
+    </style>
+    <style name="WidgetShowTitle">
+        <item name="android:fontFamily">serif</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:textColor">@color/widget_ink</item>
+    </style>
+    <style name="WidgetEpisode">
+        <item name="android:textSize">12sp</item>
+        <item name="android:fontFamily">monospace</item>
+        <item name="android:textColor">@color/widget_secondary</item>
+    </style>
+    <style name="WidgetRule">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">1dp</item>
+        <item name="android:background">@color/widget_ink</item>
+        <item name="android:importantForAccessibility">no</item>
+    </style>
 </resources>

@@ -8,6 +8,7 @@ import 'package:tamashii/providers/download_queue_provider.dart';
 import 'package:tamashii/providers/foreground_torrent_provider.dart';
 import 'package:tamashii/providers/torrent_download_provider.dart';
 import 'package:tamashii/services/transfer_policy.dart';
+import 'package:tamashii/theme/paper_lantern.dart';
 import 'package:tamashii/widgets/glowing_progress_bar.dart';
 import 'package:tamashii/widgets/transfer_policy_banner.dart';
 import 'package:tamashii_network_cost/tamashii_network_cost.dart';
@@ -86,6 +87,45 @@ void main() {
     );
     expect(find.text('Episode 99'), findsOneWidget);
   });
+
+  testWidgets(
+    'ruled sections keep counts and controls readable at phone width',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(320, 620));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      tester.platformDispatcher.textScaleFactorTestValue = 1.8;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await _pumpPage(
+        tester,
+        report: _report(
+          items: [
+            _item(
+              key: 'long',
+              displayName: 'The Apothecary Diaries – Second Season – Episode 8',
+              status: DownloadTransferStatus.downloading,
+            ),
+          ],
+          activeCount: 1,
+          downloadingCount: 1,
+          eta: const Duration(hours: 9, minutes: 42),
+        ),
+      );
+
+      expect(
+        find.widgetWithText(PaperSectionHeading, 'Live downloads'),
+        findsOneWidget,
+      );
+      expect(find.byKey(DownloadQueuePage.pauseAllButtonKey), findsOneWidget);
+      final row = find.byKey(DownloadQueuePage.itemKey('long'));
+      await tester.scrollUntilVisible(row, 180);
+      expect(find.widgetWithText(PaperSectionHeading, '01'), findsOneWidget);
+      expect(
+        find.descendant(of: row, matching: find.byType(GlowingProgressBar)),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('groups live, paused, and failed transfers with shared metrics', (
     WidgetTester tester,

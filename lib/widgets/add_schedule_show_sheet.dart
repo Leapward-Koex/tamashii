@@ -8,6 +8,7 @@ import 'package:tamashii/models/tenrai_models.dart';
 import 'package:tamashii/models/show_models.dart';
 import 'package:tamashii/providers/bookmarked_series_provider.dart';
 import 'package:tamashii/providers/tenrai_api_providers.dart';
+import 'package:tamashii/theme/paper_lantern.dart';
 import 'package:tamashii/widgets/show_image.dart';
 
 class AddScheduleShowSheet extends HookConsumerWidget {
@@ -122,29 +123,12 @@ class AddScheduleShowSheet extends HookConsumerWidget {
             padding: EdgeInsets.zero,
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.outlineVariant,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Add show',
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
+              const PaperSectionHeading('Add show'),
               const SizedBox(height: 16),
               DropdownButtonFormField<int>(
                 key: dayDropdownKey,
                 initialValue: selectedDay.value,
-                decoration: const InputDecoration(
-                  labelText: 'Day',
-                  border: OutlineInputBorder(),
-                ),
+                decoration: const InputDecoration(labelText: 'Day'),
                 items: List<DropdownMenuItem<int>>.generate(7, (index) {
                   final weekday = index + 1;
                   return DropdownMenuItem<int>(
@@ -171,7 +155,6 @@ class AddScheduleShowSheet extends HookConsumerWidget {
                 decoration: const InputDecoration(
                   labelText: 'Show title',
                   prefixIcon: Icon(Icons.search),
-                  border: OutlineInputBorder(),
                 ),
               ),
               if (pendingQuery.value.isNotEmpty) ...[
@@ -282,15 +265,16 @@ class _SearchResults extends StatelessWidget {
                   horizontal: 4,
                   vertical: 8,
                 ),
-                leading: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: ShowImage(
-                    imageUrl: result.imageUrl,
-                    width: 44,
-                    height: 60,
-                  ),
+                leading: ShowImage(
+                  imageUrl: result.imageUrl,
+                  width: 42,
+                  height: 56,
                 ),
-                title: Text(showName),
+                title: Text(
+                  showName,
+                  style: Theme.of(context).textTheme.titleMedium
+                      ?.copyWith(fontFamily: PaperLantern.serif),
+                ),
                 subtitle: Text(_searchSubtitle(result, alreadyWatching)),
                 trailing: Icon(
                   alreadyWatching

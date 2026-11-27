@@ -10,6 +10,7 @@ import 'package:tamashii/providers/foreground_torrent_provider.dart';
 import 'package:tamashii/providers/on_device_ai_provider.dart';
 import 'package:tamashii/services/gemini_nano_service.dart';
 import 'package:tamashii/services/transfer_policy.dart';
+import 'package:tamashii/theme/paper_lantern.dart';
 import 'package:tamashii_network_cost/tamashii_network_cost.dart';
 
 class _FakeOnDeviceTextGenerator implements OnDeviceTextGenerator {
@@ -85,6 +86,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Download Base Folder'), findsOneWidget);
+    expect(find.widgetWithText(PaperSectionHeading, 'Network'), findsOneWidget);
     expect(
       find.byKey(const ValueKey<String>('allowMobileDataSwitch')),
       findsOneWidget,
@@ -217,6 +219,11 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+
+    expect(find.text('Settings'), findsOneWidget);
+    expect(find.widgetWithText(PaperSectionHeading, 'Storage'), findsOneWidget);
+    expect(find.widgetWithText(PaperSectionHeading, 'Network'), findsNothing);
+    expect(find.text('No series folders assigned.'), findsOneWidget);
 
     expect(
       find.byKey(const ValueKey<String>('allowMobileDataSwitch')),

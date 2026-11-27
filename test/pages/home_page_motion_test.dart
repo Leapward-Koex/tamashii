@@ -13,18 +13,22 @@ import 'package:tamashii/providers/download_queue_provider.dart';
 import 'package:tamashii/providers/subsplease_api_providers.dart';
 import 'package:tamashii/providers/torrent_download_provider.dart';
 import 'package:tamashii/widgets/show_card.dart';
+import 'package:tamashii/theme/paper_lantern.dart';
 
 class FakeSubsPleaseApi extends SubsPleaseApi {
   FakeSubsPleaseApi({required this.latestEpisodes});
 
   final List<ShowInfo> latestEpisodes;
+  final searches = <String>[];
 
   @override
   Future<List<ShowInfo>> getLatestShowList() async => latestEpisodes;
 
   @override
-  Future<List<ShowInfo>> getShowsFromSearch(String searchTerm) async =>
-      latestEpisodes;
+  Future<List<ShowInfo>> getShowsFromSearch(String searchTerm) async {
+    searches.add(searchTerm);
+    return latestEpisodes;
+  }
 
   @override
   Future<String?> getShowSynopsis(String showPage) async => null;
@@ -48,120 +52,98 @@ void main() {
     );
   }
 
-  testWidgets('home page compresses the search bar and parallaxes the hero', (
-    WidgetTester tester,
-  ) async {
-    SharedPreferences.setMockInitialValues(<String, Object>{
-      'auto_generate_folders': true,
-      'download_base_path': '',
-      'series_folder_mapping': '{}',
-      'bookmarked_series': <String>[],
-      'downloaded_torrents': <String>[],
-      'show_filter': 'all',
-    });
+  testWidgets(
+    'edition offers on-demand search and parallaxes the featured poster',
+    (WidgetTester tester) async {
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        'auto_generate_folders': true,
+        'download_base_path': '',
+        'series_folder_mapping': '{}',
+        'bookmarked_series': <String>[],
+        'downloaded_torrents': <String>[],
+        'show_filter': 'all',
+      });
 
-    final shows = <ShowInfo>[
-      createEpisode(
-        showName: 'Featured Show',
-        episode: '12',
-        releaseDate: DateTime(2026, 4, 12),
-      ),
-      createEpisode(
-        showName: 'Second Show',
-        episode: '4',
-        releaseDate: DateTime(2026, 4, 11),
-      ),
-      createEpisode(
-        showName: 'Third Show',
-        episode: '9',
-        releaseDate: DateTime(2026, 4, 10),
-      ),
-    ];
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          subsPleaseApiProvider.overrideWithValue(
-            FakeSubsPleaseApi(latestEpisodes: shows),
-          ),
-          torrentManagerProvider.overrideWithValue(const TorrentManagerState()),
-        ],
-        child: MaterialApp(
-          theme: ThemeData(useMaterial3: true),
-          home: const HomePage(),
+      final shows = <ShowInfo>[
+        createEpisode(
+          showName: 'Featured Show',
+          episode: '12',
+          releaseDate: DateTime(2026, 4, 12),
         ),
-      ),
-    );
+        createEpisode(
+          showName: 'Second Show',
+          episode: '4',
+          releaseDate: DateTime(2026, 4, 11),
+        ),
+        createEpisode(
+          showName: 'Third Show',
+          episode: '9',
+          releaseDate: DateTime(2026, 4, 10),
+        ),
+        for (var i = 0; i < 3; i++)
+          createEpisode(
+            showName: 'Archive $i',
+            episode: '1',
+            releaseDate: DateTime(2026, 4, 9 - i),
+          ),
+      ];
 
-    await tester.pump();
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            subsPleaseApiProvider.overrideWithValue(
+              FakeSubsPleaseApi(latestEpisodes: shows),
+            ),
+            torrentManagerProvider.overrideWithValue(
+              const TorrentManagerState(),
+            ),
+          ],
+          child: MaterialApp(theme: PaperLantern.theme, home: const HomePage()),
+        ),
+      );
 
-    final initialSearchHeight = tester
-        .getSize(find.byKey(HomePage.searchBarShellKey))
-        .height;
-    final heroTransformFinder = find.byKey(
-      ShowCard.featuredPosterTransformKey('Featured Show'),
-    );
-    final initialHeroOffset = tester
-        .widget<Transform>(heroTransformFinder)
-        .transform
-        .storage[13];
-
-    final hero = find.ancestor(
-      of: heroTransformFinder,
-      matching: find.byType(ShowCard),
-    );
-    final searchField = find.byType(TextField);
-    final scrollController = tester
-        .widget<CustomScrollView>(find.byKey(HomePage.scrollViewKey))
-        .controller!;
-    var heroWidget = tester.widget(hero);
-    var searchFieldWidget = tester.widget(searchField);
-    Widget? collapsedShell;
-    var heroRebuilds = 0;
-    var searchFieldRebuilds = 0;
-    var collapsedShellRebuilds = 0;
-    for (final offset in <double>[24, 48, 72, 96, 120, 144, 156, 168, 180]) {
-      scrollController.jumpTo(offset);
       await tester.pump();
-      final nextHero = tester.widget(hero);
-      final nextSearchField = tester.widget(searchField);
-      if (!identical(nextHero, heroWidget)) {
-        heroRebuilds++;
-      }
-      if (!identical(nextSearchField, searchFieldWidget)) {
-        searchFieldRebuilds++;
-      }
-      heroWidget = nextHero;
-      searchFieldWidget = nextSearchField;
-      if (offset >= 144) {
-        final shell = tester.widget(find.byKey(HomePage.searchBarShellKey));
-        if (collapsedShell != null && !identical(shell, collapsedShell)) {
-          collapsedShellRebuilds++;
-        }
-        collapsedShell = shell;
-      }
-    }
-    await tester.pumpAndSettle();
+      await tester.pumpAndSettle();
 
-    final collapsedSearchHeight = tester
-        .getSize(find.byKey(HomePage.searchBarShellKey))
-        .height;
-    final updatedHeroOffset = tester
-        .widget<Transform>(heroTransformFinder)
-        .transform
-        .storage[13];
+      expect(find.byKey(HomePage.searchBarShellKey), findsNothing);
+      expect(find.text('Release index'), findsOneWidget);
+      expect(find.text('05'), findsOneWidget);
+      expect(find.bySemanticsLabel('Tamashii'), findsOneWidget);
+      await tester.tap(find.byTooltip('Search shows'));
+      await tester.pumpAndSettle();
 
-    expect(collapsedSearchHeight, lessThan(initialSearchHeight));
-    expect(updatedHeroOffset, greaterThan(initialHeroOffset));
-    expect(
-      (heroRebuilds, searchFieldRebuilds, collapsedShellRebuilds),
-      (0, 0, 0),
-    );
-    expect(find.byType(BackdropFilter), findsNothing);
-    expect(find.text('Featured Show'), findsWidgets);
-    expect(find.text('Second Show'), findsOneWidget);
-  });
+      final heroTransform = find.byKey(
+        ShowCard.featuredPosterTransformKey('Featured Show'),
+      );
+      final hero = find.ancestor(
+        of: heroTransform,
+        matching: find.byType(ShowCard),
+      );
+      final heroBefore = tester.widget(hero);
+      final fieldBefore = tester.widget(find.byType(TextField));
+      final initialOffset = tester
+          .widget<Transform>(heroTransform)
+          .transform
+          .storage[13];
+      final scroll = tester
+          .widget<CustomScrollView>(find.byKey(HomePage.scrollViewKey))
+          .controller!;
+      scroll.jumpTo(70);
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.widget<Transform>(heroTransform).transform.storage[13],
+        greaterThan(initialOffset),
+      );
+      expect(tester.widget(hero), same(heroBefore));
+      expect(tester.widget(find.byType(TextField)), same(fieldBefore));
+      await tester.tap(find.byTooltip('Close search'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(HomePage.searchBarShellKey), findsNothing);
+      expect(find.text('Featured Show'), findsWidgets);
+      expect(find.text('Second Show'), findsOneWidget);
+    },
+  );
 
   testWidgets('home opens Downloads and badges active transfers', (
     WidgetTester tester,
@@ -216,10 +198,7 @@ void main() {
           activeDownloadCountProvider.overrideWithValue(2),
           downloadQueueProvider.overrideWithValue(report),
         ],
-        child: MaterialApp(
-          theme: ThemeData(useMaterial3: true),
-          home: const HomePage(),
-        ),
+        child: MaterialApp(theme: PaperLantern.theme, home: const HomePage()),
       ),
     );
     await tester.pumpAndSettle();
@@ -241,6 +220,47 @@ void main() {
     expect(find.text('Downloads'), findsOneWidget);
     expect(find.text('Episode 1'), findsOneWidget);
   });
+
+  testWidgets(
+    'release options refresh the current search and clear the watching filter',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({'show_filter': 'all'});
+      final api = FakeSubsPleaseApi(latestEpisodes: const []);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            subsPleaseApiProvider.overrideWithValue(api),
+            torrentManagerProvider.overrideWithValue(
+              const TorrentManagerState(),
+            ),
+          ],
+          child: MaterialApp(theme: PaperLantern.theme, home: const HomePage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Search shows'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'Link Click');
+      await tester.pump(const Duration(milliseconds: 501));
+      await tester.pumpAndSettle();
+      expect(api.searches, ['Link Click']);
+
+      await tester.tap(find.byTooltip('Release options'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Refresh releases'));
+      await tester.pumpAndSettle();
+      expect(api.searches, ['Link Click', 'Link Click']);
+
+      await tester.tap(find.byTooltip('Release options'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Watching only'));
+      await tester.pumpAndSettle();
+      expect(find.text('Watching only · Clear'), findsOneWidget);
+      await tester.tap(find.text('Watching only · Clear'));
+      await tester.pumpAndSettle();
+      expect(find.text('Watching only · Clear'), findsNothing);
+    },
+  );
 
   testWidgets('builds tabs on first visit and keeps visited state', (
     tester,
@@ -266,6 +286,8 @@ void main() {
     final settings = find.byType(SettingsPage, skipOffstage: false);
     expect((schedule.evaluate().length, settings.evaluate().length), (0, 0));
 
+    await tester.tap(find.byTooltip('Search shows'));
+    await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'Retained search');
     await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
