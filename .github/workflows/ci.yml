@@ -196,7 +196,7 @@ jobs:
         with:
           name: android-debug
           path: build/app/outputs/flutter-apk/app-debug.apk
-          compression-level: 0
+          compression-level: 1
           if-no-files-found: error
           retention-days: 14
 
@@ -212,7 +212,7 @@ jobs:
         with:
           name: android-release
           path: dist/tamashii-android.apk
-          compression-level: 0
+          compression-level: 1
           if-no-files-found: error
           retention-days: 14
 
