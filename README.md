@@ -1,146 +1,77 @@
+<img src="android/app/src/main/res/mipmap-xxxhdpi/launcher_icon.png" align="right" width="88" height="88" alt="">
+
 # Tamashii
 
-Tamashii is a personal project for tracking anime episode releases, maintaining
-a weekly watching list, and managing torrent downloads. It supports Android 12
-and newer and Windows.
+Follow anime releases from SubsPlease, keep a weekly schedule of the shows you’re watching, and download episodes by torrent on Android and Windows.
 
-Tamashii is a release tracker and download manager. It does not stream or play
-video.
+**[Download Tamashii](https://github.com/Leapward-Koex/tamashii/releases)** · [Installation](#installation) · [Android widget](#android-widget) · [Development](#development)
 
-[Releases](https://github.com/Leapward-Koex/tamashii/releases) ·
-[Issues](https://github.com/Leapward-Koex/tamashii/issues)
+![Tamashii’s wide-screen Home view, with the release list beside the selected episode’s details.](docs/images/release-reader.png)
 
-## Features
-
-- Home lists recent episode releases from SubsPlease and supports title search.
-- Bookmarking a show on Home adds it to the watching list and Schedule.
-- Schedule groups saved shows by weekday. Add a show by title or choose a match
-  from Tenrai's catalog.
-- Available episode downloads can be started from Home or the Android home
-  screen widget. New downloads use the highest resolution offered by the source.
-- Downloads shows live progress, rates, estimated time remaining, peers, and
-  paused, waiting, or failed transfers. Individual and bulk pause/resume are
-  available.
-- A download base folder and per-series folders can be configured in Settings.
+*The wide-screen reader keeps the release list open beside the selected episode. Sample releases shown.*
 
 ## Installation
 
-Release packages are published on the
-[Releases page](https://github.com/Leapward-Koex/tamashii/releases). Check the
-release notes to see whether a build is a prerelease.
+Choose a build from [GitHub Releases](https://github.com/Leapward-Koex/tamashii/releases). Each release page indicates whether it’s a prerelease.
 
-### Android
+| Platform | How to install |
+| --- | --- |
+| **Android 12 or newer** | Download and open the APK. If Android asks, allow your browser or file manager to install it. |
+| **Windows x64** | Download the Windows ZIP, extract the entire folder, and open `tamashii.exe`. Keep the executable and its supporting files together. |
 
-Android 12 or newer is required.
+## Follow a series
 
-1. Download the APK from a release.
-2. Open the APK and complete Android's install prompt.
-3. If asked, allow the browser or file manager to install apps from that
-   source.
+1. **Find an episode on Home.** Search by title or browse the latest releases. Open one to read the synopsis and see other available episodes.
+2. **Choose Watch to add the show to Schedule.** Your shows are grouped by release weekday. Turn on **Watching only** on Home to see releases from those series.
+3. **Choose Download on an episode.** Each transfer starts when you select it and uses the highest resolution available for that release. In **Settings → Download Base Folder**, you can choose a parent folder for automatic series folders.
+4. **Open Downloads to follow the transfer.** Check speed, peers, and time remaining, or pause and resume transfers individually or together. Completed episodes leave the queue and stay in their series folder, ready to open in your preferred player.
 
-### Windows
+To plan a show before it appears in the feed, use **+** in Schedule, pick a weekday, and choose **Add by title**. You can link it to Tenrai later with **Edit catalog match**, or move it with **Change schedule day**. A matched show includes a link to MyAnimeList.
 
-1. Download the Windows ZIP from a release.
-2. Extract the entire ZIP to a folder.
-3. Run `tamashii.exe` from the extracted folder.
+## Android widget
 
-Keep the extracted files together. The executable requires the files beside it.
+Add **Tamashii → Today on your watchlist** from your launcher’s widget picker. The compact widget shows which series are due today. Make it taller to see the release inbox.
 
-## Basic use
+When the feed confirms a new episode for today, tap **Download** beside it. If the series needs a folder, Tamashii opens its show page so you can choose one and start the download. If you still need to choose a base folder, the app opens **Settings**. The widget shows transfer progress and refreshes periodically while the app is closed.
 
-1. In **Settings**, choose a **Download Base Folder** if automatic per-series
-   folders are wanted.
-2. On **Home**, browse, search, or refresh the release list. Bookmark a show to
-   add it to the watching list.
-3. In **Schedule**, move a saved show to another weekday or use **+** to add a
-   manual planning entry. Choose **Add by title** to save it without a search
-   result, then use **Match with Tenrai** from the entry if you want to link it
-   later.
-4. Select **Download** on an available episode. On Android, grant folder access
-   when prompted.
-5. Open **Downloads** from Home to view active transfers or pause and resume
-   them.
+## Downloads and storage
 
-### Android home screen widget
+Folder choices and your watching list are independent. You can keep a show on Schedule without assigning a folder, or save episodes from a show you haven’t bookmarked. **Deleting a series folder in Settings also deletes the files inside it.**
 
-Open your launcher's widget picker and add **Tamashii → Today on your watchlist**.
-The compact agenda lists watched shows expected today. Once the feed confirms
-an episode was released on your phone's current local date, tap **Download**
-to start it. **Set up** lets you grant permissions or choose a series folder.
-Android refreshes the feed periodically while the app is closed.
+<details>
+<summary><strong>Troubleshooting downloads</strong></summary>
 
-Resize the widget taller for the release inbox. During a transfer the wide
-button becomes a progress bar, or a ring in the inbox. Queued, waiting for
-network, paused and downloaded episodes have their own status.
+| What you see | What to check |
+| --- | --- |
+| **Waiting for network** on Android | Mobile data and metered networks are separate settings, both off by default. On metered cellular, enable both or switch to an allowed network. |
+| A download won’t start | Choose a writable folder, grant folder access when prompted, and check the drive’s free space. |
+| Transfers stop in the background | On Android, check notification permissions and battery optimisation for Tamashii. On Windows, keep the app running until the transfer finishes. |
 
-### Schedule entries and downloads
+</details>
 
-Saving a show does not subscribe it to downloads. Download buttons appear only
-for episodes currently available through the SubsPlease feed, and every
-transfer is started manually.
+## Sources and privacy
 
-Manual Schedule entries are for planning only. They do not appear in Home or
-provide download options.
+Tamashii works without an account. Your watching list, folder choices, and download markers are stored on your device. Release listings and torrent magnets come from [SubsPlease](https://subsplease.org). Catalog matches use [Tenrai](https://tenrai.org).
 
-Folders are independent of the watching list. A show can have a download folder
-without being on Schedule, and a scheduled show does not need a download folder.
-
-Deleting a series folder in **Settings** deletes that folder and all of its
-contents.
-
-## Downloads and Android settings
-
-On Android, downloads over mobile data and metered networks are disabled by
-default. They are separate settings in **Settings**. A transfer waits when its
-network is not allowed and can continue when the network becomes suitable.
-
-Android requests access to the selected download folder. It may also request
-notification and battery-optimisation permissions when a download starts.
-Notifications show active download status; the battery-optimisation exemption
-helps long downloads continue when the app is not visible.
-
-On Windows, leave Tamashii running while a download is active. Ensure the
-selected drive has enough free space for the episode.
-
-The Downloads screen is a live transfer monitor, not a history. Completed
-episodes remain in their selected folders and leave the queue.
+Torrent transfers can expose your IP address to peers and trackers. Download only material you’re entitled to access.
 
 ## Development
 
-Use the Flutter version in `.fvmrc` and run `flutter pub get` (or
-`fvm flutter pub get` when using FVM). Enable the versioned pre-commit hook once
-per clone:
+Use the Flutter version pinned in [`.fvmrc`](.fvmrc). From the repository root, enable Git LFS for the bundled torrent binaries, install dependencies, and run the tests.
 
 ```sh
+git lfs install
 git config --local core.hooksPath .githooks
+flutter pub get
+flutter test
 ```
 
-The hook formats and restages staged Dart files, then runs
-`flutter analyze --no-pub` on the working tree. It stops if a staged Dart file
-also has unstaged edits, so partial staging is preserved.
+For a development run, use the small Big Buck Bunny test torrent.
 
-## Data sources and torrent use
+```sh
+flutter run --dart-define=TAMASHII_USE_TEST_TORRENT=true
+```
 
-Tamashii does not require an account. Watching-list data, folder choices, and
-download markers are stored locally.
+If you use FVM, run the Flutter commands with `fvm flutter`. The pre-commit hook formats staged Dart files and runs `flutter analyze --no-pub`. It stops if a staged Dart file also contains unstaged edits.
 
-Recent release information and torrent magnets come from
-[SubsPlease](https://subsplease.org). The [Tenrai API](https://tenrai.org)
-supplies MyAnimeList title matches for Schedule. These services control their
-own availability and metadata.
-
-Tamashii does not host media. Torrent transfers can expose your IP address to
-peers and trackers. Download only material you are entitled to access and
-follow applicable laws and source terms.
-
-## Troubleshooting
-
-| Problem | Check |
-| --- | --- |
-| A download is waiting for a network | On Android, check the mobile-data and metered-network settings. Both are opt-in. |
-| A download cannot start | Choose a writable folder, grant Android folder access, and check free disk space. |
-| An Android download stops in the background | Check notification permission and Android battery settings. |
-| A completed episode is absent from Downloads | Downloads is a live queue. Check the selected series folder. |
-
-For bugs or suggestions, [open an issue](https://github.com/Leapward-Koex/tamashii/issues)
-with the platform, app version, expected result, and actual result.
+[Report a bug or suggest a feature](https://github.com/Leapward-Koex/tamashii/issues). For bugs, include your platform, app version, what you expected, and what happened.
