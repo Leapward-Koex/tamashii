@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:tamashii/api/tenrai_api.dart';
+import 'package:tamashii/models/tenrai_models.dart';
 
 void main() {
   group('TenraiApi', () {
@@ -51,6 +52,7 @@ void main() {
       expect(results.single.type, 'TV');
       expect(results.single.episodes, 220);
       expect(results.single.imageUrl, 'https://cdn.example.com/naruto.jpg');
+      expect(results.single.largeImageUrl, isNull);
     });
 
     test(
@@ -94,6 +96,25 @@ void main() {
       final results = await api.searchAnime('Frieren');
       expect(results.single.displayTitle, "Frieren: Beyond Journey's End");
       expect(results.single.imageUrl, 'https://cdn.example.com/frieren.webp');
+      expect(
+        results.single.largeImageUrl,
+        'https://cdn.example.com/frieren.webp',
+      );
+    });
+
+    test('preserves the large poster alongside the schedule artwork', () {
+      final result = TenraiAnimeSearchResult.fromJson({
+        'mal_id': 52991,
+        'title': 'Sousou no Frieren',
+        'images': {
+          'jpg': {'image_url': 'https://cdn.example.com/frieren.jpg'},
+          'webp': {'large_image_url': 'https://cdn.example.com/frieren.webp'},
+        },
+      });
+
+      expect(result.imageUrl, 'https://cdn.example.com/frieren.jpg');
+      expect(result.largeImageUrl, 'https://cdn.example.com/frieren.webp');
+      expect(TenraiAnimeSearchResult.fromJson(result.toJson()), result);
     });
 
     test(

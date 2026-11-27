@@ -1,5 +1,4 @@
 import 'package:cached_network_image/cached_network_image.dart';
-// ignore: depend_on_referenced_packages
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';

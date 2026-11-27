@@ -1,0 +1,39 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:background="@drawable/widget_surface"
+    android:paddingStart="14dp" android:paddingEnd="14dp" android:paddingBottom="6dp">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:gravity="center_vertical" android:orientation="horizontal">
+        <LinearLayout android:id="@+id/widget_open" android:layout_width="0dp"
+            android:layout_weight="1" android:layout_height="wrap_content" android:minHeight="48dp"
+            android:orientation="horizontal" android:gravity="center_vertical"
+            android:contentDescription="@string/today_widget_open">
+            <ImageView android:id="@+id/widget_icon" android:layout_width="22dp"
+                android:layout_height="22dp" android:src="@drawable/widget_calendar"
+                android:importantForAccessibility="no" />
+            <TextView android:id="@+id/widget_title" android:layout_width="wrap_content"
+                android:layout_height="wrap_content" android:layout_marginStart="8dp"
+                android:maxLines="1" android:ellipsize="end" android:textSize="17sp"
+                android:textStyle="bold" android:textColor="@color/widget_ink"
+                android:text="@string/today_widget_title" />
+        </LinearLayout>
+        <TextView android:id="@+id/widget_setup" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:minHeight="48dp" android:minWidth="48dp"
+            android:paddingStart="6dp" android:paddingEnd="6dp" android:gravity="center"
+            android:textColor="@color/widget_blue" android:textStyle="bold"
+            android:text="@string/today_widget_setup" android:visibility="gone" />
+    </LinearLayout>
+    <LinearLayout android:id="@+id/widget_empty" android:layout_width="match_parent"
+        android:layout_height="0dp" android:layout_weight="1" android:gravity="center_vertical"
+        android:orientation="vertical">
+        <TextView android:id="@+id/widget_empty_title" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:text="@string/today_widget_loading"
+            android:textSize="17sp" android:textStyle="bold" android:textColor="@color/widget_ink" />
+        <TextView android:id="@+id/widget_empty_hint" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:textSize="13sp"
+            android:textColor="@color/widget_secondary" />
+    </LinearLayout>
+    <ListView android:id="@+id/widget_list" android:layout_width="match_parent"
+        android:layout_height="0dp" android:layout_weight="1" android:visibility="gone"
+        android:divider="@null" android:scrollbars="vertical" android:drawSelectorOnTop="false" />
+</LinearLayout>

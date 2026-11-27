@@ -1,6 +1,7 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:tamashii/api/tenrai_api.dart';
 import 'package:tamashii/models/tenrai_models.dart';
+import 'package:tamashii/services/tenrai_poster_matcher.dart';
 
 part 'tenrai_api_providers.g.dart';
 
@@ -29,4 +30,19 @@ Future<List<TenraiAnimeSearchResult>> searchTenraiShows(
     ref.keepAlive();
   }
   return results;
+}
+
+@Riverpod(retry: _noRetry)
+Future<String?> featuredTenraiPoster(Ref ref, String showTitle) async {
+  final results = await ref.watch(
+    searchTenraiShowsProvider(showTitle.trim()).future,
+  );
+  final url = matchTenraiPoster(showTitle, results)?.largeImageUrl?.trim();
+  final uri = url == null ? null : Uri.tryParse(url);
+  if (uri == null ||
+      uri.host.isEmpty ||
+      (uri.scheme != 'https' && uri.scheme != 'http')) {
+    return null;
+  }
+  return url;
 }

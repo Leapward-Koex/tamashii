@@ -1,11 +1,16 @@
-import 'package:material_ui/material_ui.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:tamashii/providers/featured_poster_faces_provider.dart';
 import 'package:tamashii/providers/subsplease_api_providers.dart';
+import 'package:tamashii/services/featured_poster_crop.dart';
 
 /// A widget that displays a show's image, resolving either full URLs or API-relative paths.
 class ShowImage extends ConsumerWidget {
   final String imageUrl;
+  final String? fallbackImageUrl;
+  final bool faceAware;
   final double? width;
   final double? height;
   final BoxFit fit;
@@ -13,6 +18,8 @@ class ShowImage extends ConsumerWidget {
   const ShowImage({
     super.key,
     required this.imageUrl,
+    this.fallbackImageUrl,
+    this.faceAware = false,
     this.width,
     this.height,
     this.fit = BoxFit.cover,
@@ -21,6 +28,24 @@ class ShowImage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final path = imageUrl.trim();
+    final fallbackUrl = fallbackImageUrl?.trim();
+    final canFrameFaces =
+        faceAware &&
+        fit == BoxFit.cover &&
+        !kIsWeb &&
+        defaultTargetPlatform == TargetPlatform.android;
+    Widget? fallback({required bool frameFaces}) {
+      if (fallbackUrl == null || fallbackUrl == path) return null;
+      return ShowImage(
+        imageUrl: fallbackUrl,
+        width: width,
+        height: height,
+        fit: fit,
+        faceAware: frameFaces,
+      );
+    }
+
+    const brokenImage = Center(child: Icon(Icons.broken_image, size: 40));
     final parsed = Uri.tryParse(path);
     final Uri? resolved;
     if (path.isEmpty || parsed == null) {
@@ -39,7 +64,7 @@ class ShowImage extends ConsumerWidget {
       return SizedBox(
         width: width,
         height: height,
-        child: const Center(child: Icon(Icons.broken_image, size: 40)),
+        child: fallback(frameFaces: canFrameFaces) ?? brokenImage,
       );
     }
 
@@ -48,6 +73,10 @@ class ShowImage extends ConsumerWidget {
 
     Widget buildImage(double? displayWidth, double? displayHeight) {
       final memoryWidth = _decodePixels(displayWidth, devicePixelRatio);
+      final memoryHeight = memoryWidth == null
+          ? _decodePixels(displayHeight, devicePixelRatio)
+          : null;
+      final target = Size(displayWidth ?? 0, displayHeight ?? 0);
       return CachedNetworkImage(
         imageUrl: url,
         width: width,
@@ -56,13 +85,43 @@ class ShowImage extends ConsumerWidget {
         // A single decode dimension preserves the source aspect ratio and lets
         // the same cached image serve different card heights.
         memCacheWidth: memoryWidth,
-        memCacheHeight: memoryWidth == null
-            ? _decodePixels(displayHeight, devicePixelRatio)
+        memCacheHeight: memoryHeight,
+        imageBuilder: canFrameFaces && target.isFinite && !target.isEmpty
+            ? (context, provider) => Consumer(
+                builder: (context, ref, child) {
+                  final detection = ref
+                      .watch(featuredPosterFacesProvider(url))
+                      .asData
+                      ?.value;
+                  final alignment = detection == null
+                      ? Alignment.center
+                      : featuredPosterAlignment(
+                          source: detection.imageSize,
+                          target: target,
+                          faces: detection.faces,
+                        );
+                  // OctoImage already loaded this key before invoking imageBuilder.
+                  return Image(
+                    image: ResizeImage.resizeIfNeeded(
+                      memoryWidth,
+                      memoryHeight,
+                      provider,
+                    ),
+                    width: width,
+                    height: height,
+                    fit: fit,
+                    alignment: alignment,
+                    errorBuilder: (context, error, stackTrace) =>
+                        fallback(frameFaces: true) ?? brokenImage,
+                  );
+                },
+              )
             : null,
         placeholder: (context, url) =>
+            fallback(frameFaces: false) ??
             const Center(child: CircularProgressIndicator()),
         errorWidget: (context, url, error) =>
-            const Center(child: Icon(Icons.broken_image, size: 40)),
+            fallback(frameFaces: canFrameFaces) ?? brokenImage,
       );
     }
 

@@ -92,5 +92,26 @@ void main() {
 
       expect(() => ShowInfo.fromJson(json), throwsA(isA<FormatException>()));
     });
+
+    test('signed feed offsets and cached copies preserve the release instant across midnight', () {
+      final fields = {
+        'downloads': [],
+        'episode': '01',
+        'image_url': '',
+        'page': '',
+        'show': 'Ferry',
+        'time': '',
+        'xdcc': '',
+      };
+      for (final (raw, utc) in [
+        ('Fri, 27 Nov 2026 00:15:00 +1300', DateTime.utc(2026, 11, 26, 11, 15)),
+        ('Thu, 26 Nov 2026 23:50:00 -0330', DateTime.utc(2026, 11, 27, 3, 20)),
+        ('Fri, 27 Nov 2026 03:20:00 Z', DateTime.utc(2026, 11, 27, 3, 20)),
+      ]) {
+        final show = ShowInfo.fromJson({...fields, 'release_date': raw});
+        expect(show.releaseDate, utc);
+        expect(ShowInfo.fromJson(show.toJson()).releaseDate, utc);
+      }
+    });
   });
 }

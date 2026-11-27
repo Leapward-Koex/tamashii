@@ -37,7 +37,7 @@ final class DownloadedTorrentsNotifierProvider
 }
 
 String _$downloadedTorrentsNotifierHash() =>
-    r'bba187e43f8be7b98226a420da1f0546e7779ec6';
+    r'7ad652beaed7135739d0584f3ef5abf7207f3132';
 
 /// Stores a set of torrent keys that have completed downloading.
 

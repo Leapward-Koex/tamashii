@@ -13,6 +13,7 @@ import 'package:tamashii/providers/downloaded_torrents_provider.dart';
 import 'package:tamashii/providers/foreground_torrent_provider.dart';
 import 'package:tamashii/providers/on_device_ai_provider.dart';
 import 'package:tamashii/providers/settings_provider.dart';
+import 'package:tamashii/providers/tenrai_api_providers.dart';
 import 'package:tamashii/providers/torrent_download_provider.dart';
 import 'package:tamashii/services/gemini_nano_service.dart';
 import 'package:tamashii/services/permission_service.dart';
@@ -180,7 +181,7 @@ class ShowCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final torrentKey = '${show.show}-${show.episode}';
+    final torrentKey = show.torrentKey;
     final isBookmarked = ref.watch(
       bookmarkedSeriesProvider.select(
         (bookmarks) =>
@@ -235,14 +236,7 @@ class ShowCard extends ConsumerWidget {
         return;
       }
 
-      ShowDownloadInfo? bestDownload;
-      for (final download in show.downloads) {
-        if (download.magnet.trim().isEmpty) continue;
-        if (bestDownload == null ||
-            download.resolution.index > bestDownload.resolution.index) {
-          bestDownload = download;
-        }
-      }
+      final bestDownload = show.bestDownload;
       if (bestDownload == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('No download links available.')),
@@ -279,7 +273,12 @@ class ShowCard extends ConsumerWidget {
 
       await ref
           .read(foregroundTorrentManagerProvider.notifier)
-          .startDownload(torrentKey, bestDownload.magnet, seriesDownloadPath);
+          .startDownload(
+            torrentKey,
+            bestDownload.magnet,
+            seriesDownloadPath,
+            redownload: isDownloaded,
+          );
 
       if (!context.mounted || isDownloaded) {
         return;
@@ -339,16 +338,20 @@ class ShowCard extends ConsumerWidget {
       await bookmarkedNotifier.add(
         BookmarkedShowInfo(
           imageUrl: show.imageUrl,
-          releaseDayOfWeek: show.releaseDate.weekday,
+          releaseDayOfWeek: show.releaseDate.toLocal().weekday,
           showName: show.show,
         ),
       );
     }
 
+    final posterLookup = featured && isBookmarked
+        ? ref.watch(featuredTenraiPosterProvider(show.show))
+        : null;
     final cardBody = featured
         ? _buildFeaturedCard(
             context: context,
             isBookmarked: isBookmarked,
+            posterLookup: posterLookup,
             isDownloaded: isDownloaded,
             isLoadingTorrent: isLoadingTorrent,
             isPaused: isPaused,
@@ -389,6 +392,7 @@ class ShowCard extends ConsumerWidget {
   Widget _buildFeaturedCard({
     required BuildContext context,
     required bool isBookmarked,
+    required AsyncValue<String?>? posterLookup,
     required bool isDownloaded,
     required bool isLoadingTorrent,
     required bool isPaused,
@@ -403,7 +407,12 @@ class ShowCard extends ConsumerWidget {
     required Future<void> Function() onBookmarkPressed,
   }) {
     final theme = Theme.of(context);
-    final poster = ShowImage(imageUrl: show.imageUrl);
+    final preferredPoster = posterLookup?.asData?.value;
+    final poster = ShowImage(
+      imageUrl: preferredPoster ?? show.imageUrl,
+      fallbackImageUrl: preferredPoster == null ? null : show.imageUrl,
+      faceAware: posterLookup != null && !posterLookup.isLoading,
+    );
     final parallax = posterParallax;
 
     return AnimatedContainer(
@@ -517,7 +526,7 @@ class ShowCard extends ConsumerWidget {
                         ),
                         _buildInfoPill(
                           label:
-                              '${DateFormat.MMMd().format(show.releaseDate)} • ${show.timeLabel}',
+                              '${DateFormat.MMMd().format(show.releaseDate.toLocal())} • ${show.timeLabel}',
                           foregroundColor: Colors.white,
                           backgroundColor: Colors.white.withValues(alpha: 0.12),
                         ),
@@ -761,7 +770,9 @@ class ShowCard extends ConsumerWidget {
                                   theme.colorScheme.secondaryContainer,
                             ),
                             _buildInfoPill(
-                              label: DateFormat.MMMd().format(show.releaseDate),
+                              label: DateFormat.MMMd().format(
+                                show.releaseDate.toLocal(),
+                              ),
                               foregroundColor:
                                   theme.colorScheme.onSurfaceVariant,
                               backgroundColor:

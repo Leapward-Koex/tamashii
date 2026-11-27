@@ -371,8 +371,9 @@ class _RecordingForegroundTorrentManager extends ForegroundTorrentManager {
   Future<void> startDownload(
     String torrentKey,
     String magnetUri,
-    String downloadPath,
-  ) async {
+    String downloadPath, {
+    bool redownload = false,
+  }) async {
     magnets.add(magnetUri);
   }
 }

@@ -23,6 +23,8 @@ abstract class TenraiAnimeSearchResult with _$TenraiAnimeSearchResult {
     )
     @Default('')
     String imageUrl,
+    @JsonKey(readValue: _readTenraiLargeImageUrl, includeIfNull: false)
+    String? largeImageUrl,
   }) = _TenraiAnimeSearchResult;
 
   factory TenraiAnimeSearchResult.fromJson(Map<String, dynamic> json) =>
@@ -35,6 +37,25 @@ abstract class TenraiAnimeSearchResult with _$TenraiAnimeSearchResult {
     }
     return title;
   }
+}
+
+Object? _readTenraiLargeImageUrl(Map<dynamic, dynamic> json, String key) {
+  return json[key] ?? _tenraiImageVariant(json['images'], 'large_image_url');
+}
+
+String? _tenraiImageVariant(Object? images, String sizeKey) {
+  if (images is! Map) {
+    return null;
+  }
+
+  for (final format in const ['jpg', 'webp']) {
+    final image = images[format];
+    final url = image is Map ? image[sizeKey] : null;
+    if (url is String && url.trim().isNotEmpty) {
+      return url.trim();
+    }
+  }
+  return null;
 }
 
 String _tenraiImageUrlFromJson(Object? images) {

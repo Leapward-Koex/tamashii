@@ -139,3 +139,73 @@ final class SearchTenraiShowsFamily extends $Family
   @override
   String toString() => r'searchTenraiShowsProvider';
 }
+
+@ProviderFor(featuredTenraiPoster)
+final featuredTenraiPosterProvider = FeaturedTenraiPosterFamily._();
+
+final class FeaturedTenraiPosterProvider
+    extends $FunctionalProvider<AsyncValue<String?>, String?, FutureOr<String?>>
+    with $FutureModifier<String?>, $FutureProvider<String?> {
+  FeaturedTenraiPosterProvider._({
+    required FeaturedTenraiPosterFamily super.from,
+    required String super.argument,
+  }) : super(
+         retry: _noRetry,
+         name: r'featuredTenraiPosterProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$featuredTenraiPosterHash();
+
+  @override
+  String toString() {
+    return r'featuredTenraiPosterProvider'
+        ''
+        '($argument)';
+  }
+
+  @$internal
+  @override
+  $FutureProviderElement<String?> $createElement($ProviderPointer pointer) =>
+      $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<String?> create(Ref ref) {
+    final argument = this.argument as String;
+    return featuredTenraiPoster(ref, argument);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is FeaturedTenraiPosterProvider && other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$featuredTenraiPosterHash() =>
+    r'f013e7e7a99892b554893a3ee351afa674a8b4d6';
+
+final class FeaturedTenraiPosterFamily extends $Family
+    with $FunctionalFamilyOverride<FutureOr<String?>, String> {
+  FeaturedTenraiPosterFamily._()
+    : super(
+        retry: _noRetry,
+        name: r'featuredTenraiPosterProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  FeaturedTenraiPosterProvider call(String showTitle) =>
+      FeaturedTenraiPosterProvider._(argument: showTitle, from: this);
+
+  @override
+  String toString() => r'featuredTenraiPosterProvider';
+}

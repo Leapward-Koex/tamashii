@@ -5,8 +5,19 @@ import 'package:tamashii/models/tenrai_models.dart';
 import 'package:tamashii/providers/tenrai_api_providers.dart';
 
 class FakeTenraiApi extends TenraiApi {
-  FakeTenraiApi();
+  FakeTenraiApi({
+    this.results = const [
+      TenraiAnimeSearchResult(
+        malId: 1,
+        title: 'Cowboy Bebop',
+        titleEnglish: 'Cowboy Bebop',
+        type: 'TV',
+        episodes: 26,
+      ),
+    ],
+  });
 
+  final List<TenraiAnimeSearchResult> results;
   final List<String> searchedQueries = <String>[];
 
   @override
@@ -15,15 +26,7 @@ class FakeTenraiApi extends TenraiApi {
     int limit = 10,
   }) async {
     searchedQueries.add(query);
-    return const <TenraiAnimeSearchResult>[
-      TenraiAnimeSearchResult(
-        malId: 1,
-        title: 'Cowboy Bebop',
-        titleEnglish: 'Cowboy Bebop',
-        type: 'TV',
-        episodes: 26,
-      ),
-    ];
+    return results;
   }
 }
 
@@ -108,5 +111,62 @@ void main() {
 
       expect(api.callCount, 1);
     });
+  });
+
+  group('featuredTenraiPosterProvider', () {
+    const largeUrl = 'https://cdn.example.com/large.jpg';
+    const regularUrl = 'https://cdn.example.com/regular.jpg';
+    const showTitle = 'Meitantei Precure!';
+    const match = TenraiAnimeSearchResult(
+      malId: 63042,
+      title: showTitle,
+      type: 'TV',
+      imageUrl: regularUrl,
+      largeImageUrl: largeUrl,
+    );
+
+    test('uses only the large artwork from the matching result', () async {
+      final api = FakeTenraiApi(
+        results: const [
+          TenraiAnimeSearchResult(
+            malId: 63903,
+            title: 'Meitantei Precure! Movie',
+            type: 'Movie',
+            largeImageUrl: 'https://cdn.example.com/movie.jpg',
+          ),
+          match,
+        ],
+      );
+      final container = ProviderContainer.test(
+        overrides: [tenraiApiProvider.overrideWithValue(api)],
+      );
+
+      expect(
+        await container.read(featuredTenraiPosterProvider(showTitle).future),
+        largeUrl,
+      );
+      expect(api.searchedQueries, [showTitle]);
+    });
+
+    for (final unusable in [null, '/relative.jpg', 'file:///poster.jpg']) {
+      test(
+        'returns no preferred poster for ${unusable ?? 'standard art only'}',
+        () async {
+          final api = FakeTenraiApi(
+            results: [match.copyWith(largeImageUrl: unusable)],
+          );
+          final container = ProviderContainer.test(
+            overrides: [tenraiApiProvider.overrideWithValue(api)],
+          );
+
+          expect(
+            await container.read(
+              featuredTenraiPosterProvider(showTitle).future,
+            ),
+            isNull,
+          );
+        },
+      );
+    }
   });
 }

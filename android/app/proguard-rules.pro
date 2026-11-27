@@ -4,3 +4,6 @@
 -keep class * implements com.google.firebase.components.ComponentRegistrar {
     public <init>();
 }
+
+# ONNX Runtime resolves Java classes and methods through JNI.
+-keep class ai.onnxruntime.** { *; }

@@ -119,8 +119,8 @@ void main() {
       'void onReceiveData',
     );
 
-    expect(onDestroy, isNot(contains('await SimpleTorrent.cancel')));
-    expect(taskSource, contains('await SimpleTorrent.finalise(torrentId)'));
+    expect(onDestroy, isNot(contains('await _runtime.cancel')));
+    expect(taskSource, contains('await _runtime.finalise(torrentId)'));
   });
 
   test('the service posts completion before shutdown without the UI', () {
@@ -130,8 +130,9 @@ void main() {
       'void _sendServiceSnapshot',
     );
     _expectOrdered(finalise, <String>[
-      'await SimpleTorrent.finalise(torrentId)',
+      'await _runtime.finalise(torrentId)',
       '_completedTorrents.add(torrentKey)',
+      'await _recordCompletion(torrentKey)',
       'await NotificationService.showDownloadCompletion(',
       '_updateNotificationWithProgress();',
     ]);
@@ -307,7 +308,7 @@ void main() {
       final serviceSnapshot = _between(
         taskSource,
         'void _sendServiceSnapshot',
-        'Future<void> _stopServiceIfStillComplete',
+        'Future<void> _stopServiceIfIdle',
       );
       expect(
         serviceSnapshot,

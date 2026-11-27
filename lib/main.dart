@@ -10,6 +10,8 @@ import 'package:tamashii/pages/home_page.dart';
 import 'package:tamashii/providers/api_cache_sync_provider.dart';
 import 'package:tamashii/providers/foreground_torrent_provider.dart';
 import 'package:tamashii/services/notification_service.dart';
+import 'package:tamashii/services/widget_catalog.dart';
+import 'package:tamashii/widgets/widget_download_setup.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -45,6 +47,11 @@ class TamashiiApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (Platform.isAndroid) {
+      ref.listen(widgetCatalogProvider, (_, catalog) {
+        catalog.whenData((value) => unawaited(publishWidgetCatalog(value)));
+      });
+    }
     // Initialize the cache sync service
     final cacheSync = ref.watch(apiCacheSyncProvider);
     cacheSync.initialize();
@@ -67,7 +74,9 @@ class TamashiiApp extends ConsumerWidget {
           elevation: 0,
         ),
       ),
-      home: const HomePage(),
+      home: Platform.isAndroid
+          ? const WidgetDownloadSetup(child: HomePage())
+          : const HomePage(),
     );
   }
 }

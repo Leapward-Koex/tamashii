@@ -1,0 +1,47 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:minHeight="52dp" android:orientation="horizontal" android:gravity="center_vertical"
+    android:paddingTop="2dp" android:paddingBottom="2dp">
+    <FrameLayout android:id="@+id/widget_art" android:layout_width="38dp" android:layout_height="42dp"
+        android:layout_marginEnd="9dp" android:background="@drawable/widget_cover" android:clipToOutline="true"
+        android:importantForAccessibility="noHideDescendants">
+        <TextView android:id="@+id/widget_monogram" android:layout_width="match_parent" android:layout_height="match_parent"
+            android:gravity="center" android:textColor="@color/widget_progress_ink" android:textSize="18sp" android:textStyle="bold" />
+        <ImageView android:id="@+id/widget_poster" android:layout_width="match_parent" android:layout_height="match_parent"
+            android:scaleType="centerCrop" android:visibility="gone" />
+    </FrameLayout>
+    <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+        android:orientation="vertical" android:paddingEnd="4dp">
+        <TextView android:id="@+id/widget_series" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:maxLines="2" android:ellipsize="end" android:textSize="16sp" android:textStyle="bold" android:textColor="@color/widget_ink" />
+        <TextView android:id="@+id/widget_subtitle" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:maxLines="2" android:ellipsize="end" android:textSize="13sp" android:textColor="@color/widget_secondary" />
+    </LinearLayout>
+    <FrameLayout android:id="@+id/widget_action" android:layout_width="104dp" android:layout_height="48dp">
+        <LinearLayout android:id="@+id/widget_ready_button" android:layout_width="match_parent" android:layout_height="match_parent"
+            android:gravity="center" android:orientation="horizontal" android:background="@drawable/widget_action">
+            <ImageView android:layout_width="20dp" android:layout_height="20dp" android:src="@drawable/widget_download"
+                android:importantForAccessibility="no" />
+            <TextView android:id="@+id/widget_button_label" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginStart="3dp" android:text="@string/today_widget_download" android:textColor="#FFFFFF"
+                android:textSize="13sp" android:textStyle="bold" android:maxLines="1" />
+        </LinearLayout>
+        <ProgressBar android:id="@+id/widget_bar" style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent" android:layout_height="match_parent"
+            android:minHeight="0dp" android:maxHeight="48dp" android:indeterminateOnly="false"
+            android:padding="0dp" android:progressDrawable="@drawable/widget_progress_bar"
+            android:progressTint="@null" android:progressBackgroundTint="@null"
+            android:indeterminateTint="@color/widget_progress" android:importantForAccessibility="no" android:visibility="gone" />
+        <ProgressBar android:id="@+id/widget_ring" style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="44dp" android:layout_height="44dp" android:layout_gravity="center"
+            android:minHeight="0dp" android:maxHeight="44dp" android:indeterminateOnly="false" android:padding="0dp"
+            android:progressDrawable="@drawable/widget_progress_ring" android:progressTint="@null"
+            android:progressBackgroundTint="@null" android:importantForAccessibility="no" android:visibility="gone" />
+        <ProgressBar android:id="@+id/widget_spinner" android:layout_width="42dp" android:layout_height="42dp"
+            android:layout_gravity="center" android:indeterminateTint="@color/widget_blue"
+            android:importantForAccessibility="no" android:visibility="gone" />
+        <TextView android:id="@+id/widget_percent" android:layout_width="match_parent" android:layout_height="match_parent"
+            android:gravity="center" android:textColor="@color/widget_progress_ink" android:textSize="13sp"
+            android:textStyle="bold" android:maxLines="1" android:importantForAccessibility="no" android:visibility="gone" />
+    </FrameLayout>
+</LinearLayout>

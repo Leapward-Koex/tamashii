@@ -8,9 +8,13 @@ import 'package:tamashii/config/torrent_config.dart';
 import 'package:tamashii/config/torrent_download_config.dart';
 import 'package:tamashii/models/download_transfer_metrics.dart';
 import 'package:tamashii/services/download_transfer_metrics.dart';
+import 'package:tamashii/services/downloaded_episode_store.dart';
 import 'package:tamashii/services/foreground_service_lifecycle.dart';
 import 'package:tamashii/services/notification_service.dart';
+import 'package:tamashii/services/permission_service.dart';
+import 'package:tamashii/services/torrent_runtime.dart';
 import 'package:tamashii/services/transfer_policy.dart';
+import 'package:tamashii/services/widget_transfer_bridge.dart';
 import 'package:tamashii_network_cost/tamashii_network_cost.dart';
 
 // The callback function should always be a top-level or static function.
@@ -20,12 +24,26 @@ void startTorrentCallback() {
 }
 
 class TorrentTaskHandler extends TaskHandler {
+  TorrentTaskHandler({
+    this._runtime = const SimpleTorrentRuntime(),
+    this._policyRuntime = const SimpleTorrentTransferRuntime(),
+    this._network = const PluginNetworkStatusSource(),
+    WidgetTransferBridge? widget,
+    DelayedActionScheduler? scheduleStop,
+  }) : _widget = widget ?? WidgetTransferBridge(),
+       _completionStopController = DelayedServiceStopController(
+         scheduler: scheduleStop,
+       );
+
+  final TorrentRuntime _runtime;
+  final TorrentTransferRuntime _policyRuntime;
+  final NetworkStatusSource _network;
+  final WidgetTransferBridge _widget;
   final Map<String, int> _torrentIds = {}; // torrentKey -> torrentId mapping
   final Map<int, StreamSubscription<TorrentStats>> _statsSubs = {};
   StreamSubscription<TorrentMetadata>? _metadataSub;
   Timer? _updateTimer;
-  final DelayedServiceStopController _completionStopController =
-      DelayedServiceStopController();
+  final DelayedServiceStopController _completionStopController;
 
   // Track current torrent states for notification updates
   final Map<String, TorrentStats> _currentStats = {};
@@ -53,9 +71,8 @@ class TorrentTaskHandler extends TaskHandler {
           : null;
       _testNetworkStatusSource = testNetworkStatusSource;
       final transferPolicyController = TransferPolicyController(
-        runtime: const SimpleTorrentTransferRuntime(),
-        networkStatusSource:
-            testNetworkStatusSource ?? const PluginNetworkStatusSource(),
+        runtime: _policyRuntime,
+        networkStatusSource: testNetworkStatusSource ?? _network,
         readAllowMeteredDownloads: readAllowMeteredDownloadsPreference,
         readAllowMobileData: readAllowMobileDataPreference,
         onChanged: _handleTransferPolicyChanged,
@@ -66,7 +83,7 @@ class TorrentTaskHandler extends TaskHandler {
 
       // This engine owns its own v2 manager, so streams must only be observed
       // after initialization and the current network policy has been applied.
-      _metadataSub = SimpleTorrent.metadataStream.listen(_handleMetadataUpdate);
+      _metadataSub = _runtime.metadataStream.listen(_handleMetadataUpdate);
 
       // Stats, metadata and control changes already stream to the UI. A full
       // snapshot is needed only when an engine attaches to a running service.
@@ -76,6 +93,7 @@ class TorrentTaskHandler extends TaskHandler {
 
       _serviceReady = true;
       _sendServiceReady(timestamp);
+      _enqueueCommand(_consumeWidgetDownloads);
     } catch (error, stackTrace) {
       _sendServiceError('Failed to initialize torrent service: $error');
       await _transferPolicyController?.dispose();
@@ -93,24 +111,32 @@ class TorrentTaskHandler extends TaskHandler {
     _enqueueCommand(() async {
       await _transferPolicyController?.refresh();
       if (_serviceReady) {
+        await _consumeWidgetDownloads();
         _updateNotificationWithProgress();
       }
     });
   }
 
   void _updateNotificationWithProgress() {
+    if (!_serviceReady) return;
+    for (final key in _torrentIds.keys) {
+      unawaited(_publishWidgetState(key));
+    }
     final report = _buildTransferReport();
     final summary = report.summary;
     final activeTorrents = summary.trackedCount;
 
-    if (_allTrackedTorrentsCompleted) {
+    final empty = _torrentIds.isEmpty;
+    if (_allTrackedTorrentsCompleted || empty) {
+      // A tap can expire at midnight or finish elsewhere before this engine
+      // starts. Allow time for a concurrent UI attach and its first command.
       _completionStopController.schedule(
-        delay: const Duration(seconds: 5),
+        delay: empty ? const Duration(seconds: 45) : const Duration(seconds: 5),
         onElapsed: (generation) {
-          _enqueueCommand(() => _stopServiceIfStillComplete(generation));
+          _enqueueCommand(() => _stopServiceIfIdle(generation));
         },
       );
-      return;
+      if (!empty) return;
     }
 
     if (_transferPolicy.suspended) {
@@ -223,6 +249,7 @@ class TorrentTaskHandler extends TaskHandler {
     _pausedTorrents.clear();
     _torrentErrors.clear();
     _finalisingTorrents.clear();
+    await _widget.serviceStopped();
     FlutterForegroundTask.sendDataToMain({
       'type': 'service_stopped',
       'serviceInstanceId': _serviceInstanceId,
@@ -235,7 +262,9 @@ class TorrentTaskHandler extends TaskHandler {
       final command = Map<String, dynamic>.from(data);
       // Invalidate a pending all-complete shutdown before this start waits for
       // earlier commands. The delayed callback rechecks the same generation.
-      if (command['type'] == 'start_download') {
+      if (command['type'] == 'start_download' ||
+          command['type'] == 'widget_downloads_pending' ||
+          (_torrentIds.isEmpty && command['type'] == 'request_service_state')) {
         _completionStopController.invalidate();
       }
       _enqueueCommand(() => _handleCommand(command));
@@ -284,6 +313,9 @@ class TorrentTaskHandler extends TaskHandler {
     switch (type) {
       case 'start_download':
         await _startDownload(command);
+        break;
+      case 'widget_downloads_pending':
+        await _consumeWidgetDownloads();
         break;
       case 'pause_download':
         await _pauseDownload(command);
@@ -376,25 +408,120 @@ class TorrentTaskHandler extends TaskHandler {
     }
   }
 
-  Future<void> _startDownload(Map<String, dynamic> command) async {
+  Future<void> _consumeWidgetDownloads() async {
+    if (!_serviceReady) return;
+    late final List<Map<String, dynamic>> pending;
+    try {
+      pending = await _widget.pendingDownloads();
+    } catch (error) {
+      // Launcher state can be temporarily unavailable while engines attach.
+      // The next repeat event retries without interrupting in-app transfers.
+      print('Could not read pending widget downloads: $error');
+      return;
+    }
+    for (final command in pending) {
+      if (!_serviceReady) return;
+      await _startDownload(command, fromWidget: true);
+    }
+  }
+
+  Future<void> _publishWidgetState(String key, {bool force = false}) {
+    final stats = _currentStats[key];
+    final status = switch (stats?.state) {
+      _ when _torrentErrors.containsKey(key) => 'failed',
+      _ when _completedTorrents.contains(key) => 'completed',
+      TorrentState.error || TorrentState.stopped => 'failed',
+      _ when _transferPolicy.suspended => 'waiting',
+      _ when _pausedTorrents.contains(key) => 'paused',
+      TorrentState.paused => 'paused',
+      null ||
+      TorrentState.starting ||
+      TorrentState.downloadingMetadata => 'queued',
+      _ => 'downloading',
+    };
+    return _widget.publish(
+      key,
+      status,
+      fraction: status == 'queued' ? null : stats?.progress,
+      force: force,
+    );
+  }
+
+  Future<void> _startDownload(
+    Map<String, dynamic> command, {
+    bool fromWidget = false,
+  }) async {
     _completionStopController.invalidate();
     try {
       final String torrentKey = command['torrentKey'];
       final String magnetUri = command['magnetUri'];
       final String downloadPath = command['downloadPath'];
 
-      // Use SimpleTorrentHelpers for enhanced functionality
-      // /storage/emulated/0/Download
-      // /storage/emulated/0/SdCardBackUp/Tamashii/Witch Watch
-      // "/storage/emulated/0/SdCardBackUp/Tamashii/Ww"
+      final existing = _torrentIds[torrentKey];
+      if (_completedTorrents.contains(torrentKey) &&
+          _torrentErrors.containsKey(torrentKey)) {
+        // If saving history failed after native finalisation, a retry only
+        // needs to persist the marker. The completed payload is already safe.
+        await _recordCompletion(torrentKey);
+        _updateNotificationWithProgress();
+        return;
+      }
+      if (existing != null && !_completedTorrents.contains(torrentKey)) {
+        // Both the app and launcher use this serialized command queue. Keep a
+        // single native handle even if a second tap arrived during startup.
+        final previous = _currentStats[torrentKey];
+        final failed =
+            _torrentErrors.containsKey(torrentKey) ||
+            previous?.state == TorrentState.error ||
+            previous?.state == TorrentState.stopped;
+        if (failed && fromWidget) {
+          if ((_currentStats[torrentKey]?.progress ?? 0) >= 1) {
+            await _finaliseCompletedTorrent(existing, torrentKey);
+            await _publishWidgetState(torrentKey, force: true);
+            return;
+          }
+          await _runtime.resume(existing);
+          _currentStats.remove(torrentKey); // Await a fresh native sample.
+          _pausedTorrents.remove(torrentKey);
+          _torrentErrors.remove(torrentKey);
+        }
+        await _publishWidgetState(torrentKey, force: true);
+        _sendDownloadStarted(torrentKey, existing);
+        return;
+      }
+      if ((fromWidget || command['redownload'] != true) &&
+          (await readDownloadedTorrentKeys()).contains(torrentKey)) {
+        await _widget.publish(
+          torrentKey,
+          'completed',
+          fraction: 1,
+          force: true,
+        );
+        _sendFinalised(torrentKey);
+        return;
+      }
+      if (fromWidget) {
+        if (!await PermissionService.hasStoragePermissions()) {
+          throw StateError('Grant storage access in Tamashii to download.');
+        }
+        final error = await PermissionService.validateDownloadDirectory(
+          downloadPath,
+        );
+        if (error != null) throw StateError(error);
+      }
 
-      final (id, statsStream) = await SimpleTorrentHelpers.startAndWatch(
+      if (!_serviceReady) return;
+      final (id, statsStream) = await _runtime.startAndWatch(
         magnet: resolveTorrentMagnetUri(magnetUri),
         path: downloadPath,
         displayName: torrentKey, // Use torrentKey as display name
       );
+      // The Android engine may be shutting down while the magnet is opening.
+      // Its manager will detach without deleting any files.
+      if (!_serviceReady) return;
 
       // Store mapping
+      _completionStopController.invalidate();
       _torrentIds[torrentKey] = id;
 
       // Initialize tracking
@@ -408,13 +535,8 @@ class TorrentTaskHandler extends TaskHandler {
       // Listen to stats updates
       _listenToTorrent(id, torrentKey, statsStream);
 
-      // Send success response
-      FlutterForegroundTask.sendDataToMain({
-        'type': 'download_started',
-        'torrentKey': torrentKey,
-        'torrentId': id,
-        'success': true,
-      });
+      await _publishWidgetState(torrentKey, force: true);
+      _sendDownloadStarted(torrentKey, id);
     } catch (e) {
       final String torrentKey = command['torrentKey'] ?? 'unknown';
       _sendError(
@@ -422,6 +544,15 @@ class TorrentTaskHandler extends TaskHandler {
         'Failed to start download: ${describeTorrentError(e)}',
       );
     }
+  }
+
+  void _sendDownloadStarted(String key, int id) {
+    FlutterForegroundTask.sendDataToMain({
+      'type': 'download_started',
+      'torrentKey': key,
+      'torrentId': id,
+      'success': true,
+    });
   }
 
   Future<void> _pauseDownload(Map<String, dynamic> command) async {
@@ -438,9 +569,10 @@ class TorrentTaskHandler extends TaskHandler {
         return;
       }
 
-      await SimpleTorrent.pause(torrentId);
+      await _runtime.pause(torrentId);
       _pausedTorrents.add(torrentKey);
       _torrentErrors.remove(torrentKey);
+      await _publishWidgetState(torrentKey);
 
       FlutterForegroundTask.sendDataToMain({
         'type': 'download_paused',
@@ -473,9 +605,10 @@ class TorrentTaskHandler extends TaskHandler {
         return;
       }
 
-      await SimpleTorrent.resume(torrentId);
+      await _runtime.resume(torrentId);
       _pausedTorrents.remove(torrentKey);
       _torrentErrors.remove(torrentKey);
+      await _publishWidgetState(torrentKey);
 
       FlutterForegroundTask.sendDataToMain({
         'type': 'download_resumed',
@@ -508,7 +641,7 @@ class TorrentTaskHandler extends TaskHandler {
         return;
       }
 
-      await SimpleTorrent.cancel(torrentId);
+      await _runtime.cancel(torrentId);
 
       // Clean up subscriptions and tracking data
       await _statsSubs[torrentId]?.cancel();
@@ -520,6 +653,7 @@ class TorrentTaskHandler extends TaskHandler {
       _pausedTorrents.remove(torrentKey);
       _torrentErrors.remove(torrentKey);
       _finalisingTorrents.remove(torrentKey);
+      await _widget.publish(torrentKey, 'removed', force: true);
 
       FlutterForegroundTask.sendDataToMain({
         'type': 'download_removed',
@@ -598,6 +732,7 @@ class TorrentTaskHandler extends TaskHandler {
         // Store current stats for notification updates
         _currentStats[torrentKey] = stats;
         _torrentErrors.remove(torrentKey);
+        unawaited(_publishWidgetState(torrentKey));
 
         FlutterForegroundTask.sendDataToMain({
           'type': 'stats_update',
@@ -638,7 +773,7 @@ class TorrentTaskHandler extends TaskHandler {
     try {
       // Finalise removes the torrent from the native active set while
       // deliberately retaining the completed payload.
-      await SimpleTorrent.finalise(torrentId);
+      await _runtime.finalise(torrentId);
       await _statsSubs[torrentId]?.cancel();
       _statsSubs.remove(torrentId);
     } catch (error) {
@@ -652,11 +787,7 @@ class TorrentTaskHandler extends TaskHandler {
 
     _finalisingTorrents.remove(torrentKey);
     _completedTorrents.add(torrentKey);
-    FlutterForegroundTask.sendDataToMain({
-      'type': 'download_finalised',
-      'torrentKey': torrentKey,
-      'serviceInstanceId': _serviceInstanceId,
-    });
+    if (!await _recordCompletion(torrentKey)) return;
 
     try {
       // This engine remains alive in the background. The separate Android
@@ -672,6 +803,27 @@ class TorrentTaskHandler extends TaskHandler {
       print('Failed to show download completion notification: $error');
     }
     _updateNotificationWithProgress();
+  }
+
+  void _sendFinalised(String torrentKey) {
+    FlutterForegroundTask.sendDataToMain({
+      'type': 'download_finalised',
+      'torrentKey': torrentKey,
+      'serviceInstanceId': _serviceInstanceId,
+    });
+  }
+
+  Future<bool> _recordCompletion(String torrentKey) async {
+    try {
+      await writeDownloadedTorrentKey(torrentKey, true);
+    } catch (error) {
+      _sendError(torrentKey, 'Could not record completed download: $error');
+      return false;
+    }
+    _torrentErrors.remove(torrentKey);
+    _sendFinalised(torrentKey);
+    await _widget.publish(torrentKey, 'completed', fraction: 1, force: true);
+    return true;
   }
 
   void _sendServiceSnapshot() {
@@ -710,14 +862,18 @@ class TorrentTaskHandler extends TaskHandler {
       _torrentErrors.isEmpty &&
       _torrentIds.keys.every(_completedTorrents.contains);
 
-  Future<void> _stopServiceIfStillComplete(int generation) async {
+  Future<void> _stopServiceIfIdle(int generation) async {
+    if (!_completionStopController.isCurrent(generation) || !_serviceReady) {
+      return;
+    }
+    await _consumeWidgetDownloads();
     if (!_completionStopController.isCurrent(generation) ||
         !_serviceReady ||
-        !_allTrackedTorrentsCompleted) {
+        (_torrentIds.isNotEmpty && !_allTrackedTorrentsCompleted)) {
       return;
     }
 
-    print('🛑 All downloads complete, stopping foreground service');
+    print('No active downloads, stopping foreground service');
     // Do not await task destruction from inside the serialized task queue:
     // onDestroy itself drains this queue before releasing the native manager.
     unawaited(FlutterForegroundTask.stopService());
@@ -726,7 +882,7 @@ class TorrentTaskHandler extends TaskHandler {
   Future<void> _pauseAllTorrents({int? requestId}) async {
     final torrentKeys = _incompleteTorrentKeys();
     try {
-      await SimpleTorrentHelpers.pauseAll();
+      await _runtime.pauseAll();
       _pausedTorrents.addAll(torrentKeys);
       for (final torrentKey in torrentKeys) {
         _torrentErrors.remove(torrentKey);
@@ -753,7 +909,7 @@ class TorrentTaskHandler extends TaskHandler {
   Future<void> _resumeAllTorrents({int? requestId}) async {
     final torrentKeys = _incompleteTorrentKeys();
     try {
-      await SimpleTorrentHelpers.resumeAll();
+      await _runtime.resumeAll();
       _pausedTorrents.removeAll(torrentKeys);
       for (final torrentKey in torrentKeys) {
         _torrentErrors.remove(torrentKey);
@@ -794,6 +950,7 @@ class TorrentTaskHandler extends TaskHandler {
     // report entry.
     if (!isBulkCommand) {
       _torrentErrors[torrentKey] = message;
+      unawaited(_publishWidgetState(torrentKey, force: true));
     }
     FlutterForegroundTask.sendDataToMain({
       'type': 'error',

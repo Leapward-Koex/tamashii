@@ -16,7 +16,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$TenraiAnimeSearchResult {
 
-@JsonKey(name: 'mal_id') int get malId; String get title;@JsonKey(name: 'title_english') String? get titleEnglish; String? get type; int? get episodes;@JsonKey(name: 'images', fromJson: _tenraiImageUrlFromJson, toJson: _tenraiImageUrlToJson) String get imageUrl;
+@JsonKey(name: 'mal_id') int get malId; String get title;@JsonKey(name: 'title_english') String? get titleEnglish; String? get type; int? get episodes;@JsonKey(name: 'images', fromJson: _tenraiImageUrlFromJson, toJson: _tenraiImageUrlToJson) String get imageUrl;@JsonKey(readValue: _readTenraiLargeImageUrl, includeIfNull: false) String? get largeImageUrl;
 /// Create a copy of TenraiAnimeSearchResult
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -30,20 +30,20 @@ $TenraiAnimeSearchResultCopyWith<TenraiAnimeSearchResult> get copyWith => _$Tenr
 @override
 bool operator ==(Object other) {
   final _this = this as TenraiAnimeSearchResult;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is TenraiAnimeSearchResult&&(identical(other.malId, _this.malId) || other.malId == _this.malId)&&(identical(other.title, _this.title) || other.title == _this.title)&&(identical(other.titleEnglish, _this.titleEnglish) || other.titleEnglish == _this.titleEnglish)&&(identical(other.type, _this.type) || other.type == _this.type)&&(identical(other.episodes, _this.episodes) || other.episodes == _this.episodes)&&(identical(other.imageUrl, _this.imageUrl) || other.imageUrl == _this.imageUrl));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is TenraiAnimeSearchResult&&(identical(other.malId, _this.malId) || other.malId == _this.malId)&&(identical(other.title, _this.title) || other.title == _this.title)&&(identical(other.titleEnglish, _this.titleEnglish) || other.titleEnglish == _this.titleEnglish)&&(identical(other.type, _this.type) || other.type == _this.type)&&(identical(other.episodes, _this.episodes) || other.episodes == _this.episodes)&&(identical(other.imageUrl, _this.imageUrl) || other.imageUrl == _this.imageUrl)&&(identical(other.largeImageUrl, _this.largeImageUrl) || other.largeImageUrl == _this.largeImageUrl));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
   final _this = this as TenraiAnimeSearchResult;
-  return Object.hash(runtimeType,_this.malId,_this.title,_this.titleEnglish,_this.type,_this.episodes,_this.imageUrl);
+  return Object.hash(runtimeType,_this.malId,_this.title,_this.titleEnglish,_this.type,_this.episodes,_this.imageUrl,_this.largeImageUrl);
 }
 
 @override
 String toString() {
   final _this = this as TenraiAnimeSearchResult;
-  return 'TenraiAnimeSearchResult(malId: ${_this.malId}, title: ${_this.title}, titleEnglish: ${_this.titleEnglish}, type: ${_this.type}, episodes: ${_this.episodes}, imageUrl: ${_this.imageUrl})';
+  return 'TenraiAnimeSearchResult(malId: ${_this.malId}, title: ${_this.title}, titleEnglish: ${_this.titleEnglish}, type: ${_this.type}, episodes: ${_this.episodes}, imageUrl: ${_this.imageUrl}, largeImageUrl: ${_this.largeImageUrl})';
 }
 
 
@@ -54,7 +54,7 @@ abstract mixin class $TenraiAnimeSearchResultCopyWith<$Res>  {
   factory $TenraiAnimeSearchResultCopyWith(TenraiAnimeSearchResult value, $Res Function(TenraiAnimeSearchResult) _then) = _$TenraiAnimeSearchResultCopyWithImpl;
 @useResult
 $Res call({
-@JsonKey(name: 'mal_id') int malId, String title,@JsonKey(name: 'title_english') String? titleEnglish, String? type, int? episodes,@JsonKey(name: 'images', fromJson: _tenraiImageUrlFromJson, toJson: _tenraiImageUrlToJson) String imageUrl
+@JsonKey(name: 'mal_id') int malId, String title,@JsonKey(name: 'title_english') String? titleEnglish, String? type, int? episodes,@JsonKey(name: 'images', fromJson: _tenraiImageUrlFromJson, toJson: _tenraiImageUrlToJson) String imageUrl,@JsonKey(readValue: _readTenraiLargeImageUrl, includeIfNull: false) String? largeImageUrl
 });
 
 
@@ -71,7 +71,7 @@ class _$TenraiAnimeSearchResultCopyWithImpl<$Res>
 
 /// Create a copy of TenraiAnimeSearchResult
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? malId = null,Object? title = null,Object? titleEnglish = freezed,Object? type = freezed,Object? episodes = freezed,Object? imageUrl = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? malId = null,Object? title = null,Object? titleEnglish = freezed,Object? type = freezed,Object? episodes = freezed,Object? imageUrl = null,Object? largeImageUrl = freezed,}) {
   return _then(TenraiAnimeSearchResult(
 malId: null == malId ? _self.malId : malId // ignore: cast_nullable_to_non_nullable
 as int,title: null == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
@@ -79,7 +79,8 @@ as String,titleEnglish: freezed == titleEnglish ? _self.titleEnglish : titleEngl
 as String?,type: freezed == type ? _self.type : type // ignore: cast_nullable_to_non_nullable
 as String?,episodes: freezed == episodes ? _self.episodes : episodes // ignore: cast_nullable_to_non_nullable
 as int?,imageUrl: null == imageUrl ? _self.imageUrl : imageUrl // ignore: cast_nullable_to_non_nullable
-as String,
+as String,largeImageUrl: freezed == largeImageUrl ? _self.largeImageUrl : largeImageUrl // ignore: cast_nullable_to_non_nullable
+as String?,
   ));
 }
 
@@ -164,10 +165,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'mal_id')  int malId,  String title, @JsonKey(name: 'title_english')  String? titleEnglish,  String? type,  int? episodes, @JsonKey(name: 'images', fromJson: _tenraiImageUrlFromJson, toJson: _tenraiImageUrlToJson)  String imageUrl)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'mal_id')  int malId,  String title, @JsonKey(name: 'title_english')  String? titleEnglish,  String? type,  int? episodes, @JsonKey(name: 'images', fromJson: _tenraiImageUrlFromJson, toJson: _tenraiImageUrlToJson)  String imageUrl, @JsonKey(readValue: _readTenraiLargeImageUrl, includeIfNull: false)  String? largeImageUrl)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _TenraiAnimeSearchResult() when $default != null:
-return $default(_that.malId,_that.title,_that.titleEnglish,_that.type,_that.episodes,_that.imageUrl);case _:
+return $default(_that.malId,_that.title,_that.titleEnglish,_that.type,_that.episodes,_that.imageUrl,_that.largeImageUrl);case _:
   return orElse();
 
 }
@@ -185,10 +186,10 @@ return $default(_that.malId,_that.title,_that.titleEnglish,_that.type,_that.epis
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'mal_id')  int malId,  String title, @JsonKey(name: 'title_english')  String? titleEnglish,  String? type,  int? episodes, @JsonKey(name: 'images', fromJson: _tenraiImageUrlFromJson, toJson: _tenraiImageUrlToJson)  String imageUrl)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'mal_id')  int malId,  String title, @JsonKey(name: 'title_english')  String? titleEnglish,  String? type,  int? episodes, @JsonKey(name: 'images', fromJson: _tenraiImageUrlFromJson, toJson: _tenraiImageUrlToJson)  String imageUrl, @JsonKey(readValue: _readTenraiLargeImageUrl, includeIfNull: false)  String? largeImageUrl)  $default,) {final _that = this;
 switch (_that) {
 case _TenraiAnimeSearchResult():
-return $default(_that.malId,_that.title,_that.titleEnglish,_that.type,_that.episodes,_that.imageUrl);case _:
+return $default(_that.malId,_that.title,_that.titleEnglish,_that.type,_that.episodes,_that.imageUrl,_that.largeImageUrl);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -205,10 +206,10 @@ return $default(_that.malId,_that.title,_that.titleEnglish,_that.type,_that.epis
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'mal_id')  int malId,  String title, @JsonKey(name: 'title_english')  String? titleEnglish,  String? type,  int? episodes, @JsonKey(name: 'images', fromJson: _tenraiImageUrlFromJson, toJson: _tenraiImageUrlToJson)  String imageUrl)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'mal_id')  int malId,  String title, @JsonKey(name: 'title_english')  String? titleEnglish,  String? type,  int? episodes, @JsonKey(name: 'images', fromJson: _tenraiImageUrlFromJson, toJson: _tenraiImageUrlToJson)  String imageUrl, @JsonKey(readValue: _readTenraiLargeImageUrl, includeIfNull: false)  String? largeImageUrl)?  $default,) {final _that = this;
 switch (_that) {
 case _TenraiAnimeSearchResult() when $default != null:
-return $default(_that.malId,_that.title,_that.titleEnglish,_that.type,_that.episodes,_that.imageUrl);case _:
+return $default(_that.malId,_that.title,_that.titleEnglish,_that.type,_that.episodes,_that.imageUrl,_that.largeImageUrl);case _:
   return null;
 
 }
@@ -220,7 +221,7 @@ return $default(_that.malId,_that.title,_that.titleEnglish,_that.type,_that.epis
 @JsonSerializable()
 
 class _TenraiAnimeSearchResult extends TenraiAnimeSearchResult {
-  const _TenraiAnimeSearchResult({@JsonKey(name: 'mal_id') required this.malId, required this.title, @JsonKey(name: 'title_english') this.titleEnglish, this.type, this.episodes, @JsonKey(name: 'images', fromJson: _tenraiImageUrlFromJson, toJson: _tenraiImageUrlToJson) this.imageUrl = ''}): super._();
+  const _TenraiAnimeSearchResult({@JsonKey(name: 'mal_id') required this.malId, required this.title, @JsonKey(name: 'title_english') this.titleEnglish, this.type, this.episodes, @JsonKey(name: 'images', fromJson: _tenraiImageUrlFromJson, toJson: _tenraiImageUrlToJson) this.imageUrl = '', @JsonKey(readValue: _readTenraiLargeImageUrl, includeIfNull: false) this.largeImageUrl}): super._();
   factory _TenraiAnimeSearchResult.fromJson(Map<String, dynamic> json) => _$TenraiAnimeSearchResultFromJson(json);
 
 @override@JsonKey(name: 'mal_id') final  int malId;
@@ -229,6 +230,7 @@ class _TenraiAnimeSearchResult extends TenraiAnimeSearchResult {
 @override final  String? type;
 @override final  int? episodes;
 @override@JsonKey(name: 'images', fromJson: _tenraiImageUrlFromJson, toJson: _tenraiImageUrlToJson) final  String imageUrl;
+@override@JsonKey(readValue: _readTenraiLargeImageUrl, includeIfNull: false) final  String? largeImageUrl;
 
 /// Create a copy of TenraiAnimeSearchResult
 /// with the given fields replaced by the non-null parameter values.
@@ -243,18 +245,18 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _TenraiAnimeSearchResult&&(identical(other.malId, malId) || other.malId == malId)&&(identical(other.title, title) || other.title == title)&&(identical(other.titleEnglish, titleEnglish) || other.titleEnglish == titleEnglish)&&(identical(other.type, type) || other.type == type)&&(identical(other.episodes, episodes) || other.episodes == episodes)&&(identical(other.imageUrl, imageUrl) || other.imageUrl == imageUrl));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _TenraiAnimeSearchResult&&(identical(other.malId, malId) || other.malId == malId)&&(identical(other.title, title) || other.title == title)&&(identical(other.titleEnglish, titleEnglish) || other.titleEnglish == titleEnglish)&&(identical(other.type, type) || other.type == type)&&(identical(other.episodes, episodes) || other.episodes == episodes)&&(identical(other.imageUrl, imageUrl) || other.imageUrl == imageUrl)&&(identical(other.largeImageUrl, largeImageUrl) || other.largeImageUrl == largeImageUrl));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
-    return Object.hash(runtimeType,malId,title,titleEnglish,type,episodes,imageUrl);
+    return Object.hash(runtimeType,malId,title,titleEnglish,type,episodes,imageUrl,largeImageUrl);
 }
 
 @override
 String toString() {
-    return 'TenraiAnimeSearchResult(malId: $malId, title: $title, titleEnglish: $titleEnglish, type: $type, episodes: $episodes, imageUrl: $imageUrl)';
+    return 'TenraiAnimeSearchResult(malId: $malId, title: $title, titleEnglish: $titleEnglish, type: $type, episodes: $episodes, imageUrl: $imageUrl, largeImageUrl: $largeImageUrl)';
 }
 
 
@@ -265,7 +267,7 @@ abstract mixin class _$TenraiAnimeSearchResultCopyWith<$Res> implements $TenraiA
   factory _$TenraiAnimeSearchResultCopyWith(_TenraiAnimeSearchResult value, $Res Function(_TenraiAnimeSearchResult) _then) = __$TenraiAnimeSearchResultCopyWithImpl;
 @override @useResult
 $Res call({
-@JsonKey(name: 'mal_id') int malId, String title,@JsonKey(name: 'title_english') String? titleEnglish, String? type, int? episodes,@JsonKey(name: 'images', fromJson: _tenraiImageUrlFromJson, toJson: _tenraiImageUrlToJson) String imageUrl
+@JsonKey(name: 'mal_id') int malId, String title,@JsonKey(name: 'title_english') String? titleEnglish, String? type, int? episodes,@JsonKey(name: 'images', fromJson: _tenraiImageUrlFromJson, toJson: _tenraiImageUrlToJson) String imageUrl,@JsonKey(readValue: _readTenraiLargeImageUrl, includeIfNull: false) String? largeImageUrl
 });
 
 
@@ -282,7 +284,7 @@ class __$TenraiAnimeSearchResultCopyWithImpl<$Res>
 
 /// Create a copy of TenraiAnimeSearchResult
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? malId = null,Object? title = null,Object? titleEnglish = freezed,Object? type = freezed,Object? episodes = freezed,Object? imageUrl = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? malId = null,Object? title = null,Object? titleEnglish = freezed,Object? type = freezed,Object? episodes = freezed,Object? imageUrl = null,Object? largeImageUrl = freezed,}) {
   return _then(_TenraiAnimeSearchResult(
 malId: null == malId ? _self.malId : malId // ignore: cast_nullable_to_non_nullable
 as int,title: null == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
@@ -290,7 +292,8 @@ as String,titleEnglish: freezed == titleEnglish ? _self.titleEnglish : titleEngl
 as String?,type: freezed == type ? _self.type : type // ignore: cast_nullable_to_non_nullable
 as String?,episodes: freezed == episodes ? _self.episodes : episodes // ignore: cast_nullable_to_non_nullable
 as int?,imageUrl: null == imageUrl ? _self.imageUrl : imageUrl // ignore: cast_nullable_to_non_nullable
-as String,
+as String,largeImageUrl: freezed == largeImageUrl ? _self.largeImageUrl : largeImageUrl // ignore: cast_nullable_to_non_nullable
+as String?,
   ));
 }
 

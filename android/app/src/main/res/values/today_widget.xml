@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="today_widget_name">Today on your watchlist</string>
+    <string name="today_widget_description">Today’s expected shows, new episodes and download progress.</string>
+    <string name="today_widget_title">Today’s releases</string>
+    <string name="today_widget_ready">Ready to download</string>
+    <string name="today_widget_transfers">In progress</string>
+    <string name="today_widget_expected">Expected today</string>
+    <string name="today_widget_complete">Downloaded</string>
+    <string name="today_widget_empty">Nothing scheduled today</string>
+    <string name="today_widget_next">Next up · %1$s</string>
+    <string name="today_widget_loading">Checking your watchlist…</string>
+    <string name="today_widget_initial">Open Tamashii to load your watchlist.</string>
+    <string name="today_widget_download">Download</string>
+    <string name="today_widget_setup">Set up</string>
+    <string name="today_widget_setup_hint">Set up downloads in Tamashii</string>
+    <string name="today_widget_retry">Retry</string>
+    <string name="today_widget_queued">Queued</string>
+    <string name="today_widget_downloading">Downloading</string>
+    <string name="today_widget_waiting">Waiting for network</string>
+    <string name="today_widget_paused">Paused</string>
+    <string name="today_widget_failed">Download failed</string>
+    <string name="today_widget_released">Released today</string>
+    <string name="today_widget_episode">Ep %1$s</string>
+    <string name="today_widget_episode_status">%1$s · %2$s</string>
+    <string name="today_widget_action_description">%1$s, %2$s</string>
+    <string name="today_widget_open">Open Tamashii</string>
+    <string name="today_widget_preview_show" translatable="false">Night Ferry</string>
+    <string name="today_widget_preview_episode">Ep 09 · Released today</string>
+    <color name="widget_surface">#F5F5F2</color>
+    <color name="widget_ink">#182032</color>
+    <color name="widget_secondary">#4D5668</color>
+    <color name="widget_blue">#244DB9</color>
+    <color name="widget_progress">#8BA9FF</color>
+    <color name="widget_track">#DFE7FF</color>
+    <color name="widget_progress_ink">#112D6A</color>
+</resources>

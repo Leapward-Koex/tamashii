@@ -19,31 +19,30 @@ class SubsPleaseApi {
 
   /// GET https://subsplease.org/api/?f=latest&tz=Pacific/Auckland
   Future<List<ShowInfo>> getLatestShowList() async {
-    final Uri url = Uri.parse('$_baseUrl/api/?f=latest&tz=Pacific/Auckland');
     try {
-      final http.Response response = await _httpClient.get(url);
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> raw =
-            json.decode(response.body) as Map<String, dynamic>;
-        final List<ShowInfo> shows = raw.values
-            .map(
-              (dynamic entry) =>
-                  ShowInfo.fromJson(entry as Map<String, dynamic>),
-            )
-            .toList();
-        debugPrint('Retrieved subsplease shows (${shows.length})');
-        return shows;
-      } else {
-        debugPrint(
-          'Error fetching latest shows: ${response.statusCode} ${response.reasonPhrase}',
-        );
-        return <ShowInfo>[];
-      }
+      return await fetchLatestReleases();
     } catch (error) {
       debugPrint('Error fetching latest shows: $error');
       return <ShowInfo>[];
     }
+  }
+
+  /// Throws on refresh failures so a background widget can retain its last
+  /// successful feed and ask the scheduler to retry.
+  Future<List<ShowInfo>> fetchLatestReleases() async {
+    final url = Uri.parse('$_baseUrl/api/?f=latest&tz=Pacific/Auckland');
+    final response = await _httpClient.get(url);
+    if (response.statusCode != 200) {
+      throw http.ClientException(
+        'Release feed returned ${response.statusCode}',
+        url,
+      );
+    }
+    final raw = json.decode(response.body) as Map<String, dynamic>;
+    return [
+      for (final entry in raw.values)
+        ShowInfo.fromJson(entry as Map<String, dynamic>),
+    ];
   }
 
   /// POST `https://subsplease.org/api/?f=search&tz=Pacific/Auckland&s=<encoded>`

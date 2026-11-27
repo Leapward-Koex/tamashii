@@ -76,9 +76,11 @@ void main() {
       final cachedState = await container.read(cachedEpisodesProvider.future);
       expect(cachedState, hasLength(1));
       expect(cachedState[0].show, equals('Test Show'));
-      expect(cachedState[0].releaseDate.year, equals(2025));
-      expect(cachedState[0].releaseDate.month, equals(7));
-      expect(cachedState[0].releaseDate.day, equals(26));
+      expect(
+        cachedState[0].releaseDate.isAtSameMomentAs(episode.releaseDate),
+        isTrue,
+      );
+      expect(cachedState[0].releaseDate.toLocal().day, equals(26));
     });
   });
 }

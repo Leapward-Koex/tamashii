@@ -85,10 +85,12 @@ jobs:
           flutter analyze --no-pub
           flutter test --no-pub
 
-      - name: Test Android network-cost adapter
+      - name: Test Android widgets and network-cost adapter
         working-directory: android
         # Bash does not depend on the checkout preserving gradlew's executable bit.
-        run: bash ./gradlew :tamashii_network_cost:testDebugUnitTest
+        run: |
+          test_define=$(printf %s TAMASHII_USE_TEST_TORRENT=true | base64)
+          bash ./gradlew :app:testDebugUnitTest :tamashii_network_cost:testDebugUnitTest "-Pdart-defines=$test_define"
 
   android-smoke:
     name: Android ${{ matrix.mode }} build

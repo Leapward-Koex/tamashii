@@ -65,7 +65,8 @@ class ShowDownloadInfo {
 
 /// The main show/episode info from the API.
 class ShowInfo {
-  static final _feedDate = DateFormat('EEE, dd MMM yyyy HH:mm:ss Z', 'en_US');
+  static final _feedDate = DateFormat('EEE, dd MMM yyyy HH:mm:ss', 'en_US');
+  static final _feedOffset = RegExp(r' ([+-])(\d{2}):?(\d{2})$');
   static final _shortCacheDate = DateFormat('MM/dd/yy', 'en_US');
   static final _shortCacheDatePrefix = RegExp(r'^\d+/');
   final List<ShowDownloadInfo> downloads;
@@ -88,15 +89,42 @@ class ShowInfo {
     required this.xdcc,
   });
 
+  String get torrentKey => '$show-$episode';
+
+  ShowDownloadInfo? get bestDownload {
+    ShowDownloadInfo? best;
+    for (final option in downloads) {
+      if (option.magnet.trim().isNotEmpty &&
+          (best == null || option.resolution.index > best.resolution.index)) {
+        best = option;
+      }
+    }
+    return best;
+  }
+
+  static DateTime _parseReleaseDate(String input) {
+    if (_shortCacheDatePrefix.hasMatch(input)) {
+      return _shortCacheDate.parse(input);
+    }
+    // intl does not parse RFC 822 offsets. Older full-date cache entries
+    // contained just the UTC wall time followed by the literal letter Z.
+    final date = _feedDate.parseUTC(input);
+    final offset = _feedOffset.firstMatch(input.trimRight());
+    if (offset == null) return date;
+    final hours = int.parse(offset[2]!);
+    final minutes = int.parse(offset[3]!);
+    if (hours > 23 || minutes > 59) {
+      throw const FormatException('Invalid UTC offset');
+    }
+    final duration = Duration(hours: hours, minutes: minutes);
+    return offset[1] == '+' ? date.subtract(duration) : date.add(duration);
+  }
+
   factory ShowInfo.fromJson(Map<String, dynamic> json) {
     final String rawDate = json['release_date'] as String;
     late DateTime parsedDate;
     try {
-      // Older cached releases start with a numeric month. Dispatching here
-      // avoids throwing and catching an exception for each legacy episode.
-      parsedDate = _shortCacheDatePrefix.hasMatch(rawDate)
-          ? _shortCacheDate.parse(rawDate)
-          : _feedDate.parseUTC(rawDate);
+      parsedDate = _parseReleaseDate(rawDate);
     } on FormatException {
       throw FormatException('Invalid release_date format: $rawDate');
     }
@@ -119,7 +147,7 @@ class ShowInfo {
 
   Map<String, dynamic> toJson() {
     // Use the full format to preserve time information
-    final String formattedDate = _feedDate.format(releaseDate);
+    final formattedDate = '${_feedDate.format(releaseDate.toUtc())} +0000';
 
     return <String, dynamic>{
       'downloads': downloads.map((e) => e.toJson()).toList(),

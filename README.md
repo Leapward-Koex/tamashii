@@ -16,8 +16,8 @@ video.
 - Bookmarking a show on Home adds it to the watching list and Schedule.
 - Schedule groups saved shows by weekday. Add a show by title or choose a match
   from Tenrai's catalog.
-- Available episode downloads are started manually from Home. New downloads use
-  the highest resolution offered by the source.
+- Available episode downloads can be started from Home or the Android home
+  screen widget. New downloads use the highest resolution offered by the source.
 - Downloads shows live progress, rates, estimated time remaining, peers, and
   paused, waiting, or failed transfers. Individual and bulk pause/resume are
   available.
@@ -60,6 +60,18 @@ Keep the extracted files together. The executable requires the files beside it.
    when prompted.
 5. Open **Downloads** from Home to view active transfers or pause and resume
    them.
+
+### Android home screen widget
+
+Open your launcher's widget picker and add **Tamashii → Today on your watchlist**.
+The compact agenda lists watched shows expected today. Once the feed confirms
+an episode was released on your phone's current local date, tap **Download**
+to start it. **Set up** lets you grant permissions or choose a series folder.
+Android refreshes the feed periodically while the app is closed.
+
+Resize the widget taller for the release inbox. During a transfer the wide
+button becomes a progress bar, or a ring in the inbox. Queued, waiting for
+network, paused and downloaded episodes have their own status.
 
 ### Schedule entries and downloads
 

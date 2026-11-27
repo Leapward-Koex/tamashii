@@ -59,6 +59,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
+
     defaultConfig {
         applicationId = "com.leapwardkoex.tamashii"
         // You can update the following values to match your application needs.
@@ -99,7 +103,10 @@ flutter {
 }
 
 dependencies {
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.16")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
     implementation("com.google.guava:guava:32.0.1-jre")
     implementation("com.google.mlkit:genai-prompt:1.0.0-beta2")
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.31.1")
 }

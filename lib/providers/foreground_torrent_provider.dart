@@ -14,6 +14,7 @@ import 'package:tamashii/providers/torrent_download_provider.dart';
 import 'package:tamashii/services/foreground_service_lifecycle.dart';
 import 'package:tamashii/services/permission_service.dart';
 import 'package:tamashii/services/torrent_foreground_task.dart';
+import 'package:tamashii/services/torrent_service_options.dart';
 import 'package:tamashii/services/transfer_policy.dart';
 import 'package:tamashii_network_cost/tamashii_network_cost.dart';
 
@@ -155,7 +156,6 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
   NetworkStatus? _expectedNetworkStatus;
   final Map<int, Completer<Map<String, dynamic>>> _testQueryCompleters = {};
   final Map<int, _PendingTorrentCommand> _pendingTorrentCommands = {};
-  final Map<String, String> _downloadPaths = {}; // torrentKey -> downloadPath
 
   @override
   TorrentManagerState build() {
@@ -241,15 +241,19 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
       _serviceReadyCompleter = Completer<void>();
       _expectedServiceReadyRequestId = null;
       final result = await FlutterForegroundTask.startService(
-        serviceId: 256,
-        notificationTitle: 'Tamashii - Starting Downloads',
-        notificationText: 'Initializing torrent downloads...',
-        notificationButtons: [
-          const NotificationButton(id: 'pause_all', text: 'Pause All'),
-          const NotificationButton(id: 'resume_all', text: 'Resume All'),
-        ],
+        serviceId: torrentServiceId,
+        notificationTitle: torrentServiceTitle,
+        notificationText: torrentServiceText,
+        notificationButtons: torrentServiceButtons,
         callback: startTorrentCallback,
       );
+      if (result is ServiceRequestFailure &&
+          await FlutterForegroundTask.isRunningService) {
+        // A launcher tap can start the service after the UI's initial check.
+        _isServiceRunning = true;
+        await _requestServiceReady(allowRestart: true);
+        return;
+      }
       _throwIfServiceRequestFailed(result);
       _isServiceRunning = true;
       await _waitUntilServiceReady();
@@ -333,21 +337,11 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
 
   void _initService() {
     FlutterForegroundTask.init(
-      androidNotificationOptions: AndroidNotificationOptions(
-        channelId: 'tamashii_torrent_service',
-        channelName: 'Tamashii Torrent Service',
-        channelDescription: 'Manages torrent downloads in the background',
-        onlyAlertOnce: true,
-      ),
+      androidNotificationOptions: torrentNotificationOptions,
       iosNotificationOptions: const IOSNotificationOptions(
         showNotification: false,
       ),
-      foregroundTaskOptions: ForegroundTaskOptions(
-        eventAction: ForegroundTaskEventAction.repeat(
-          5000,
-        ), // Update every 5 seconds
-        allowWifiLock: true,
-      ),
+      foregroundTaskOptions: torrentTaskOptions,
     );
   }
 
@@ -698,8 +692,9 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
   Future<void> startDownload(
     String torrentKey,
     String magnetUri,
-    String downloadPath,
-  ) async {
+    String downloadPath, {
+    bool redownload = false,
+  }) async {
     if (!Platform.isAndroid) {
       // On non-Android platforms, fall back to the standard torrent manager
       await ref
@@ -755,15 +750,13 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
       await _startForegroundServiceIfNeeded();
       await _policyUpdateQueue;
 
-      // Record download path for later persistence
-      _downloadPaths[torrentKey] = downloadPath;
-
       // Send command to service
       FlutterForegroundTask.sendDataToTask({
         'type': 'start_download',
         'torrentKey': torrentKey,
         'magnetUri': magnetUri,
         'downloadPath': downloadPath,
+        'redownload': redownload,
       });
     } catch (e) {
       // Handle permission errors
@@ -1130,11 +1123,16 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
           if (_serviceInstanceTracker.acceptsMessage(
                 message['serviceInstanceId'] as String?,
               ) &&
-              torrentKey is String &&
-              _downloadPaths.containsKey(torrentKey)) {
-            ref
-                .read(downloadedTorrentsProvider.notifier)
-                .addDownloaded(torrentKey);
+              torrentKey is String) {
+            final transfer = state.torrents[torrentKey];
+            if (transfer != null && transfer.isLoading) {
+              _updateTorrentState(
+                torrentKey,
+                transfer.copyWith(isLoading: false, clearError: true),
+              );
+            }
+            // The service already persisted this, even if the app was closed.
+            ref.invalidate(downloadedTorrentsProvider);
           }
           break;
 
