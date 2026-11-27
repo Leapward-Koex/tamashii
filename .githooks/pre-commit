@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(git rev-parse --show-toplevel)"
+
+if [[ -x .fvm/flutter_sdk/bin/flutter || -f .fvm/flutter_sdk/bin/flutter.bat ]]; then
+  flutter_bin=.fvm/flutter_sdk/bin/flutter
+  dart_bin=.fvm/flutter_sdk/bin/dart
+  case "$OSTYPE" in
+    msys*|cygwin*) flutter_bin+=.bat; dart_bin+=.bat ;;
+  esac
+  flutter_cmd=("$flutter_bin")
+  dart_cmd=("$dart_bin")
+elif command -v fvm >/dev/null 2>&1; then
+  flutter_cmd=(fvm flutter)
+  dart_cmd=(fvm dart)
+else
+  flutter_cmd=(flutter)
+  dart_cmd=(dart)
+fi
+
+staged_dart=()
+while IFS= read -r -d '' path; do
+  if ! git --literal-pathspecs diff --quiet -- "$path"; then
+    printf 'Pre-commit: %s has unstaged changes. Stage the full file or set those edits aside before formatting.\n' "$path" >&2
+    exit 1
+  fi
+  staged_dart+=("./$path")
+done < <(git diff --cached --name-only --diff-filter=ACMRT -z -- '*.dart')
+
+if (( ${#staged_dart[@]} )); then
+  "${dart_cmd[@]}" format "${staged_dart[@]}"
+  git --literal-pathspecs add -- "${staged_dart[@]}"
+fi
+
+"${flutter_cmd[@]}" analyze --no-pub

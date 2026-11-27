@@ -105,6 +105,20 @@ selected drive has enough free space for the episode.
 The Downloads screen is a live transfer monitor, not a history. Completed
 episodes remain in their selected folders and leave the queue.
 
+## Development
+
+Use the Flutter version in `.fvmrc` and run `flutter pub get` (or
+`fvm flutter pub get` when using FVM). Enable the versioned pre-commit hook once
+per clone:
+
+```sh
+git config --local core.hooksPath .githooks
+```
+
+The hook formats and restages staged Dart files, then runs
+`flutter analyze --no-pub` on the working tree. It stops if a staged Dart file
+also has unstaged edits, so partial staging is preserved.
+
 ## Data sources and torrent use
 
 Tamashii does not require an account. Watching-list data, folder choices, and

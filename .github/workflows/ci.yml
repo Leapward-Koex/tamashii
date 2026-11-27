@@ -70,7 +70,10 @@ jobs:
           fi
 
       - name: Verify formatting
-        run: dart format --output=none --set-exit-if-changed .
+        run: git ls-files -z -- '*.dart' | xargs -0 dart format --output=none --set-exit-if-changed
+
+      - name: Test pre-commit hook
+        run: bash tool/test-pre-commit.sh
 
       - name: Analyze
         run: flutter analyze --no-pub

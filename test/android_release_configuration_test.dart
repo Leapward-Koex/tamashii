@@ -23,9 +23,8 @@ void main() {
   });
 
   test('removes ONNX Runtime telemetry from app startup', () {
-    final manifest = File(
-      'android/app/src/main/AndroidManifest.xml',
-    ).readAsStringSync();
+    final manifest = File('android/app/src/main/AndroidManifest.xml')
+        .readAsStringSync();
 
     expect(
       manifest,
