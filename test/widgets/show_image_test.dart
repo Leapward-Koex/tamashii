@@ -99,4 +99,31 @@ void main() {
     );
     expect(apiReads, 1);
   });
+
+  testWidgets(
+    'full-size artwork preserves the original decode for the fallback',
+    (tester) async {
+      await tester.pumpWidget(
+        const ProviderScope(
+          child: MaterialApp(
+            home: SizedBox(
+              width: 180,
+              height: 360,
+              child: ShowImage(
+                imageUrl: '',
+                fallbackImageUrl: 'https://example.test/full.jpg',
+                fullResolution: true,
+                fit: BoxFit.contain,
+              ),
+            ),
+          ),
+        ),
+      );
+      final image = tester.widget<CachedNetworkImage>(
+        find.byType(CachedNetworkImage),
+      );
+      expect((image.memCacheWidth, image.memCacheHeight), (null, null));
+      expect(image.fit, BoxFit.contain);
+    },
+  );
 }

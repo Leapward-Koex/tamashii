@@ -19,22 +19,22 @@ Future<bool> _openExternal(Uri uri) =>
     launchUrl(uri, mode: LaunchMode.externalApplication);
 
 class ShowInfoPage extends HookConsumerWidget {
-  const ShowInfoPage.release(
+  const ShowInfoPage.series(
     ShowInfo this.release, {
     super.key,
     this.openExternal = _openExternal,
-    this.onEpisodeSelected,
     this.onBack,
   }) : bookmark = null,
+       onSelectDownloadFolder = null,
        openMatchPicker = false,
        _reader = false;
 
   const ShowInfoPage.reader(
     ShowInfo this.release, {
-    required ValueChanged<ShowInfo> this.onEpisodeSelected,
     super.key,
     this.openExternal = _openExternal,
   }) : bookmark = null,
+       onSelectDownloadFolder = null,
        openMatchPicker = false,
        onBack = null,
        _reader = true;
@@ -43,18 +43,19 @@ class ShowInfoPage extends HookConsumerWidget {
     BookmarkedShowInfo this.bookmark, {
     ShowInfo? latestRelease,
     this.openMatchPicker = false,
+    this.onSelectDownloadFolder,
     this.openExternal = _openExternal,
     super.key,
   }) : release = latestRelease,
-       onEpisodeSelected = null,
        onBack = null,
        _reader = false;
 
   final ShowInfo? release;
   final BookmarkedShowInfo? bookmark;
   final bool openMatchPicker;
+  final Future<void> Function(BuildContext, WidgetRef, ShowCatalogTarget)?
+  onSelectDownloadFolder;
   final Future<bool> Function(Uri uri) openExternal;
-  final ValueChanged<ShowInfo>? onEpisodeSelected;
   final VoidCallback? onBack;
   final bool _reader;
 
@@ -67,7 +68,7 @@ class ShowInfoPage extends HookConsumerWidget {
     final feed = fromFeed ? ref.watch(searchShowsProvider(title)) : null;
     final related = <(String, String), ShowInfo>{};
     final sourceTitle = title.trim().toLowerCase();
-    for (final item in [...?cached, ...?latest, ...?feed?.value, ?release]) {
+    for (final item in [...?cached, ?release, ...?latest, ...?feed?.value]) {
       if (item.show.trim().toLowerCase() != sourceTitle) {
         continue;
       }
@@ -76,23 +77,31 @@ class ShowInfoPage extends HookConsumerWidget {
           release!.page != item.page) {
         continue;
       }
-      related[(item.page, item.episode)] = item;
+      final key = (item.page, item.episode);
+      if (item.bestDownload != null || related[key]?.bestDownload == null) {
+        related[key] = item;
+      }
     }
-    final episodes = related.values.toList()
-      ..sort((a, b) => b.releaseDate.compareTo(a.releaseDate));
-    final source = release ?? episodes.firstOrNull;
+    final episodes = related.values.toList()..sort(_oldestFirst);
+    final source = episodes.lastOrNull ?? release;
     final target = bookmark == null
-        ? ShowCatalogTarget.fromRelease(release!)
+        ? ShowCatalogTarget(title: title, page: release!.page)
         : ShowCatalogTarget.fromSchedule(bookmark!, latestRelease: source);
     final lookup = ref.watch(showCatalogMatchProvider(target));
     final match =
         ref.watch(cachedShowCatalogMatchProvider(target)) ?? lookup.value;
+    final sourceImage =
+        [
+          source?.imageUrl,
+          release?.imageUrl,
+          bookmark?.imageUrl,
+        ].whereType<String>().where((url) => url.isNotEmpty).firstOrNull ??
+        '';
     final page = source?.page.trim() ?? '';
     final synopsis = page.isEmpty
         ? null
         : ref.watch(showSynopsisProvider(page)).value;
     final bookmarks = ref.watch(bookmarkedSeriesProvider);
-    final showMore = useState(false);
     final watched =
         bookmarks.value?.any((show) => show.showName == title) ?? false;
     final updating = useState(false);
@@ -108,8 +117,8 @@ class ShowInfoPage extends HookConsumerWidget {
             bookmark ??
                 BookmarkedShowInfo(
                   showName: title,
-                  imageUrl: source!.imageUrl,
-                  releaseDayOfWeek: source.releaseDate.toLocal().weekday,
+                  imageUrl: sourceImage,
+                  releaseDayOfWeek: source!.releaseDate.toLocal().weekday,
                 ),
           );
         }
@@ -137,73 +146,32 @@ class ShowInfoPage extends HookConsumerWidget {
     }
 
     useEffect(() {
-      if (openMatchPicker) {
+      final selectFolder = onSelectDownloadFolder;
+      if (selectFolder != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (context.mounted) selectFolder(context, ref, target);
+        });
+      } else if (openMatchPicker) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (context.mounted) editMatch();
         });
       }
       return null;
     }, const []);
-    final scopedEpisodes =
-        (target.isReleaseScoped || match?.releaseOnly == true) &&
-            bookmark == null
-        ? [release!]
-        : episodes;
     final canWatch = bookmarks.hasValue && !updating.value;
-    final matchPanel = _CatalogMatchPanel(
-      target: target,
-      lookup: lookup,
-      match: match,
-      openExternal: openExternal,
-      editMatch: editMatch,
-      showLink: !_reader,
-      retry: () => ref.invalidate(showCatalogMatchProvider(target)),
-    );
-    final info = [
-      matchPanel,
-      if (synopsis != null && synopsis.trim().isNotEmpty) ...[
-        const SizedBox(height: 20),
-        const PaperSectionHeading('SubsPlease synopsis'),
-        const SizedBox(height: 4),
-        Text(synopsis),
-      ],
-    ];
     final entry = match?.entry;
     final content = ListView.builder(
-      key: PageStorageKey((
-        'show-info',
-        title,
-        release?.page,
-        release?.episode,
-      )),
+      key: PageStorageKey(('series-info', title, release?.page)),
       primary: _reader ? false : null,
       padding: EdgeInsets.fromLTRB(18, _reader ? 12 : 6, 18, 24),
-      itemCount: scopedEpisodes.length + 1,
+      itemCount: episodes.length + 1,
       itemBuilder: (context, index) {
         if (index > 0) {
-          final episode = scopedEpisodes[index - 1];
-          final isSelected =
-              bookmark == null &&
-              episode.episode == release!.episode &&
-              episode.page == release!.page;
-          final select = onEpisodeSelected;
-          return _EpisodeTile(
-            episode: episode,
-            reader: _reader,
-            selected: isSelected,
-            onTap: isSelected
-                ? null
-                : () {
-                    if (select != null) {
-                      select(episode);
-                    } else {
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => ShowInfoPage.release(episode),
-                        ),
-                      );
-                    }
-                  },
+          final episode = episodes[episodes.length - index];
+          return ReleaseDownloadButton.episode(
+            key: ValueKey(episode.torrentKey),
+            show: episode,
+            displayTitle: entry?.displayTitle ?? title,
           );
         }
         return Column(
@@ -211,60 +179,57 @@ class ShowInfoPage extends HookConsumerWidget {
           children: [
             _Hero(
               source: title,
-              sourceImage: source?.imageUrl ?? bookmark?.imageUrl ?? '',
+              sourceImage: sourceImage,
               sourceLabel: fromFeed ? 'SubsPlease' : 'Schedule',
-              episode: bookmark == null ? release!.episode : null,
               entry: entry,
               reader: _reader,
             ),
             const SizedBox(height: 12),
-            if (_reader)
-              Wrap(
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: 8,
-                runSpacing: 4,
-                children: [
-                  FilledButton.icon(
-                    onPressed: canWatch ? toggleWatching : null,
-                    icon: Icon(watched ? Icons.check : Icons.bookmark_border),
-                    label: Text(watched ? 'Watching' : 'Watch'),
-                  ),
-                  if (entry != null && entry.malId > 0)
-                    _CatalogLink(
-                      malId: entry.malId,
-                      openExternal: openExternal,
-                      compact: true,
-                    )
-                  else if (!showMore.value)
-                    TextButton(
-                      onPressed: editMatch,
-                      child: const Text('Find a match'),
-                    ),
-                  IconButton(
-                    tooltip: showMore.value
-                        ? 'Hide show details'
-                        : 'Show details',
-                    isSelected: showMore.value,
-                    icon: const Icon(Icons.info_outline),
-                    selectedIcon: const Icon(Icons.info),
-                    onPressed: () => showMore.value = !showMore.value,
-                  ),
-                ],
+            if (_reader) ...[
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: FilledButton.tonalIcon(
+                  onPressed: canWatch ? toggleWatching : null,
+                  icon: Icon(watched ? Icons.check : Icons.bookmark_border),
+                  label: Text(watched ? 'Watching' : 'Watch'),
+                ),
               ),
-            if (!_reader || showMore.value) ...[
-              if (_reader) const SizedBox(height: 12),
-              ...info,
+              const SizedBox(height: 12),
+            ],
+            _CatalogMatchPanel(
+              target: target,
+              lookup: lookup,
+              match: match,
+              openExternal: openExternal,
+              editMatch: editMatch,
+              retry: () => ref.invalidate(showCatalogMatchProvider(target)),
+            ),
+            if (synopsis != null && synopsis.trim().isNotEmpty) ...[
+              const SizedBox(height: 20),
+              const PaperSectionHeading('Synopsis'),
+              const SizedBox(height: 4),
+              Text(synopsis),
             ],
             const SizedBox(height: 20),
             if (fromFeed) ...[
-              PaperSectionHeading(_reader ? 'Releases' : 'SubsPlease releases'),
-              if (scopedEpisodes.isEmpty)
+              PaperSectionHeading(
+                'Releases',
+                trailing:
+                    episodes.any((episode) => episode.bestDownload != null)
+                    ? DownloadAllButton(
+                        releases: episodes,
+                        displayTitle: entry?.displayTitle ?? title,
+                        loadingReleases: feed?.isLoading == true,
+                      )
+                    : null,
+              ),
+              if (episodes.isEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Text(
                     feed?.isLoading == true
                         ? 'Looking for releases…'
-                        : 'No SubsPlease releases available.',
+                        : 'No releases available.',
                   ),
                 ),
             ] else ...[
@@ -282,7 +247,7 @@ class ShowInfoPage extends HookConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         leading: onBack == null ? null : BackButton(onPressed: onBack),
-        title: const Text('Show info'),
+        title: const Text('Series info'),
         actions: [
           TextButton.icon(
             onPressed: canWatch ? toggleWatching : null,
@@ -306,50 +271,16 @@ class ShowInfoPage extends HookConsumerWidget {
   }
 }
 
-class _EpisodeTile extends StatelessWidget {
-  const _EpisodeTile({
-    required this.episode,
-    required this.reader,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final ShowInfo episode;
-  final bool reader;
-  final bool selected;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final resolutions =
-        episode.downloads
-            .map((option) => int.parse(option.resolution.toJson()))
-            .toSet()
-            .toList()
-          ..sort((a, b) => b.compareTo(a));
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      shape: const Border(bottom: BorderSide(color: PaperLantern.rule)),
-      selected: reader && selected,
-      titleTextStyle: Theme.of(context).textTheme.titleMedium,
-      title: Text(formatEpisodeLabel(episode.episode)),
-      subtitle: Text(
-        [
-          DateFormat.yMMMd().format(episode.releaseDate.toLocal()),
-          ...resolutions.map((value) => '${value}p'),
-        ].join(' · '),
-      ),
-      trailing: reader
-          ? (episode.bestDownload == null
-                ? null
-                : Semantics(
-                    label: formatEpisodeLabel(episode.episode),
-                    child: ReleaseDownloadButton(show: episode),
-                  ))
-          : (selected ? null : const Icon(Icons.chevron_right)),
-      onTap: onTap,
-    );
-  }
+// Legacy cached releases can share a date without a time.
+int _oldestFirst(ShowInfo a, ShowInfo b) {
+  final date = a.releaseDate.compareTo(b.releaseDate);
+  if (date != 0) return date;
+  final left = double.tryParse(a.episode);
+  final right = double.tryParse(b.episode);
+  if (left != null && right != null) return left.compareTo(right);
+  if (left != null) return -1;
+  if (right != null) return 1;
+  return a.episode.compareTo(b.episode);
 }
 
 class _Hero extends StatelessWidget {
@@ -357,14 +288,12 @@ class _Hero extends StatelessWidget {
     required this.source,
     required this.sourceImage,
     required this.sourceLabel,
-    required this.episode,
     required this.entry,
     required this.reader,
   });
   final String source;
   final String sourceImage;
   final String sourceLabel;
-  final String? episode;
   final TenraiAnimeSearchResult? entry;
   final bool reader;
 
@@ -381,7 +310,6 @@ class _Hero extends StatelessWidget {
       if (matched?.episodes case final count?)
         '$count ${count == 1 ? 'episode' : 'episodes'}',
       if (matched == null) sourceLabel,
-      if (episode case final ep?) formatEpisodeLabel(ep),
     ];
     final theme = Theme.of(context);
     final metadata = Text(
@@ -415,12 +343,28 @@ class _Hero extends StatelessWidget {
         if (reader && meta.isNotEmpty) ...[const SizedBox(height: 6), metadata],
       ],
     );
-    final poster = ColoredBox(
-      color: PaperLantern.wash,
-      child: ShowImage(
-        imageUrl: image.isEmpty ? sourceImage : image,
-        fallbackImageUrl: sourceImage.isEmpty ? null : sourceImage,
-        faceAware: true,
+    final posterUrl = image.isEmpty ? sourceImage : image;
+    final fallback = sourceImage.isEmpty ? null : sourceImage;
+    final poster = Tooltip(
+      message: 'View full-size poster',
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          ColoredBox(
+            color: PaperLantern.wash,
+            child: ShowImage(
+              imageUrl: posterUrl,
+              fallbackImageUrl: fallback,
+              faceAware: true,
+            ),
+          ),
+          Material(
+            type: MaterialType.transparency,
+            child: InkWell(
+              onTap: () => _openPoster(context, title, posterUrl, fallback),
+            ),
+          ),
+        ],
       ),
     );
     if (reader) {
@@ -476,16 +420,53 @@ class _Hero extends StatelessWidget {
   }
 }
 
+Future<void> _openPoster(
+  BuildContext context,
+  String title,
+  String posterUrl,
+  String? fallback,
+) => showDialog<void>(
+  context: context,
+  useSafeArea: false,
+  builder: (context) => Dialog.fullscreen(
+    backgroundColor: Colors.black,
+    child: Stack(
+      fit: StackFit.expand,
+      children: [
+        InteractiveViewer(
+          maxScale: 8,
+          child: Semantics(
+            image: true,
+            label: title,
+            child: ShowImage(
+              imageUrl: posterUrl,
+              fallbackImageUrl: fallback,
+              fit: BoxFit.contain,
+              fullResolution: true,
+            ),
+          ),
+        ),
+        PositionedDirectional(
+          top: 8,
+          end: 8,
+          child: SafeArea(
+            child: IconButton.filled(
+              tooltip: 'Close poster',
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(Icons.close),
+            ),
+          ),
+        ),
+      ],
+    ),
+  ),
+);
+
 class _CatalogLink extends StatelessWidget {
-  const _CatalogLink({
-    required this.malId,
-    required this.openExternal,
-    this.compact = false,
-  });
+  const _CatalogLink({required this.malId, required this.openExternal});
 
   final int malId;
   final Future<bool> Function(Uri uri) openExternal;
-  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -504,18 +485,11 @@ class _CatalogLink extends StatelessWidget {
       }
     }
 
-    const icon = Icon(Icons.open_in_new, size: 16);
-    return compact
-        ? OutlinedButton.icon(
-            onPressed: open,
-            icon: icon,
-            label: const Text('MyAnimeList'),
-          )
-        : TextButton.icon(
-            onPressed: open,
-            icon: icon,
-            label: Text('MyAnimeList #$malId'),
-          );
+    return FilledButton.icon(
+      onPressed: open,
+      icon: const Icon(Icons.open_in_new, size: 16),
+      label: const Text('Open MyAnimeList'),
+    );
   }
 }
 
@@ -524,7 +498,6 @@ class _CatalogMatchPanel extends HookConsumerWidget {
     required this.target,
     required this.lookup,
     required this.match,
-    required this.showLink,
     required this.openExternal,
     required this.editMatch,
     required this.retry,
@@ -532,30 +505,18 @@ class _CatalogMatchPanel extends HookConsumerWidget {
   final ShowCatalogTarget target;
   final AsyncValue<ShowCatalogMatch> lookup;
   final ShowCatalogMatch? match;
-  final bool showLink;
   final Future<bool> Function(Uri uri) openExternal;
   final VoidCallback editMatch;
   final VoidCallback retry;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final expanded = useState(false);
     final saving = useState(false);
     final theme = Theme.of(context);
     final match = this.match;
     final entry = match?.entry;
     final candidates = match?.candidates.length ?? 0;
     final manual = match?.userSelected == true;
-    final releaseOnly = target.isReleaseScoped || match?.releaseOnly == true;
-    final scope = releaseOnly ? 'release' : 'show';
-    final scopeDescription = releaseOnly
-        ? 'Applies only to this release.'
-        : 'Applies to the regular episodes of this show.';
-    final evidence =
-        match?.evidence ??
-        (manual && entry != null
-            ? 'You linked “${target.title}” to “${entry.displayTitle}”. $scopeDescription'
-            : null);
     final (heading, description) = switch (match) {
       ShowCatalogMatch(entry: _?) => (
         'MyAnimeList match',
@@ -568,30 +529,24 @@ class _CatalogMatchPanel extends HookConsumerWidget {
       null => ('Finding a MyAnimeList match…', 'Checking Tenrai'),
       ShowCatalogMatch(userSelected: true) => (
         'Kept unmatched',
-        'Your choice is saved for this $scope.',
+        'Your choice is saved for this series.',
       ),
       _ when candidates > 0 => (
         'Review possible matches',
-        'Choose the catalog entry that fits this $scope.',
+        'Choose the catalog entry for this series.',
       ),
       _ => (
         'No catalog match found',
-        'You can search for another title or keep this $scope unmatched.',
+        'You can search for another title or keep this series unmatched.',
       ),
     };
     Future<void> leaveUnmatched() async {
       if (saving.value) return;
       saving.value = true;
       try {
-        if (releaseOnly) {
-          await ref
-              .read(catalogMatchOverridesProvider.notifier)
-              .save(target.forThisRelease, null);
-        } else {
-          await ref
-              .read(bookmarkedSeriesProvider.notifier)
-              .saveCatalogChoice(target, null);
-        }
+        await ref
+            .read(bookmarkedSeriesProvider.notifier)
+            .saveCatalogChoice(target, null);
       } catch (_) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -632,33 +587,26 @@ class _CatalogMatchPanel extends HookConsumerWidget {
                     ],
                   ),
                 ),
-                if (entry != null)
-                  TextButton(
-                    onPressed: editMatch,
-                    child: const Text('Fix match'),
-                  ),
               ],
             ),
             if (entry != null) ...[
-              const Divider(),
+              const SizedBox(height: 10),
               Wrap(
-                alignment: WrapAlignment.spaceBetween,
+                spacing: 8,
+                runSpacing: 4,
                 crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: 16,
                 children: [
-                  if (showLink && entry.malId > 0)
+                  if (entry.malId > 0)
                     _CatalogLink(
                       malId: entry.malId,
                       openExternal: openExternal,
                     ),
-                  if (evidence != null)
-                    TextButton(
-                      onPressed: () => expanded.value = !expanded.value,
-                      child: Text(manual ? 'Match details' : 'Why this match?'),
-                    ),
+                  TextButton(
+                    onPressed: editMatch,
+                    child: const Text('Fix match'),
+                  ),
                 ],
               ),
-              if (expanded.value && evidence != null) Text(evidence),
             ] else ...[
               const SizedBox(height: 8),
               Wrap(

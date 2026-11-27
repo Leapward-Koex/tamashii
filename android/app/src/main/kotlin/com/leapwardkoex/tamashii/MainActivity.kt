@@ -4,6 +4,7 @@ import android.content.Intent
 import com.leapwardkoex.tamashii.featured.FeaturedPosterFacesChannel
 import com.leapwardkoex.tamashii.widget.TodayWidgetHost
 import com.leapwardkoex.tamashii.widget.TodayWidgetProvider
+import com.leapwardkoex.tamashii.widget.WidgetRowActivity
 import com.leapwardkoex.tamashii.widget.attachWidgetBridge
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -24,10 +25,18 @@ class MainActivity : FlutterActivity() {
         widgetSetup = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "tamashii/widget_setup").also {
             it.setMethodCallHandler { call, result ->
                 when (call.method) {
-                    "takeSetupTitle" -> {
-                        val title = TodayWidgetHost.setupTitle(this, intent)
-                        if (intent.action == TodayWidgetHost.SETUP) setIntent(Intent(this, MainActivity::class.java))
+                    "takeSeriesTitle" -> {
+                        val title = if (intent.action == WidgetRowActivity.OPEN_SERIES) {
+                            intent.getStringExtra(WidgetRowActivity.EXTRA_TITLE).also {
+                                setIntent(Intent(this, MainActivity::class.java))
+                            }
+                        } else null
                         result.success(title)
+                    }
+                    "takeDownloadSetup" -> {
+                        val request = TodayWidgetHost.downloadSetup(this, intent)
+                        if (intent.action == TodayWidgetHost.SETUP) setIntent(Intent(this, MainActivity::class.java))
+                        result.success(request)
                     }
                     "redraw" -> {
                         TodayWidgetProvider.redraw(this)
@@ -50,7 +59,10 @@ class MainActivity : FlutterActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        if (intent.action == TodayWidgetHost.SETUP) widgetSetup?.invokeMethod("setupAvailable", null)
+        when (intent.action) {
+            WidgetRowActivity.OPEN_SERIES -> widgetSetup?.invokeMethod("seriesAvailable", null)
+            TodayWidgetHost.SETUP -> widgetSetup?.invokeMethod("setupAvailable", null)
+        }
     }
 
     override fun onDestroy() {

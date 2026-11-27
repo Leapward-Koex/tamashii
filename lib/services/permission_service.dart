@@ -69,6 +69,22 @@ class PermissionService {
     }
   }
 
+  static Future<void> prepareDownloadDirectory(
+    String path, {
+    required bool checkStoragePermission,
+  }) async {
+    if (checkStoragePermission &&
+        !await hasStoragePermissions() &&
+        !await requestStoragePermissions()) {
+      throw StateError(
+        'Storage permissions are required to download torrents. '
+        'Please grant storage access in app settings.',
+      );
+    }
+    final error = await validateDownloadDirectory(path);
+    if (error != null) throw FileSystemException(error, path);
+  }
+
   /// Show permission rationale dialog
   static Future<bool> shouldShowPermissionRationale() async {
     return Platform.isAndroid &&

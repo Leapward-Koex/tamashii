@@ -16,11 +16,6 @@
                 android:maxLines="1" android:ellipsize="end"
                 android:text="@string/today_widget_title" />
         </LinearLayout>
-        <TextView android:id="@+id/widget_setup" android:layout_width="wrap_content"
-            android:layout_height="wrap_content" android:minHeight="48dp" android:minWidth="48dp"
-            android:paddingStart="6dp" android:paddingEnd="6dp" android:gravity="center"
-            android:textColor="@color/widget_accent" android:textStyle="bold"
-            android:text="@string/today_widget_setup" android:visibility="gone" />
     </LinearLayout>
     <ImageView style="@style/WidgetRule" />
     <LinearLayout android:id="@+id/widget_empty" android:layout_width="match_parent"

@@ -210,6 +210,40 @@ class _ScheduleContent extends HookConsumerWidget {
       curve: Curves.easeOutCubic,
     );
 
+    final nextDay = Iterable.generate(
+      7,
+      (offset) => (today.weekday + offset) % 7 + 1,
+    ).where((day) => schedule[day]!.isNotEmpty).firstOrNull;
+    final heading = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _ScheduleHeading(range: range, onAdd: onAdd),
+        if (nextDay != null)
+          TextButton(
+            onPressed: () => selectDay(nextDay - 1),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    spacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text('Up next · ${_weekdayName(nextDay)}'),
+                      Text(
+                        _showCount(schedule[nextDay]!.length),
+                        style: PaperLantern.folio,
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right, size: 18),
+              ],
+            ),
+          ),
+      ],
+    );
+
     final dayPages = PageView.builder(
       controller: controller,
       onPageChanged: (index) => selected.value = index,
@@ -217,12 +251,6 @@ class _ScheduleContent extends HookConsumerWidget {
       itemBuilder: (context, index) {
         final dayName = _weekdayName(index + 1);
         final shows = schedule[index + 1]!;
-        final upcoming = [
-          for (var offset = 1; offset < 7; offset++) (index + offset) % 7 + 1,
-        ].where((day) => schedule[day]!.isNotEmpty).firstOrNull;
-        final nextShows = upcoming == null
-            ? const <BookmarkedShowInfo>[]
-            : schedule[upcoming]!;
         return CustomScrollView(
           key: PageStorageKey('weekly-listing-$index'),
           slivers: [
@@ -232,17 +260,6 @@ class _ScheduleContent extends HookConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (!expanded) ...[
-                      _ScheduleHeading(range: range, onAdd: onAdd),
-                      const SizedBox(height: 12),
-                      _WeekStrip(
-                        days: days,
-                        selected: index,
-                        today: today.weekday - 1,
-                        select: selectDay,
-                      ),
-                      const SizedBox(height: 20),
-                    ],
                     PaperSectionHeading(
                       dayName,
                       trailing: Text(
@@ -284,33 +301,6 @@ class _ScheduleContent extends HookConsumerWidget {
                 ),
               ),
             ),
-            if (upcoming != null) ...[
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(18, 24, 18, 0),
-                sliver: SliverToBoxAdapter(
-                  child: PaperSectionHeading(
-                    '${expanded ? 'Up next' : 'Next'} · ${_weekdayName(upcoming)}',
-                    trailing: Text(
-                      _showCount(nextShows.length),
-                      style: PaperLantern.folio,
-                    ),
-                  ),
-                ),
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 18),
-                sliver: SliverList.builder(
-                  itemCount: nextShows.length,
-                  itemBuilder: (context, i) => _Listing(
-                    show: nextShows[i],
-                    title: titleOf(nextShows[i]),
-                    poster: entries[nextShows[i].showName]?.posterUrl,
-                    expanded: expanded,
-                    onOpen: () => openInfo(nextShows[i]),
-                  ),
-                ),
-              ),
-            ],
             const SliverToBoxAdapter(child: SizedBox(height: 24)),
           ],
         );
@@ -325,7 +315,7 @@ class _ScheduleContent extends HookConsumerWidget {
             if (expanded) ...[
               Padding(
                 padding: const EdgeInsets.fromLTRB(18, 12, 18, 10),
-                child: _ScheduleHeading(range: range, onAdd: onAdd),
+                child: heading,
               ),
               const Divider(),
             ],
@@ -353,7 +343,29 @@ class _ScheduleContent extends HookConsumerWidget {
                   Expanded(
                     key: const ValueKey('schedule-day-pages'),
                     flex: 7,
-                    child: dayPages,
+                    child: NestedScrollView(
+                      headerSliverBuilder: (context, _) => [
+                        if (!expanded)
+                          SliverPadding(
+                            padding: const EdgeInsets.fromLTRB(18, 16, 18, 0),
+                            sliver: SliverToBoxAdapter(
+                              child: Column(
+                                children: [
+                                  heading,
+                                  const SizedBox(height: 12),
+                                  _WeekStrip(
+                                    days: days,
+                                    selected: selected.value,
+                                    today: today.weekday - 1,
+                                    select: selectDay,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                      ],
+                      body: dayPages,
+                    ),
                   ),
                 ],
               ),
@@ -586,7 +598,7 @@ class _Listing extends StatelessWidget {
     required this.expanded,
     this.latest,
     required this.onOpen,
-    this.onOptions,
+    required this.onOptions,
   });
   final BookmarkedShowInfo show;
   final String title;
@@ -594,14 +606,13 @@ class _Listing extends StatelessWidget {
   final bool expanded;
   final ShowInfo? latest;
   final VoidCallback onOpen;
-  final VoidCallback? onOptions;
+  final VoidCallback onOptions;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final preview = onOptions == null;
-    final width = expanded ? (preview ? 72.0 : 112.0) : 42.0;
-    final height = expanded ? (preview ? 72.0 : 108.0) : 56.0;
+    final width = expanded ? 112.0 : 42.0;
+    final height = expanded ? 108.0 : 56.0;
     final cover = SizedBox(
       width: width,
       height: height,
@@ -621,24 +632,18 @@ class _Listing extends StatelessWidget {
               ),
       ),
     );
-    final options = onOptions == null
-        ? const Icon(Icons.chevron_right, size: 20)
-        : IconButton(
-            key: SchedulePage.showActionsKey(show.showName),
-            tooltip: 'Schedule options for $title',
-            icon: const Icon(Icons.more_horiz),
-            onPressed: onOptions,
-          );
-    final key = preview ? null : SchedulePage.showTileKey(show.showName);
+    final options = IconButton(
+      key: SchedulePage.showActionsKey(show.showName),
+      tooltip: 'Schedule options for $title',
+      icon: const Icon(Icons.more_horiz),
+      onPressed: onOptions,
+    );
+    final key = SchedulePage.showTileKey(show.showName);
     final status = show.isManualEntry ? 'Manual entry' : 'Watching';
     final release = latest;
-    final download = release?.bestDownload;
     final metadata = release == null
         ? status
-        : [
-            'Latest · ${formatEpisodeLabel(release.episode)}',
-            if (download != null) '${download.resolution.toJson()}p',
-          ].join(' · ');
+        : 'Latest · ${formatEpisodeLabel(release.episode)}';
     return DecoratedBox(
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: PaperLantern.rule)),
@@ -667,7 +672,7 @@ class _Listing extends StatelessWidget {
                     Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (download != null && release != null)
+                        if (release != null && release.bestDownload != null)
                           ReleaseDownloadButton(
                             show: release,
                             displayTitle: title,

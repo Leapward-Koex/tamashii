@@ -2,6 +2,7 @@ package com.leapwardkoex.tamashii.widget
 
 import android.app.Application
 import android.appwidget.AppWidgetHostView
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
@@ -10,14 +11,17 @@ import android.widget.ListView
 import android.widget.ProgressBar
 import android.widget.RemoteViews
 import android.widget.TextView
+import com.leapwardkoex.tamashii.MainActivity
 import com.leapwardkoex.tamashii.R
+import java.time.Instant
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
@@ -77,10 +81,35 @@ class TodayWidgetProviderTest {
         assertTrue(first.visible(R.id.widget_button_label))
         assertFalse(first.visible(R.id.widget_art))
         first.findViewById<View>(R.id.widget_ready_button).performClick()
-        val sent = shadowOf(app).broadcastIntents.last { it.action?.endsWith(".DOWNLOAD") == true }
+        val sent = shadowOf(app).nextStartedActivity
+        assertEquals(WidgetRowActivity::class.java.name, sent.component?.className)
+        assertEquals(TodayWidgetProvider.ACTION_DOWNLOAD, sent.action)
         assertEquals(ready.episodeKey, sent.getStringExtra("episodeKey"))
         assertEquals(day.toString(), sent.getStringExtra("date"))
-        assertEquals(TodayWidgetProvider::class.java.name, sent.component?.className)
+        val activity = Robolectric.buildActivity(WidgetRowActivity::class.java, sent).create().get()
+        assertTrue(activity.isFinishing)
+        assertNull(shadowOf(app).nextStartedActivity)
+    }
+
+    @Test
+    fun tappingAListRowOpensTheSourceSeriesInCompactAndTallWidgets() {
+        val rows = listOf(ready.copy(displayTitle = "Catalog alias"), expected)
+        for (tall in listOf(false, true)) {
+            val list = inflate(TodayWidgetContent(day, rows), tall).list()
+            for ((i, row) in rows.withIndex()) {
+                val index = if (tall) 2 * i + 1 else i
+                list.performItemClick(list.getChildAt(index), index, list.adapter.getItemId(index))
+                val clicked = shadowOf(app).nextStartedActivity
+                assertEquals(WidgetRowActivity::class.java.name, clicked.component?.className)
+                val activity = Robolectric.buildActivity(WidgetRowActivity::class.java, clicked).create().get()
+                val opened = shadowOf(app).nextStartedActivity
+                assertEquals(MainActivity::class.java.name, opened.component?.className)
+                assertEquals(WidgetRowActivity.OPEN_SERIES, opened.action)
+                assertEquals(row.title, opened.getStringExtra(WidgetRowActivity.EXTRA_TITLE))
+                assertTrue(opened.flags and Intent.FLAG_ACTIVITY_SINGLE_TOP != 0)
+                assertTrue(activity.isFinishing)
+            }
+        }
     }
 
     @Test
@@ -169,24 +198,51 @@ class TodayWidgetProviderTest {
     }
 
     @Test
-    fun quietDayAndSetupRemainActionableWithoutAReleaseButton() {
+    fun quietDayAndFirstRunShowAnEmptyHint() {
         val empty = inflate(TodayWidgetContent(day, emptyList(), nextUp = "Night Ferry on Saturday"), false)
         assertFalse(empty.visible(R.id.widget_list))
         assertTrue(empty.text(R.id.widget_empty_hint).contains("Saturday"))
         val firstRun = inflate(TodayWidgetContent(day, emptyList(), initialized = false), true)
         assertTrue(firstRun.text(R.id.widget_empty_hint).contains("Open Tamashii"))
-        val setup = inflate(TodayWidgetContent(day, listOf(ready.copy(state = TodayWidgetState.SETUP))), false)
-        assertTrue(setup.visible(R.id.widget_setup))
-        assertFalse(setup.list().getChildAt(0).visible(R.id.widget_action))
-        assertTrue(setup.findViewById<View>(R.id.widget_setup).performClick())
-        assertNotNull(shadowOf(app).nextStartedActivity)
+    }
+
+    @Test
+    fun downloadButtonOpensFolderSetupForTheTappedReleaseInEitherLayout() {
+        val today = LocalDate.now()
+        val now = Instant.now().toEpochMilli()
+        val titles = listOf("Night Ferry", "Glass Garden")
+        TodayWidgetHost.publish(app, mapOf(
+            "watching" to titles.map { mapOf("title" to it, "weekday" to today.dayOfWeek.value, "folder" to "") },
+            "releases" to titles.map { mapOf("title" to it, "displayTitle" to "Alias: $it",
+                "key" to "$it-09", "episode" to "09", "releasedAt" to now, "magnet" to "magnet:$it") },
+        ))
+        val content = TodayWidgetHost.content(app)
+        assertEquals(2, content.rows.size)
+        for (tall in listOf(false, true)) {
+            val list = inflate(content, tall).list()
+            for ((i, row) in content.rows.withIndex()) {
+                assertEquals(TodayWidgetState.SETUP, row.state)
+                val view = list.getChildAt(if (tall) i + 1 else i)
+                assertTrue(view.visible(R.id.widget_action))
+                assertEquals("Download", view.text(R.id.widget_button_label))
+                assertTrue(view.findViewById<View>(R.id.widget_ready_button).performClick())
+                val clicked = shadowOf(app).nextStartedActivity
+                val activity = Robolectric.buildActivity(WidgetRowActivity::class.java, clicked).create().get()
+                val setup = shadowOf(app).nextStartedActivity
+                assertTrue(activity.isFinishing)
+                assertEquals(MainActivity::class.java.name, setup.component?.className)
+                assertEquals(TodayWidgetHost.SETUP, setup.action)
+                assertEquals(mapOf("title" to row.title, "torrentKey" to row.episodeKey, "magnet" to "magnet:${row.title}"),
+                    TodayWidgetHost.downloadSetup(app, setup))
+            }
+        }
     }
 
     @Test
     fun numbersAreClampedAndClosedEpisodeStatesDoNotOfferDownload() {
         assertEquals(0, active.copy(progress = -5).action().percent)
         assertEquals(100, active.copy(progress = 120).action().percent)
-        for (state in TodayWidgetState.entries - setOf(TodayWidgetState.READY, TodayWidgetState.FAILED)) {
+        for (state in TodayWidgetState.entries - setOf(TodayWidgetState.READY, TodayWidgetState.FAILED, TodayWidgetState.SETUP)) {
             assertFalse(ready.copy(state = state).action().canDownload)
         }
         assertFalse(ready.copy(episodeKey = null).action().canDownload)

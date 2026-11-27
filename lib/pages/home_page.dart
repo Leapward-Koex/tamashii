@@ -21,6 +21,7 @@ import 'package:tamashii/theme/paper_lantern.dart';
 import 'package:tamashii/widgets/add_schedule_show_sheet.dart';
 import 'package:tamashii/widgets/release_reader_index.dart';
 import 'package:tamashii/widgets/show_card.dart';
+import 'package:tamashii/widgets/staggered_reveal.dart';
 import 'package:tamashii/widgets/transfer_policy_banner.dart';
 
 class HomePage extends StatelessWidget {
@@ -92,69 +93,48 @@ class _HomeContent extends HookConsumerWidget {
     final filter = ref.watch(showFilterProvider).value ?? ShowFilter.all;
     final releases = ref.watch(filteredShowsProvider(debouncedQuery.value));
     final shows = releases.value ?? const <ShowInfo>[];
-    // The first item anchors the selection in the index. Subsequent items
-    // are episodes opened from its details, including older releases.
-    final history = useState<List<ShowInfo>>(const []);
+    final selectedRelease = useState<ShowInfo?>(null);
     final compactFeedAnchor = useRef<String?>(null);
-    final path = history.value;
-    ShowInfo? inFeed(ShowInfo? release) => release == null
+    final selection = selectedRelease.value;
+    final anchor = selection == null
         ? null
         : shows
-              .where((show) => show.torrentKey == release.torrentKey)
+              .where((show) => show.torrentKey == selection.torrentKey)
               .firstOrNull;
-    final currentRow = inFeed(path.lastOrNull);
-    final anchor = currentRow ?? inFeed(path.firstOrNull);
     final indexRelease = anchor ?? shows.firstOrNull;
-    final detail = wide && anchor == null
-        ? indexRelease
-        : currentRow ?? path.lastOrNull;
+    final detail = wide ? indexRelease : anchor ?? selection;
     final compactDetail = !wide && detail != null && selected.value == 0;
 
     // Display the first available result in the expanded reader. Remember it
-    // so folding the device continues on the same episode, even on first open.
+    // so folding the device continues on the same series, even on first open.
     useEffect(() {
       if (wide &&
           selected.value == 0 &&
           anchor == null &&
           !releases.isLoading &&
           !releases.hasError &&
-          (path.isNotEmpty || indexRelease != null)) {
+          (selection != null || indexRelease != null)) {
         var active = true;
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (active && identical(history.value, path)) {
+          if (active && identical(selectedRelease.value, selection)) {
             compactFeedAnchor.value = null;
-            history.value = [?indexRelease];
+            selectedRelease.value = indexRelease;
           }
         });
         return () => active = false;
       }
       return null;
-    }, [wide, selected.value, releases, path]);
+    }, [wide, selected.value, releases, selection]);
 
     void openRelease(ShowInfo show) {
       FocusManager.instance.primaryFocus?.unfocus();
       if (wide && show.torrentKey != anchor?.torrentKey) {
         compactFeedAnchor.value = show.torrentKey;
       }
-      history.value = [show];
+      selectedRelease.value = show;
     }
 
-    void openEpisode(ShowInfo show) {
-      if (wide) {
-        history.value = [
-          if (indexRelease != null &&
-              indexRelease.torrentKey != show.torrentKey)
-            indexRelease,
-          show,
-        ];
-      } else {
-        history.value = [...path, show];
-      }
-    }
-
-    void backToPrevious() {
-      if (path.isNotEmpty) history.value = path.sublist(0, path.length - 1);
-    }
+    void backToFeed() => selectedRelease.value = null;
 
     final policy = defaultTargetPlatform == TargetPlatform.android
         ? ref.watch(foregroundTransferPolicyStatusProvider)
@@ -263,18 +243,15 @@ class _HomeContent extends HookConsumerWidget {
                   Expanded(
                     key: const ValueKey('release-detail-pane'),
                     flex: 6,
-                    child: wide
-                        ? ShowInfoPage.reader(
-                            detail,
-                            key: ValueKey(detail.torrentKey),
-                            onEpisodeSelected: openEpisode,
-                          )
-                        : ShowInfoPage.release(
-                            detail,
-                            key: ValueKey(detail.torrentKey),
-                            onEpisodeSelected: openEpisode,
-                            onBack: backToPrevious,
-                          ),
+                    child: StaggeredReveal(
+                      key: ValueKey((detail.show, detail.page)),
+                      index: 0,
+                      duration: const Duration(milliseconds: 260),
+                      offset: const Offset(0, 0.035),
+                      child: wide
+                          ? ShowInfoPage.reader(detail)
+                          : ShowInfoPage.series(detail, onBack: backToFeed),
+                    ),
                   ),
               ],
             ),
@@ -370,27 +347,30 @@ class _HomeContent extends HookConsumerWidget {
                           },
                         ),
                         if (selected.value == 0)
-                          PopupMenuButton<String>(
-                            tooltip: 'Release options',
-                            icon: const Icon(Icons.more_vert),
-                            onSelected: (action) {
-                              if (action == 'filter') {
-                                ref
+                          MenuAnchor(
+                            animated: true,
+                            builder: (context, menu, _) => IconButton(
+                              tooltip: 'Release options',
+                              icon: const Icon(Icons.more_vert),
+                              onPressed: () =>
+                                  menu.isOpen ? menu.close() : menu.open(),
+                            ),
+                            menuChildren: [
+                              CheckboxMenuButton(
+                                value: filter == ShowFilter.saved,
+                                onChanged: (_) => ref
                                     .read(showFilterProvider.notifier)
-                                    .toggleFilter();
-                              } else {
-                                refreshKey.currentState?.show();
-                              }
-                            },
-                            itemBuilder: (_) => [
-                              CheckedPopupMenuItem(
-                                value: 'filter',
-                                checked: filter == ShowFilter.saved,
+                                    .toggleFilter(),
                                 child: const Text('Watching only'),
                               ),
-                              const PopupMenuItem(
-                                value: 'refresh',
-                                child: Text('Refresh releases'),
+                              MenuItemButton(
+                                onPressed: () =>
+                                    refreshKey.currentState?.show(),
+                                leadingIcon: const Icon(
+                                  Icons.refresh,
+                                  size: Checkbox.width,
+                                ),
+                                child: const Text('Refresh releases'),
                               ),
                             ],
                           ),
@@ -478,7 +458,7 @@ class _HomeContent extends HookConsumerWidget {
     return PopScope(
       canPop: !compactDetail,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && compactDetail) backToPrevious();
+        if (!didPop && compactDetail) backToFeed();
       },
       child: content,
     );

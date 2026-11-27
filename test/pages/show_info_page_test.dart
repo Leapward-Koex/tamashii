@@ -1,15 +1,19 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:tamashii/api/api_client.dart';
 import 'package:tamashii/api/tenrai_api.dart';
 import 'package:tamashii/models/show_models.dart';
 import 'package:tamashii/models/show_catalog_match.dart';
 import 'package:tamashii/models/tenrai_models.dart';
 import 'package:tamashii/pages/show_info_page.dart';
+import 'package:tamashii/providers/foreground_torrent_provider.dart';
 import 'package:tamashii/providers/show_catalog_match_provider.dart';
 import 'package:tamashii/providers/subsplease_api_providers.dart';
 import 'package:tamashii/providers/tenrai_api_providers.dart';
@@ -36,29 +40,63 @@ const bonus = TenraiAnimeSearchResult(
 ShowInfo episode(
   String label, {
   String imageUrl = '',
+  String page = 'link-click',
+  int day = 1,
   List<ShowDownloadInfo> downloads = const [],
 }) => ShowInfo(
   downloads: downloads,
   episode: label,
   imageUrl: imageUrl,
-  page: 'link-click',
-  releaseDate: DateTime.utc(2026, 3),
+  page: page,
+  releaseDate: DateTime.utc(2026, 3, day),
   show: 'Link Click',
   timeLabel: '',
   xdcc: '',
 );
 
 class _Feed extends SubsPleaseApi {
+  _Feed({this.results});
+  final List<ShowInfo>? results;
   @override
   Future<List<ShowInfo>> getLatestShowList() async => [episode('03')];
   @override
-  Future<List<ShowInfo>> getShowsFromSearch(String searchTerm) async => [
-    episode('03'),
-    episode('SP'),
-  ];
+  Future<List<ShowInfo>> getShowsFromSearch(String searchTerm) async =>
+      results ?? [episode('03'), episode('SP')];
   @override
   Future<String?> getShowSynopsis(String showPage) async =>
       'Two friends revisit the past through photographs.';
+}
+
+class _DelayedFeed extends _Feed {
+  final search = Completer<List<ShowInfo>>();
+
+  @override
+  Future<List<ShowInfo>> getShowsFromSearch(String searchTerm) => search.future;
+}
+
+class _Downloads extends ForegroundTorrentManager {
+  final singles = <(String, String, String)>[];
+  final batches = <(List<String>, String)>[];
+  @override
+  TorrentManagerState build() => const TorrentManagerState();
+
+  @override
+  Future<void> startDownload(
+    String key,
+    String magnet,
+    String path, {
+    bool redownload = false,
+  }) async {
+    singles.add((key, magnet, path));
+  }
+
+  @override
+  Future<void> startSeriesDownloads(
+    List<ShowInfo> releases,
+    String path,
+  ) async {
+    batches.add(([for (final release in releases) release.episode], path));
+  }
 }
 
 class _Catalog extends TenraiApi {
@@ -94,11 +132,19 @@ class _Catalog extends TenraiApi {
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  Future<void> open(WidgetTester tester, Widget page, _Catalog catalog) async {
+  Future<void> open(
+    WidgetTester tester,
+    Widget page,
+    _Catalog catalog, {
+    _Feed? feed,
+    _Downloads? downloads,
+  }) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          subsPleaseApiProvider.overrideWithValue(_Feed()),
+          subsPleaseApiProvider.overrideWithValue(feed ?? _Feed()),
+          if (downloads != null)
+            foregroundTorrentManagerProvider.overrideWith(() => downloads),
           tenraiApiProvider.overrideWithValue(catalog),
           torrentManagerProvider.overrideWithValue(const TorrentManagerState()),
         ],
@@ -131,7 +177,6 @@ void main() {
             jsonEncode(saved.toJson()),
       });
       Uri? opened;
-      ShowInfo? selection;
       await open(
         tester,
         Scaffold(
@@ -139,7 +184,6 @@ void main() {
             width: 385,
             child: ShowInfoPage.reader(
               release,
-              onEpisodeSelected: (value) => selection = value,
               openExternal: (uri) async {
                 opened = uri;
                 return true;
@@ -164,49 +208,158 @@ void main() {
       await tester.tap(find.text('Watch'));
       await tester.pumpAndSettle();
       expect(find.text('Watching'), findsOneWidget);
-      await tester.tap(find.text('MyAnimeList'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Open MyAnimeList'));
       expect(opened, Uri.parse('https://myanimelist.net/anime/49200'));
-      final download = find.byType(ReleaseDownloadButton);
+      expect(find.widgetWithText(TextButton, 'Fix match'), findsOneWidget);
+      expect(find.text('Synopsis'), findsOneWidget);
+      expect(find.text('Why this match?'), findsNothing);
+      expect(find.textContaining('49200'), findsNothing);
+      final download = find.byKey(ValueKey(release.torrentKey));
+      await tester.scrollUntilVisible(download, 180);
       expect(
         tester.widget<ReleaseDownloadButton>(download).show,
         same(release),
       );
-      await tester.ensureVisible(find.text('SP'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('SP'));
-      expect(selection?.episode, 'SP');
-      expect(find.text('Fix match'), findsNothing);
-      await tester.ensureVisible(find.byTooltip('Show details'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Show details'));
-      await tester.pumpAndSettle();
-      expect(find.text('Fix match'), findsOneWidget);
-      expect(find.text('SubsPlease synopsis'), findsOneWidget);
+      expect(find.textContaining('1080p'), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );
 
+  for (final reader in [false, true]) {
+    testWidgets(
+      'opens and closes a full-size poster in the ${reader ? 'reader' : 'series page'}',
+      (tester) async {
+        final release = episode('03', imageUrl: '/feed-cover.jpg');
+        const largeCover = 'https://catalog.test/large.jpg';
+        if (reader) {
+          SharedPreferences.setMockInitialValues({
+            'catalog_match.${ShowCatalogTarget.fromRelease(release).scopeKey}':
+                jsonEncode(
+                  special
+                      .copyWith(
+                        imageUrl: 'https://catalog.test/small.jpg',
+                        largeImageUrl: largeCover,
+                      )
+                      .toJson(),
+                ),
+          });
+        }
+        await open(
+          tester,
+          reader
+              ? Scaffold(body: ShowInfoPage.reader(release))
+              : ShowInfoPage.series(release),
+          _Catalog(),
+        );
+        await tester.tap(find.byTooltip('View full-size poster'));
+        await tester.pumpAndSettle();
+        final viewer = find.byType(InteractiveViewer);
+        final image = tester.widget<ShowImage>(
+          find.descendant(of: viewer, matching: find.byType(ShowImage)).first,
+        );
+        expect(image.fit, BoxFit.contain);
+        expect(image.fullResolution, isTrue);
+        expect(image.imageUrl, reader ? largeCover : release.imageUrl);
+        expect(image.fallbackImageUrl, release.imageUrl);
+        expect(tester.getSize(viewer), tester.getSize(find.byType(Dialog)));
+        if (reader) {
+          await tester.binding.handlePopRoute();
+        } else {
+          await tester.tap(find.byTooltip('Close poster'));
+        }
+        await tester.pumpAndSettle();
+        expect(viewer, findsNothing);
+        expect(find.byTooltip('View full-size poster'), findsOneWidget);
+      },
+    );
+  }
+
   testWidgets(
-    'compact reader delegates episode and back navigation to the feed',
+    'a release opens the series and rows download without navigating',
     (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(640, 1100);
+      addTearDown(tester.view.reset);
+      final manager = _Downloads();
       var closed = false;
-      ShowInfo? selection;
+      final options = [
+        ShowDownloadInfo(resolution: ShowResolution.r720, magnet: '720'),
+        ShowDownloadInfo(resolution: ShowResolution.r1080, magnet: '1080'),
+      ];
+      final specialRelease = episode('SP', downloads: options, day: 3);
+      final feed = _Feed(
+        results: [
+          specialRelease,
+          episode('10', downloads: options),
+          episode('2', downloads: options),
+          episode('01', page: 'different-series', downloads: options),
+        ],
+      );
+      SharedPreferencesAsyncPlatform.instance =
+          InMemorySharedPreferencesAsync.withData({
+            'series_folder_mapping': jsonEncode({
+              'Link Click': '/library/Link Click',
+            }),
+          });
       await open(
         tester,
-        ShowInfoPage.release(
-          episode('03'),
-          onEpisodeSelected: (value) => selection = value,
-          onBack: () => closed = true,
-        ),
+        ShowInfoPage.series(specialRelease, onBack: () => closed = true),
         _Catalog(),
+        feed: feed,
+        downloads: manager,
       );
-      await tester.ensureVisible(find.text('SP'));
-      await tester.tap(find.text('SP'));
-      expect(selection?.episode, 'SP');
+      expect(find.text('Episode 01'), findsNothing);
+      expect(find.text('SP'), findsOneWidget);
+      expect(find.textContaining('1080p'), findsNothing);
+      final bulk = find.widgetWithText(TextButton, 'Download all');
+      await tester.ensureVisible(bulk);
+      await tester.tap(bulk);
+      await tester.pumpAndSettle();
+      expect(manager.batches, hasLength(1));
+      expect(manager.batches.single.$1, ['2', '03', '10', 'SP']);
+      expect(manager.batches.single.$2, '/library/Link Click');
+
+      await tester.ensureVisible(find.text('Episode 2'));
+      final tile = find.widgetWithText(ListTile, 'Episode 2');
+      final icon = find.descendant(
+        of: tile,
+        matching: find.byIcon(Icons.download_rounded),
+      );
+      final bounds = tester.getRect(tile);
+      expect(tester.getCenter(icon).dy, closeTo(bounds.center.dy, 1));
+      expect(
+        bounds.right - tester.getCenter(icon).dx,
+        closeTo(kMinInteractiveDimension / 2, 1),
+      );
+      await tester.tap(find.text('Episode 2'));
+      await tester.pumpAndSettle();
+      expect(manager.singles, [
+        ('Link Click-2', '1080', '/library/Link Click'),
+      ]);
+      expect(find.byType(ShowInfoPage), findsOneWidget);
+      expect(find.text('Series info'), findsOneWidget);
       await tester.tap(find.byType(BackButton));
       expect(closed, isTrue);
     },
   );
+
+  testWidgets('Download all waits for the series search before queuing', (
+    tester,
+  ) async {
+    final release = episode(
+      '10',
+      downloads: [
+        ShowDownloadInfo(resolution: ShowResolution.r720, magnet: 'newest'),
+      ],
+    );
+    final feed = _DelayedFeed();
+    await open(tester, ShowInfoPage.series(release), _Catalog(), feed: feed);
+    final button = find.widgetWithText(TextButton, 'Download all');
+    expect(tester.widget<TextButton>(button).onPressed, isNull);
+    feed.search.complete([release, episode('1')]);
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextButton>(button).onPressed, isNotNull);
+  });
 
   testWidgets(
     'the first frame uses the saved identity and the MAL link opens that entry',
@@ -224,6 +377,7 @@ void main() {
         overrides: [
           subsPleaseApiProvider.overrideWithValue(_Feed()),
           tenraiApiProvider.overrideWithValue(api),
+          torrentManagerProvider.overrideWithValue(const TorrentManagerState()),
         ],
       );
       await container.read(catalogCacheReadyProvider.future);
@@ -233,7 +387,7 @@ void main() {
           container: container,
           child: MaterialApp(
             theme: PaperLantern.theme,
-            home: ShowInfoPage.release(
+            home: ShowInfoPage.series(
               release,
               openExternal: (uri) async {
                 opened = uri;
@@ -248,7 +402,7 @@ void main() {
         tester.widget<ShowImage>(find.byType(ShowImage)).imageUrl,
         saved.imageUrl,
       );
-      final link = find.text('MyAnimeList #49200');
+      final link = find.text('Open MyAnimeList');
       await tester.ensureVisible(link);
       await tester.tap(link);
       await tester.pump();
@@ -267,7 +421,7 @@ void main() {
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
       await open(
         tester,
-        ShowInfoPage.release(episode('03', imageUrl: 'urn:poster')),
+        ShowInfoPage.series(episode('03', imageUrl: 'urn:poster')),
         _Catalog(),
       );
       final title = find.text('Link Click');
@@ -292,14 +446,14 @@ void main() {
     'failed lookup preserves release information and can recover to an explicit no-match choice',
     (tester) async {
       final api = _Catalog(fail: true);
-      await open(tester, ShowInfoPage.release(episode('SP')), api);
+      await open(tester, ShowInfoPage.series(episode('SP')), api);
       expect(find.text('Catalog lookup unavailable'), findsOneWidget);
       expect(
         find.text('Two friends revisit the past through photographs.'),
         findsOneWidget,
       );
       expect(find.text('SP'), findsOneWidget);
-      expect(find.text('Episode 03'), findsNothing);
+      expect(find.text('Episode 03'), findsOneWidget);
       api.fail = false;
       await tester.tap(find.text('Retry'));
       await tester.pumpAndSettle();
@@ -318,10 +472,10 @@ void main() {
     'selecting a result requires confirmation and a changed query clears stale selection',
     (tester) async {
       final api = _Catalog();
-      await open(tester, ShowInfoPage.release(episode('SP')), api);
+      await open(tester, ShowInfoPage.series(episode('SP')), api);
       await tester.tap(find.text('Find a match'));
       await tester.pumpAndSettle();
-      expect(find.text('Applies only to this release.'), findsOneWidget);
+      expect(find.text('Applies to this series.'), findsOneWidget);
       final field = find.byKey(ShowInfoMatchSheet.searchFieldKey);
       await tester.enterText(field, 'side story');
       await tester.pump(const Duration(milliseconds: 450));
@@ -346,7 +500,7 @@ void main() {
       expect(saveButton().onPressed, isNotNull);
       await tester.tap(find.text('Use this match'));
       await tester.pumpAndSettle();
-      expect(find.text('MyAnimeList #49200'), findsOneWidget);
+      expect(find.text('Open MyAnimeList'), findsOneWidget);
       expect(find.text('Chosen by you'), findsOneWidget);
       expect(find.text('Watch'), findsOneWidget);
       await tester.tap(find.text('Fix match'));
@@ -426,60 +580,47 @@ void main() {
       expect(api.searches, isEmpty);
       await tester.tap(find.byTooltip('Close'));
       await tester.pumpAndSettle();
-      expect(find.text('MyAnimeList #49200'), findsOneWidget);
+      expect(find.text('Open MyAnimeList'), findsOneWidget);
       expect(find.text('Added manually · Friday'), findsOneWidget);
-      expect(find.text('SubsPlease releases'), findsNothing);
+      expect(find.text('Releases'), findsNothing);
     },
   );
 
   testWidgets(
-    'an integer-labeled bonus uses its own catalog entry and keeps its scope on reopening',
+    'an episode-specific catalog choice does not replace the series identity',
     (tester) async {
-      final catalog = _Catalog();
-      await open(tester, ShowInfoPage.release(episode('13')), catalog);
-      await tester.tap(find.text('Find a match'));
-      await tester.pumpAndSettle();
-      FilterChip chip() => tester.widget<FilterChip>(
-        find.widgetWithText(FilterChip, 'Only this release'),
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(640, 1000);
+      addTearDown(tester.view.reset);
+      final selected = episode('13');
+      final target = ShowCatalogTarget.fromRelease(selected);
+      final series = special.copyWith(malId: 44074, titleEnglish: 'Link Click');
+      SharedPreferences.setMockInitialValues({
+        'catalog_match.${target.scopeKey}': jsonEncode(series.toJson()),
+        'catalog_match.${target.forThisRelease.scopeKey}': jsonEncode(
+          bonus.toJson(),
+        ),
+      });
+      Uri? opened;
+      await open(
+        tester,
+        ShowInfoPage.series(
+          selected,
+          openExternal: (uri) async {
+            opened = uri;
+            return true;
+          },
+        ),
+        _Catalog(),
       );
-      expect(chip().selected, isFalse);
-      await tester.enterText(
-        find.byKey(ShowInfoMatchSheet.searchFieldKey),
-        '199',
-      );
-      await tester.testTextInput.receiveAction(TextInputAction.search);
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(ShowInfoMatchSheet.entryKey(199)));
-      await tester.pump();
-      expect(chip().selected, isTrue);
-      expect(chip().onSelected, isNull);
-      await tester.tap(find.text('Use this match'));
-      await tester.pumpAndSettle();
-      expect(find.text('MyAnimeList #199'), findsOneWidget);
-      expect(find.text('Episode 03'), findsNothing);
+      await tester.tap(find.text('Open MyAnimeList'));
+      expect(opened?.path, '/anime/44074');
+      expect(find.text(bonus.title), findsNothing);
+      expect(find.text('Episode 03'), findsOneWidget);
       await tester.tap(find.text('Fix match'));
       await tester.pumpAndSettle();
-      expect(chip().selected, isTrue);
-      await tester.tap(find.text('Leave unmatched').last);
-      await tester.pumpAndSettle();
-      expect(
-        find.text('Your choice is saved for this release.'),
-        findsOneWidget,
-      );
-
-      await tester.pumpWidget(const SizedBox());
-      await open(tester, ShowInfoPage.release(episode('03')), catalog);
-      expect(find.text('No catalog match found'), findsOneWidget);
-      await tester.tap(find.text('Find a match'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Only this release'));
-      await tester.pump();
-      await tester.tap(find.text('Leave unmatched').last);
-      await tester.pumpAndSettle();
-      expect(
-        find.text('Your choice is saved for this release.'),
-        findsOneWidget,
-      );
+      expect(find.text('Only this release'), findsNothing);
+      expect(find.text('Applies to this series.'), findsOneWidget);
     },
   );
 
@@ -528,7 +669,7 @@ void main() {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(320, 640);
       addTearDown(tester.view.reset);
-      await open(tester, ShowInfoPage.release(episode('SP')), _Catalog());
+      await open(tester, ShowInfoPage.series(episode('SP')), _Catalog());
       await tester.tap(find.text('Find a match'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);

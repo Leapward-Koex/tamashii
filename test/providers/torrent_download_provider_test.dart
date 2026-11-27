@@ -5,7 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:simple_torrent/simple_torrent.dart';
+import 'package:tamashii/models/show_models.dart';
 import 'package:tamashii/providers/downloaded_torrents_provider.dart';
+import 'package:tamashii/providers/foreground_torrent_provider.dart';
 import 'package:tamashii/providers/torrent_download_provider.dart';
 import 'package:tamashii/services/torrent_runtime.dart';
 
@@ -178,7 +180,143 @@ void main() {
       isNull,
     );
   });
+
+  test('series starts reserve and submit eligible releases in order', () async {
+    final manager = container.read(foregroundTorrentManagerProvider.notifier);
+    final directory = downloadDirectory.path;
+    await manager.startDownload('Show-03', _magnet, directory);
+    await manager.pauseDownload('Show-03');
+    await manager.startDownload('Show-04', _magnet, directory);
+    await container
+        .read(downloadedTorrentsProvider.notifier)
+        .addDownloaded('Show-02');
+    final releases = [
+      _release('01'),
+      _release('02'),
+      _release('03'),
+      _release('04'),
+      _release('05', hasLink: false),
+      _release('06'),
+      _release('06'),
+      _release('07'),
+    ];
+    final firstStart = Completer<void>();
+    runtime.onStart = (key) async {
+      if (key == 'Show-01') await firstStart.future;
+      if (key == 'Show-06') throw StateError('native start failed');
+    };
+    final batch = manager.startSeriesDownloads(releases, directory);
+    await _waitUntil(() => runtime.startedKeys.contains('Show-01'));
+    final transfers = container.read(torrentManagerProvider).torrents;
+    expect(transfers['Show-06']?.isLoading, isTrue);
+    expect(transfers['Show-07']?.isLoading, isTrue);
+    await manager.startSeriesDownloads(releases, directory);
+    await manager.startDownload('Show-07', _magnet, directory);
+    expect(runtime.startedKeys, ['Show-03', 'Show-04', 'Show-01']);
+
+    firstStart.complete();
+    await expectLater(batch, throwsStateError);
+    expect(runtime.startedKeys, [
+      'Show-03',
+      'Show-04',
+      'Show-01',
+      'Show-06',
+      'Show-07',
+    ]);
+    expect(
+      container.read(torrentManagerProvider).torrents['Show-06']?.errorMessage,
+      contains('native start failed'),
+    );
+    expect(
+      container.read(torrentManagerProvider).torrents['Show-03']?.isPaused,
+      isTrue,
+    );
+
+    runtime.onStart = null;
+    await manager.startSeriesDownloads(releases, directory);
+    expect(runtime.startedKeys, [
+      'Show-03',
+      'Show-04',
+      'Show-01',
+      'Show-06',
+      'Show-07',
+      'Show-06',
+    ]);
+    expect(
+      container.read(torrentManagerProvider).torrents['Show-06']?.errorMessage,
+      isNull,
+    );
+  });
+
+  test('series folder failures release all rows for retry', () async {
+    final manager = container.read(foregroundTorrentManagerProvider.notifier);
+    final releases = [_release('01'), _release('02')];
+    await expectLater(
+      manager.startSeriesDownloads(releases, ''),
+      throwsA(isA<FileSystemException>()),
+    );
+    expect(runtime.startedKeys, isEmpty);
+    for (final entry in releases) {
+      final row = container
+          .read(torrentManagerProvider)
+          .torrents[entry.torrentKey]!;
+      expect(row.canQueue, isTrue);
+      expect(row.errorMessage, contains('Choose a download folder'));
+    }
+    await manager.startSeriesDownloads(releases, downloadDirectory.path);
+    expect(runtime.startedKeys, ['Show-01', 'Show-02']);
+  });
+
+  test(
+    'only an explicit redownload restarts a completed local transfer',
+    () async {
+      final manager = container.read(foregroundTorrentManagerProvider.notifier);
+      final release = _release('01');
+      await manager.startSeriesDownloads([release], downloadDirectory.path);
+      final finish = Completer<void>();
+      runtime.onFinalise = (_) => finish.future;
+      runtime.emit(_completedStats);
+      await _waitUntil(() => runtime.finalisedIds.isNotEmpty);
+      await manager.startSeriesDownloads([release], downloadDirectory.path);
+      await manager.startDownload(
+        release.torrentKey,
+        _magnet,
+        downloadDirectory.path,
+      );
+      final redownload = manager.startDownload(
+        release.torrentKey,
+        _magnet,
+        downloadDirectory.path,
+        redownload: true,
+      );
+      expect(runtime.startedKeys, [release.torrentKey]);
+      finish.complete();
+      await redownload;
+      expect(runtime.startedKeys, [release.torrentKey, release.torrentKey]);
+      expect(
+        container
+            .read(torrentManagerProvider)
+            .torrents[release.torrentKey]
+            ?.isDownloading,
+        isTrue,
+      );
+    },
+  );
 }
+
+ShowInfo _release(String episode, {bool hasLink = true}) => ShowInfo(
+  downloads: [
+    if (hasLink)
+      ShowDownloadInfo(resolution: ShowResolution.r720, magnet: _magnet),
+  ],
+  episode: episode,
+  imageUrl: '',
+  page: 'show',
+  releaseDate: DateTime.utc(2026),
+  show: 'Show',
+  timeLabel: '',
+  xdcc: '',
+);
 
 const String _magnet =
     'magnet:?xt=urn:btih:0123456789012345678901234567890123456789';
@@ -214,6 +352,8 @@ class FakeTorrentRuntime implements TorrentRuntime {
   final List<int> cancelledIds = <int>[];
   Future<void> Function(int id)? onFinalise;
   Future<void> Function()? onPauseAll;
+  final List<String> startedKeys = [];
+  Future<void> Function(String key)? onStart;
 
   bool get hasStatsListener => _stats.hasListener;
 
@@ -230,7 +370,12 @@ class FakeTorrentRuntime implements TorrentRuntime {
     required String magnet,
     required String path,
     String? displayName,
-  }) async => (torrentId, _stats.stream);
+  }) async {
+    startedKeys.add(displayName!);
+    final id = torrentId + startedKeys.length - 1;
+    await onStart?.call(displayName);
+    return (id, _stats.stream);
+  }
 
   @override
   Future<void> finalise(int id) async {

@@ -263,6 +263,7 @@ class TorrentTaskHandler extends TaskHandler {
       // Invalidate a pending all-complete shutdown before this start waits for
       // earlier commands. The delayed callback rechecks the same generation.
       if (command['type'] == 'start_download' ||
+          command['type'] == 'start_downloads' ||
           command['type'] == 'widget_downloads_pending' ||
           (_torrentIds.isEmpty && command['type'] == 'request_service_state')) {
         _completionStopController.invalidate();
@@ -313,6 +314,17 @@ class TorrentTaskHandler extends TaskHandler {
     switch (type) {
       case 'start_download':
         await _startDownload(command);
+        break;
+      case 'start_downloads':
+        for (final download in (command['downloads'] as List).cast<Map>()) {
+          if (!_serviceReady) return;
+          await _startDownload({
+            'torrentKey': download['torrentKey'],
+            'magnetUri': download['magnetUri'],
+            'downloadPath': command['downloadPath'],
+            'redownload': command['redownload'],
+          });
+        }
         break;
       case 'widget_downloads_pending':
         await _consumeWidgetDownloads();

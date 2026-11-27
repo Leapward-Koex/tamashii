@@ -167,7 +167,7 @@ class _ShowInfoMatchSheetState extends ConsumerState<ShowInfoMatchSheet> {
     final canSave = canEdit && chosen != null;
     final scope = releaseOnly
         ? 'Applies only to this release.'
-        : 'Applies to the regular episodes of this show.';
+        : 'Applies to this series.';
     final keyboard = MediaQuery.viewInsetsOf(context).bottom;
     final compact = MediaQuery.sizeOf(context).height - keyboard < 320;
     final actions = [
@@ -321,7 +321,6 @@ class _ShowInfoMatchSheetState extends ConsumerState<ShowInfoMatchSheet> {
                                 type,
                               if (entry.episodes case final count?) '$count ep',
                               entry.airingLabel,
-                              'MAL #${entry.malId}',
                               if (entry.malId == currentId) 'Current',
                             ].join(' · '),
                           ].join('\n'),

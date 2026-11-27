@@ -5,6 +5,7 @@ import android.app.Application
 import android.app.job.JobInfo
 import android.app.job.JobScheduler
 import android.content.Context
+import android.content.Intent
 import android.os.Environment
 import java.time.Instant
 import java.time.LocalDate
@@ -145,8 +146,30 @@ class TodayWidgetHostTest {
         ShadowEnvironment.reset()
         TodayWidgetHost.publish(app, catalog())
         assertEquals(TodayWidgetState.SETUP, TodayWidgetHost.content(app).rows.single().state)
-        TodayWidgetHost.onDownload(app, key, LocalDate.now())
+        val date = LocalDate.now()
+        val copied = Intent(TodayWidgetHost.SETUP).putExtra("episode", key).putExtra("date", date.toString())
+        assertNull(TodayWidgetHost.downloadSetup(app, copied))
+        val setup = requireNotNull(TodayWidgetHost.onDownload(app, key, date))
+        assertNull(TodayWidgetHost.downloadSetup(app, Intent(setup).putExtra("date", date.minusDays(1).toString())))
+        assertEquals(mapOf("title" to title, "torrentKey" to key, "magnet" to "magnet:test"),
+            TodayWidgetHost.downloadSetup(app, setup))
+        assertNull(TodayWidgetHost.downloadSetup(app, setup))
         assertTrue(TodayWidgetHost.pendingDownloads(app).isEmpty())
+        val secondTap = TodayWidgetHost.onDownload(app, key, date)
+        TodayWidgetHost.transferState(app, mapOf("torrentKey" to key, "status" to "completed"))
+        assertNull(TodayWidgetHost.downloadSetup(app, secondTap))
+    }
+
+    @Test
+    fun setupStillTargetsTheEpisodeIfTheAppPublishesItsFolderDuringLaunch() {
+        val date = LocalDate.now()
+        TodayWidgetHost.publish(app, catalog() + ("watching" to listOf(
+            mapOf("title" to title, "weekday" to date.dayOfWeek.value, "folder" to ""),
+        )))
+        val setup = TodayWidgetHost.onDownload(app, key, date)
+        TodayWidgetHost.publish(app, catalog())
+        assertEquals(TodayWidgetState.READY, TodayWidgetHost.content(app).rows.single().state)
+        assertEquals(key, TodayWidgetHost.downloadSetup(app, setup)?.get("torrentKey"))
     }
 
     @Test

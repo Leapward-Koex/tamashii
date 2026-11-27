@@ -152,6 +152,70 @@ void main() {
     },
   );
 
+  test('the foreground service starts a series in order, skips duplicates and continues after a failed release', () async {
+    await writeDownloadedTorrentKey('Night-02', true);
+    final states = <String, String>{};
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      if (call.method == 'pendingDownloads') return [];
+      if (call.method == 'transferState') {
+        states[call.arguments['torrentKey']] = call.arguments['status'];
+      }
+      return null;
+    });
+    final starts = <(String?, String, String)>[];
+    final firstStart = Completer<void>();
+    final runtime = _Runtime()
+      ..beforeStart = (key, magnet, path) async {
+        starts.add((key, magnet, path));
+        if (key == 'Night-01') await firstStart.future;
+        if (key == 'Night-03') throw StateError('Unavailable magnet');
+      };
+    final network = MutableNetworkStatusSource();
+    final handler = TorrentTaskHandler(
+      runtime: runtime,
+      policyRuntime: runtime,
+      network: network,
+    );
+    await handler.onStart(DateTime.now(), TaskStarter.developer);
+    try {
+      handler.onReceiveData({
+        'type': 'start_downloads',
+        'downloadPath': 'series-folder',
+        'redownload': false,
+        'downloads': [
+          for (final key in [
+            'Night-01',
+            'Night-01',
+            'Night-02',
+            'Night-03',
+            'Night-04',
+          ])
+            {'torrentKey': key, 'magnetUri': 'magnet-$key'},
+        ],
+      });
+      await _until(() => starts.isNotEmpty);
+      expect(starts, [('Night-01', 'magnet-Night-01', 'series-folder')]);
+      firstStart.complete();
+      await _until(() => states['Night-04'] == 'queued');
+      expect(starts, [
+        ('Night-01', 'magnet-Night-01', 'series-folder'),
+        ('Night-03', 'magnet-Night-03', 'series-folder'),
+        ('Night-04', 'magnet-Night-04', 'series-folder'),
+      ]);
+      expect(states, {
+        'Night-01': 'queued',
+        'Night-02': 'completed',
+        'Night-03': 'failed',
+        'Night-04': 'queued',
+      });
+    } finally {
+      if (!firstStart.isCompleted) firstStart.complete();
+      await handler.onDestroy(DateTime.now(), false);
+      await runtime.stats.close();
+      await network.close();
+    }
+  });
+
   test('a closed-app tap starts once, reports progress, and persists completion without a UI listener', () async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     AndroidFlutterLocalNotificationsPlugin.registerWith();
@@ -265,6 +329,7 @@ Future<void> _until(bool Function() matches) async {
 }
 
 class _Runtime extends Fake implements TorrentRuntime, TorrentTransferRuntime {
+  Future<void> Function(String? key, String magnet, String path)? beforeStart;
   int starts = 0;
   int finalisations = 0;
   final stats = StreamController<TorrentStats>.broadcast();
@@ -279,7 +344,11 @@ class _Runtime extends Fake implements TorrentRuntime, TorrentTransferRuntime {
     required String magnet,
     required String path,
     String? displayName,
-  }) async => (++starts, stats.stream);
+  }) async {
+    await beforeStart?.call(displayName, magnet, path);
+    return (++starts, stats.stream);
+  }
+
   @override
   Future<void> finalise(int id) async {
     finalisations++;

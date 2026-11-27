@@ -84,6 +84,45 @@ void main() {
         InMemorySharedPreferencesAsync.empty();
   });
 
+  testWidgets('the GitHub link opens the project and reports launch failure', (
+    tester,
+  ) async {
+    _setMockPreferences({'auto_generate_folders': false});
+    final opened = <Uri>[];
+    var launchSucceeds = true;
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(
+            body: SettingsPage(
+              platform: TargetPlatform.windows,
+              openExternal: (uri) async {
+                opened.add(uri);
+                return launchSucceeds;
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final link = find.text('Tamashii on GitHub');
+    final repository = Uri.parse('https://github.com/Leapward-Koex/tamashii');
+    final failure = find.text('Unable to open GitHub.');
+    await tester.scrollUntilVisible(link, 220);
+    await tester.tap(link);
+    await tester.pumpAndSettle();
+    expect(opened, [repository]);
+    expect(failure, findsNothing);
+
+    launchSucceeds = false;
+    await tester.tap(link);
+    await tester.pumpAndSettle();
+    expect(opened, [repository, repository]);
+    expect(failure, findsOneWidget);
+  });
+
   testWidgets('shows Android data-policy controls with stable keys', (
     WidgetTester tester,
   ) async {

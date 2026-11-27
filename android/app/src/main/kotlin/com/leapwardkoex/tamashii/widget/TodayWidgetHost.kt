@@ -38,6 +38,7 @@ object TodayWidgetHost {
     private const val STORE = "tamashii_widget"
     private const val CATALOG = "catalog"
     private const val PENDING = "pending"
+    private const val SETUP_TARGET = "setupTarget"
     private const val REFRESH_JOB = 0x5457
     private const val START_TIMEOUT = 60_000L
     const val SETUP = "com.leapwardkoex.tamashii.WIDGET_SETUP"
@@ -151,17 +152,20 @@ object TodayWidgetHost {
     fun content(context: Context) =
         project(context, catalog(saved(context)), pending(context).keys().asSequence().toSet())
 
-    fun onDownload(context: Context, episodeKey: String, localDate: LocalDate) {
+    fun onDownload(context: Context, episodeKey: String, localDate: LocalDate): Intent? {
         val current = content(context)
         val row = current.rows.find { it.episodeKey == episodeKey }
+        if (current.date == localDate && row?.state == TodayWidgetState.SETUP) {
+            return setupIntent(context, episodeKey, localDate)
+        }
         if (current.date != localDate || row?.state !in setOf(TodayWidgetState.READY, TodayWidgetState.FAILED)) {
             TodayWidgetProvider.redraw(context)
-            return
+            return null
         }
         val options = saved(context).optJSONObject("serviceOptions")
         if (options == null || !options.has("callbackHandle")) {
             onEnabled(context)
-            return
+            return null
         }
         transfers.remove(episodeKey)
         val requests = pending(context).put(episodeKey, System.currentTimeMillis())
@@ -185,6 +189,7 @@ object TodayWidgetHost {
             if (!service.isRunningService()) starting = false
             TodayWidgetProvider.redraw(context)
         }, START_TIMEOUT + 100)
+        return null
     }
 
     fun pendingDownloads(context: Context, now: Instant = Instant.now()): List<Map<String, String>> {
@@ -240,17 +245,27 @@ object TodayWidgetHost {
         TodayWidgetProvider.redraw(context)
     }
 
-    fun setupIntent(context: Context, episodeKey: String, localDate: LocalDate): Intent =
-        Intent(context, MainActivity::class.java).setAction(SETUP)
-            .setIdentifier("${localDate}/${episodeKey}").putExtra("episode", episodeKey)
-            .putExtra("date", localDate.toString()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+    private fun setupIntent(context: Context, episodeKey: String, localDate: LocalDate): Intent {
+        // Only the private widget action can authorize a setup that continues a download.
+        prefs(context).edit().putString(SETUP_TARGET, "$localDate/$episodeKey").apply()
+        return Intent(context, MainActivity::class.java).setAction(SETUP)
+            .putExtra("episode", episodeKey)
+            .putExtra("date", localDate.toString())
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+    }
 
-    fun setupTitle(context: Context, intent: Intent?): String? {
+    fun downloadSetup(context: Context, intent: Intent?): Map<String, String>? {
         if (intent?.action != SETUP) return null
-        val current = content(context)
-        if (intent.getStringExtra("date") != current.date.toString()) return null
-        return current.rows.find { it.episodeKey == intent.getStringExtra("episode") &&
-            it.state == TodayWidgetState.SETUP }?.title
+        val key = intent.getStringExtra("episode") ?: return null
+        val date = intent.getStringExtra("date") ?: return null
+        val preferences = prefs(context)
+        if (preferences.getString(SETUP_TARGET, null) != "$date/$key") return null
+        preferences.edit().remove(SETUP_TARGET).apply()
+        val source = catalog(saved(context))
+        val current = project(context, source, pending(context).keys().asSequence().toSet())
+        if (date != current.date.toString() || current.rows.none { it.episodeKey == key && it.action().canDownload }) return null
+        val release = source.releases.getValue(key)
+        return mapOf("title" to release.title, "torrentKey" to key, "magnet" to release.magnet)
     }
 
     fun onEnabled(context: Context) {

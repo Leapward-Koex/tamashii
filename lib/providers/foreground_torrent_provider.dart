@@ -9,6 +9,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart'
     show ProviderListenableSelect;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:simple_torrent/simple_torrent.dart';
+import 'package:tamashii/models/show_models.dart';
 import 'package:tamashii/providers/downloaded_torrents_provider.dart';
 import 'package:tamashii/providers/torrent_download_provider.dart';
 import 'package:tamashii/services/foreground_service_lifecycle.dart';
@@ -156,6 +157,7 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
   NetworkStatus? _expectedNetworkStatus;
   final Map<int, Completer<Map<String, dynamic>>> _testQueryCompleters = {};
   final Map<int, _PendingTorrentCommand> _pendingTorrentCommands = {};
+  final Set<String> _pendingStartKeys = {};
 
   @override
   TorrentManagerState build() {
@@ -676,7 +678,11 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
   void _checkAndStopServiceIfIdle() {
     // Stop service if no active downloads and all torrents are complete or removed
     final activeTorrents = state.torrents.values
-        .where((torrent) => torrent.torrentId != null && !torrent.isCompleted)
+        .where(
+          (torrent) =>
+              torrent.isLoading ||
+              torrent.torrentId != null && !torrent.isCompleted,
+        )
         .length;
 
     if (activeTorrents == 0 && _isServiceRunning) {
@@ -699,75 +705,105 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
       // On non-Android platforms, fall back to the standard torrent manager
       await ref
           .read(torrentManagerProvider.notifier)
-          .startDownload(torrentKey, magnetUri, downloadPath);
+          .startDownload(
+            torrentKey,
+            magnetUri,
+            downloadPath,
+            redownload: redownload,
+          );
       return;
     }
 
-    // Android: proceed with foreground-service based logic
-
-    // Set loading state immediately
-    final currentState =
-        state.torrents[torrentKey] ?? const TorrentDownloadState();
-    _updateTorrentState(
-      torrentKey,
-      currentState.copyWith(isLoading: true, clearError: true),
-    );
-
+    final current = state.torrents[torrentKey];
+    if (_pendingStartKeys.contains(torrentKey) ||
+        (current != null &&
+            !current.canQueue &&
+            !(redownload && current.isCompleted))) {
+      return;
+    }
     try {
-      if (!networkPolicyTestHookEnabled) {
-        // Integration tests use an app-writable temporary directory and never
-        // bypass storage permission checks in production builds.
-        print('🔐 Checking storage permissions for $torrentKey');
-        final hasPermissions = await PermissionService.hasStoragePermissions();
-
-        if (!hasPermissions) {
-          print('🔒 Storage permissions not granted, requesting...');
-          final granted = await PermissionService.requestStoragePermissions();
-
-          if (!granted) {
-            throw Exception(
-              'Storage permissions are required to download torrents. '
-              'Please grant storage access in app settings.',
-            );
-          }
-          print('✅ Storage permissions granted');
-        }
-      }
-
-      final directoryError = await PermissionService.validateDownloadDirectory(
+      await _submitAndroidDownloads(
+        {torrentKey: magnetUri},
         downloadPath,
+        redownload: redownload,
       );
-      if (directoryError != null) {
-        throw FileSystemException(directoryError, downloadPath);
-      }
+    } on ForegroundNotificationPermissionException {
+      rethrow;
+    } catch (_) {
+      // Single-release callers display the error stored on the transfer.
+    }
+  }
 
-      // A pending stricter network-policy update must take effect before a
-      // start can cross into the background engine.
+  /// Adds each eligible release in the supplied order. The manager retains the
+  /// work when the series page closes.
+  Future<void> startSeriesDownloads(
+    List<ShowInfo> releases,
+    String path,
+  ) async {
+    final downloaded = await ref.read(downloadedTorrentsProvider.future);
+    final transfers = Platform.isAndroid
+        ? state
+        : ref.read(torrentManagerProvider);
+    final magnets = <String, String>{
+      for (final release in releases)
+        if (!downloaded.contains(release.torrentKey) &&
+            transfers.torrents[release.torrentKey]?.canQueue != false)
+          if (release.bestDownload case final download?)
+            release.torrentKey: download.magnet,
+    };
+    if (magnets.isEmpty) return;
+    if (Platform.isAndroid) {
+      await _submitAndroidDownloads(magnets, path);
+    } else {
+      await ref
+          .read(torrentManagerProvider.notifier)
+          .startDownloads(magnets, path);
+    }
+  }
+
+  Future<void> _submitAndroidDownloads(
+    Map<String, String> magnets,
+    String path, {
+    bool redownload = false,
+  }) async {
+    _pendingStartKeys.addAll(magnets.keys);
+    state = state.copyWith(
+      torrents: {
+        ...state.torrents,
+        for (final key in magnets.keys)
+          key: const TorrentDownloadState(isLoading: true),
+      },
+    );
+    try {
+      await PermissionService.prepareDownloadDirectory(
+        path,
+        checkStoragePermission: !networkPolicyTestHookEnabled,
+      );
+      // Observe policy changes on both sides of service startup.
       await _policyUpdateQueue;
-
-      // Re-check the platform service rather than trusting UI-isolate state;
-      // the foreground task may have stopped after all earlier downloads.
       await _startForegroundServiceIfNeeded();
       await _policyUpdateQueue;
 
-      // Send command to service
       FlutterForegroundTask.sendDataToTask({
-        'type': 'start_download',
-        'torrentKey': torrentKey,
-        'magnetUri': magnetUri,
-        'downloadPath': downloadPath,
+        'type': 'start_downloads',
+        'downloads': [
+          for (final entry in magnets.entries)
+            {'torrentKey': entry.key, 'magnetUri': entry.value},
+        ],
+        'downloadPath': path,
         'redownload': redownload,
       });
-    } catch (e) {
-      // Handle permission errors
-      print('❌ Failed to start download for $torrentKey: $e');
-      _updateTorrentState(
-        torrentKey,
-        currentState.copyWith(errorMessage: e.toString(), isLoading: false),
+    } catch (error) {
+      _pendingStartKeys.removeAll(magnets.keys);
+      state = state.copyWith(
+        torrents: {
+          ...state.torrents,
+          for (final key in magnets.keys)
+            if (state.torrents[key]?.torrentId == null)
+              key: TorrentDownloadState(errorMessage: error.toString()),
+        },
       );
-      if (e is ForegroundNotificationPermissionException) {
-        rethrow;
-      }
+      rethrow;
     }
   }
 
@@ -1124,6 +1160,7 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
                 message['serviceInstanceId'] as String?,
               ) &&
               torrentKey is String) {
+            _pendingStartKeys.remove(torrentKey);
             final transfer = state.torrents[torrentKey];
             if (transfer != null && transfer.isLoading) {
               _updateTorrentState(
@@ -1180,6 +1217,7 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
     final int? torrentId = data['torrentId'];
 
     if (torrentKey != null && torrentId != null) {
+      _pendingStartKeys.remove(torrentKey);
       final currentState =
           state.torrents[torrentKey] ?? const TorrentDownloadState();
       final newState = currentState.copyWith(
@@ -1343,6 +1381,7 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
     if (data['isServiceSnapshot'] == true) {
       for (final entry in newTorrents.entries.toList()) {
         if (!snapshotTorrentKeys.contains(entry.key) &&
+            !_pendingStartKeys.contains(entry.key) &&
             _isIncompleteLiveTransfer(entry.value)) {
           newTorrents[entry.key] = _stoppedTransferFailure(entry.value);
         }
@@ -1394,6 +1433,7 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
   }
 
   void _markIncompleteDownloadsAsFailed(String message) {
+    _pendingStartKeys.clear();
     final newTorrents = Map<String, TorrentDownloadState>.from(state.torrents);
     var changed = false;
     for (final entry in newTorrents.entries.toList()) {
@@ -1426,6 +1466,7 @@ class ForegroundTorrentManager extends _$ForegroundTorrentManager {
     }
 
     if (torrentKey != null && message != null) {
+      _pendingStartKeys.remove(torrentKey);
       final currentState =
           state.torrents[torrentKey] ?? const TorrentDownloadState();
       final newState = currentState.copyWith(

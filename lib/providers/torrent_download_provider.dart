@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -63,6 +62,8 @@ class TorrentDownloadState {
   double get progressFraction => stats?.progress ?? 0;
   int get downloadRate => stats?.downloadRate ?? 0;
   bool get isCompleted => (stats?.progress ?? 0) >= 1.0;
+  bool get canQueue =>
+      !isLoading && !isPaused && torrentId == null && !isCompleted;
   int get uploadRate => stats?.uploadRate ?? 0;
   bool get isDownloading =>
       torrentId != null && !isPaused && (stats?.progress ?? 0) < 1.0;
@@ -142,57 +143,81 @@ class TorrentManager extends _$TorrentManager {
   Future<void> startDownload(
     String showId,
     String magnetLink,
-    String path,
-  ) async {
-    final current = state.torrents[showId] ?? const TorrentDownloadState();
-    if (current.isLoading || current.torrentId != null) return;
+    String path, {
+    bool redownload = false,
+  }) async {
+    final current = state.torrents[showId];
+    final id = current?.torrentId;
+    if (redownload && id != null && current!.isCompleted) {
+      // A completed torrent still owns its native handle until finalisation.
+      await _finaliseCompletedTorrent(id, showId);
+      if (state.torrents[showId]?.torrentId != id ||
+          !_finalisedTorrentIds.remove(id)) {
+        return;
+      }
+      _update(showId, const TorrentDownloadState());
+    }
+    try {
+      await startDownloads({showId: magnetLink}, path);
+    } catch (_) {
+      // Single-release callers display the error stored on the transfer.
+    }
+  }
 
-    _update(showId, current.copyWith(isLoading: true, clearError: true));
+  /// Reserves every row before submitting transfers to the engine in order.
+  Future<void> startDownloads(Map<String, String> magnets, String path) async {
+    final pending = Map.of(magnets)
+      ..removeWhere((key, _) => state.torrents[key]?.canQueue == false);
+    if (pending.isEmpty) return;
+    state = state.copyWith(
+      torrents: {
+        ...state.torrents,
+        for (final key in pending.keys)
+          key: const TorrentDownloadState(isLoading: true),
+      },
+    );
 
     try {
-      // Check storage permissions before starting download
-      debugPrint('🔐 Checking storage permissions for $showId');
-      final hasPermissions = await PermissionService.hasStoragePermissions();
-
-      if (!hasPermissions) {
-        debugPrint('🔒 Storage permissions not granted, requesting...');
-        final granted = await PermissionService.requestStoragePermissions();
-
-        if (!granted) {
-          throw Exception(
-            'Storage permissions are required to download torrents. Please grant storage access in app settings.',
-          );
-        }
-        debugPrint('✅ Storage permissions granted');
-      }
-
-      final directoryError = await PermissionService.validateDownloadDirectory(
+      await PermissionService.prepareDownloadDirectory(
         path,
+        checkStoragePermission: true,
       );
-      if (directoryError != null) {
-        throw FileSystemException(directoryError, path);
+    } catch (error) {
+      state = state.copyWith(
+        torrents: {
+          ...state.torrents,
+          for (final key in pending.keys)
+            key: TorrentDownloadState(
+              errorMessage: describeTorrentError(error),
+            ),
+        },
+      );
+      rethrow;
+    }
+
+    var failures = 0;
+    for (final entry in pending.entries) {
+      final key = entry.key;
+      try {
+        final (id, statsStream) = await _runtime.startAndWatch(
+          magnet: resolveTorrentMagnetUri(entry.value),
+          path: path,
+          displayName: key,
+        );
+        _finalisedTorrentIds.remove(id);
+        _listenToTorrent(id, key, statsStream, path);
+        _update(key, TorrentDownloadState(torrentId: id));
+      } catch (error) {
+        failures++;
+        _update(
+          key,
+          TorrentDownloadState(errorMessage: describeTorrentError(error)),
+        );
       }
-
-      // Use SimpleTorrentHelpers for enhanced functionality
-      final (id, statsStream) = await _runtime.startAndWatch(
-        magnet: resolveTorrentMagnetUri(magnetLink),
-        path: path,
-        displayName: 'Anime Episode', // Could be customized per show
-      );
-
-      // Native IDs are normally monotonic, but do not let an implementation
-      // that recycles IDs inherit completion state from an older torrent.
-      _finalisedTorrentIds.remove(id);
-      _listenToTorrent(id, showId, statsStream, path);
-      _update(showId, current.copyWith(torrentId: id, isLoading: false));
-
-      debugPrint('🎬 Started torrent for $showId with ID: $id');
-    } catch (e) {
-      final message = describeTorrentError(e);
-      debugPrint('❌ Failed to start torrent for $showId: $message');
-      _update(
-        showId,
-        current.copyWith(errorMessage: message, isLoading: false),
+    }
+    if (failures > 0) {
+      throw StateError(
+        'Failed to start $failures of ${pending.length} downloads. See Downloads for details.',
       );
     }
   }
@@ -265,14 +290,13 @@ class TorrentManager extends _$TorrentManager {
   }
 
   Future<void> _finaliseCompletedTorrent(int torrentId, String showId) {
-    if (_finalisedTorrentIds.contains(torrentId) ||
-        _stoppingTorrentIds.contains(torrentId)) {
-      return Future<void>.value();
-    }
-
     final existing = _finaliseOperations[torrentId];
     if (existing != null) {
       return existing;
+    }
+    if (_finalisedTorrentIds.contains(torrentId) ||
+        _stoppingTorrentIds.contains(torrentId)) {
+      return Future<void>.value();
     }
 
     late final Future<void> operation;

@@ -1,4 +1,4 @@
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/widget_row"
     android:layout_width="match_parent" android:layout_height="wrap_content"
     android:minHeight="52dp" android:orientation="horizontal" android:gravity="center_vertical"
     android:paddingTop="2dp" android:paddingBottom="2dp">

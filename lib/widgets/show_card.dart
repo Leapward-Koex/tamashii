@@ -187,7 +187,7 @@ class ShowCard extends ConsumerWidget {
               open(show);
             } else {
               Navigator.of(context).push<void>(
-                MaterialPageRoute(builder: (_) => ShowInfoPage.release(show)),
+                MaterialPageRoute(builder: (_) => ShowInfoPage.series(show)),
               );
             }
           },

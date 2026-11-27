@@ -15,11 +15,37 @@ import 'package:tamashii/providers/on_device_ai_provider.dart';
 import 'package:tamashii/providers/settings_provider.dart';
 import 'package:tamashii/services/transfer_policy.dart';
 import 'package:tamashii/theme/paper_lantern.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class SettingsPage extends ConsumerWidget {
-  const SettingsPage({this.platform, super.key});
+  const SettingsPage({
+    this.platform,
+    this.openExternal = _openExternal,
+    super.key,
+  });
 
   final TargetPlatform? platform;
+  final Future<bool> Function(Uri) openExternal;
+
+  static Future<bool> _openExternal(Uri uri) =>
+      launchUrl(uri, mode: LaunchMode.externalApplication);
+
+  Future<void> _openRepository(BuildContext context) async {
+    try {
+      if (await openExternal(
+        Uri.https('github.com', '/Leapward-Koex/tamashii'),
+      )) {
+        return;
+      }
+    } on Exception {
+      // The platform could not open the repository in a browser.
+    }
+    if (context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Unable to open GitHub.')));
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -334,6 +360,13 @@ class SettingsPage extends ConsumerWidget {
                 ),
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(child: Text('Error: $e')),
+        ),
+        const SizedBox(height: 20),
+        const PaperSectionHeading('About'),
+        ListTile(
+          title: const Text('Tamashii on GitHub'),
+          trailing: const Icon(Icons.open_in_new),
+          onTap: () => _openRepository(context),
         ),
       ],
     );

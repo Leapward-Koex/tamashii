@@ -11,6 +11,7 @@ class ShowImage extends ConsumerWidget {
   final String imageUrl;
   final String? fallbackImageUrl;
   final bool faceAware;
+  final bool fullResolution;
   final double? width;
   final double? height;
   final BoxFit fit;
@@ -20,6 +21,7 @@ class ShowImage extends ConsumerWidget {
     required this.imageUrl,
     this.fallbackImageUrl,
     this.faceAware = false,
+    this.fullResolution = false,
     this.width,
     this.height,
     this.fit = BoxFit.cover,
@@ -42,6 +44,7 @@ class ShowImage extends ConsumerWidget {
         height: height,
         fit: fit,
         faceAware: canFrameFaces,
+        fullResolution: fullResolution,
       );
     }
 
@@ -124,6 +127,7 @@ class ShowImage extends ConsumerWidget {
       );
     }
 
+    if (fullResolution) return buildImage(null, null);
     if (width != null && height != null) {
       return buildImage(width, height);
     }

@@ -12,8 +12,6 @@
     <string name="today_widget_loading">Checking your watchlist…</string>
     <string name="today_widget_initial">Open Tamashii to load your watchlist.</string>
     <string name="today_widget_download">Download</string>
-    <string name="today_widget_setup">Set up</string>
-    <string name="today_widget_setup_hint">Set up downloads in Tamashii</string>
     <string name="today_widget_retry">Retry</string>
     <string name="today_widget_queued">Queued</string>
     <string name="today_widget_downloading">Downloading</string>

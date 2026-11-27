@@ -1,11 +1,21 @@
 // lib/providers/subsplease_api_providers.dart
 
+import 'dart:async';
+
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:tamashii/api/api_client.dart';
 import 'package:tamashii/providers/cached_episodes_provider.dart';
 import 'package:tamashii/models/show_models.dart';
 
 part 'subsplease_api_providers.g.dart';
+
+// Keep complete responses available on the first frame of a return visit.
+void _cacheShowDetails(Ref ref) {
+  if (!ref.mounted) return;
+  final link = ref.keepAlive();
+  final timer = Timer(const Duration(minutes: 10), link.close);
+  ref.onDispose(timer.cancel);
+}
 
 @riverpod
 SubsPleaseApi subsPleaseApi(Ref ref) {
@@ -21,7 +31,9 @@ Future<List<ShowInfo>> latestShows(Ref ref) async {
 @riverpod
 Future<List<ShowInfo>> searchShows(Ref ref, String searchTerm) async {
   final api = ref.watch(subsPleaseApiProvider);
-  return await api.getShowsFromSearch(searchTerm);
+  final releases = await api.getShowsFromSearch(searchTerm);
+  if (releases.isNotEmpty) _cacheShowDetails(ref);
+  return releases;
 }
 
 @riverpod
@@ -43,5 +55,7 @@ Future<List<ShowInfo>> filteredShows(Ref ref, String searchTerm) async {
 @riverpod
 Future<String?> showSynopsis(Ref ref, String showPage) async {
   final api = ref.watch(subsPleaseApiProvider);
-  return await api.getShowSynopsis(showPage);
+  final synopsis = await api.getShowSynopsis(showPage);
+  if (synopsis != null && synopsis.trim().isNotEmpty) _cacheShowDetails(ref);
+  return synopsis;
 }

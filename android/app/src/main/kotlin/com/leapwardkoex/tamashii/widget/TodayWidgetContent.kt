@@ -55,7 +55,7 @@ internal data class WidgetAction(
 
 internal fun TodayWidgetRow.action(): WidgetAction {
     val canDownload = !episodeKey.isNullOrEmpty() &&
-        (state == TodayWidgetState.READY || state == TodayWidgetState.FAILED)
+        (state == TodayWidgetState.READY || state == TodayWidgetState.SETUP || state == TodayWidgetState.FAILED)
     val showProgress = state.section == WidgetSection.TRANSFERS
     val percent = progress?.coerceIn(0, 100)
     val indeterminate = percent == null && (state == TodayWidgetState.QUEUED || state == TodayWidgetState.DOWNLOADING)

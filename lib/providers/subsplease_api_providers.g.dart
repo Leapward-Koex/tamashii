@@ -144,7 +144,7 @@ final class SearchShowsProvider
   }
 }
 
-String _$searchShowsHash() => r'7eb8ebb488f21c1d3c09dbd809a7fcebc8cc2ea3';
+String _$searchShowsHash() => r'2a37f5af75fb84a4835263b2b68faf2fcca2d0be';
 
 final class SearchShowsFamily extends $Family
     with $FunctionalFamilyOverride<FutureOr<List<ShowInfo>>, String> {
@@ -288,7 +288,7 @@ final class ShowSynopsisProvider
   }
 }
 
-String _$showSynopsisHash() => r'628c445a90cbee14311e9e9efd9e2061d45ffe19';
+String _$showSynopsisHash() => r'005cd691dd8c954e4d0f23f02567873de9164de5';
 
 final class ShowSynopsisFamily extends $Family
     with $FunctionalFamilyOverride<FutureOr<String?>, String> {

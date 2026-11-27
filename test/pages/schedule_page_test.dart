@@ -71,6 +71,7 @@ void main() {
     List<BookmarkedShowInfo> initialBookmarks = const <BookmarkedShowInfo>[],
     List<ShowInfo> releases = const [],
     bool openAddSheet = true,
+    DateTime? today,
   }) async {
     SharedPreferences.setMockInitialValues(<String, Object>{
       'auto_generate_folders': true,
@@ -90,13 +91,20 @@ void main() {
           tenraiApiProvider.overrideWithValue(tenraiApi),
           torrentManagerProvider.overrideWithValue(const TorrentManagerState()),
         ],
-        child: MaterialApp(theme: PaperLantern.theme, home: const HomePage()),
+        child: MaterialApp(
+          theme: PaperLantern.theme,
+          home: today == null
+              ? const HomePage()
+              : Scaffold(body: SchedulePage(today: today)),
+        ),
       ),
     );
 
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Schedule'));
-    await tester.pumpAndSettle();
+    if (today == null) {
+      await tester.tap(find.text('Schedule'));
+      await tester.pumpAndSettle();
+    }
     if (openAddSheet) {
       await tester.tap(find.byKey(HomePage.scheduleAddFabKey));
       await tester.pumpAndSettle();
@@ -121,7 +129,7 @@ void main() {
   }
 
   testWidgets(
-    'fixing a Home special leaves its Schedule series and sibling special alone',
+    'Home releases and Schedule open the same series and catalog match',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(450, 1000));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -180,18 +188,23 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.byType(ShowInfoPage), findsOneWidget);
-      await tester.tap(find.text('Review 1 match'));
+      expect(find.text('Series info'), findsOneWidget);
+      expect(find.text('Matched automatically'), findsOneWidget);
+      expect(find.text(regular.title), findsOneWidget);
+      await tester.tap(find.text('Fix match'));
       await tester.pumpAndSettle();
-      expect(find.text('Applies only to this release.'), findsOneWidget);
-      await tester.tap(find.byKey(ShowInfoMatchSheet.entryKey(special.malId)));
+      final sheet = tester.widget<ShowInfoMatchSheet>(
+        find.byType(ShowInfoMatchSheet),
+      );
+      expect(sheet.target.episode, isNull);
+      await tester.tap(find.byKey(ShowInfoMatchSheet.entryKey(regular.malId)));
       await tester.pump();
       await tester.tap(find.text('Use this match'));
       await tester.pumpAndSettle();
-      expect(find.text('MyAnimeList #49200'), findsOneWidget);
+      expect(find.text('Chosen by you'), findsOneWidget);
       await tester.pageBack();
       await tester.pumpAndSettle();
 
-      // The standard Home card also opens its own release.
       final standardTitle = find.descendant(
         of: find.byKey(ShowCard.standardCardKey(series)).first,
         matching: find.text(series),
@@ -199,36 +212,27 @@ void main() {
       await tester.ensureVisible(standardTitle);
       await tester.tap(standardTitle);
       await tester.pumpAndSettle();
-      expect(find.text('MyAnimeList #44074'), findsOneWidget);
+      expect(find.text('Chosen by you'), findsOneWidget);
+      expect(find.text(regular.title), findsOneWidget);
       await tester.pageBack();
       await tester.pumpAndSettle();
       await tester.tap(find.text('Schedule'));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(SchedulePage.showTileKey(series)));
       await tester.pumpAndSettle();
-      expect(find.text('MyAnimeList #44074'), findsOneWidget);
-      expect(find.text('Matched automatically'), findsOneWidget);
-
-      for (final ep in ['SP2', 'SP1']) {
-        final release = find.widgetWithText(ListTile, ep);
+      expect(find.text('Open MyAnimeList'), findsOneWidget);
+      expect(find.text(regular.title), findsOneWidget);
+      expect(find.text('Chosen by you'), findsOneWidget);
+      for (final show in shows) {
+        final release = find.byKey(ValueKey(show.torrentKey));
         await tester.ensureVisible(release);
-        await tester.tap(release);
-        await tester.pumpAndSettle();
-        if (ep == 'SP1') {
-          expect(find.text('Chosen by you'), findsOneWidget);
-          expect(find.text('MyAnimeList #49200'), findsOneWidget);
-        } else {
-          expect(find.text('Review 1 match'), findsOneWidget);
-          expect(find.text('Chosen by you'), findsNothing);
-        }
-        await tester.pageBack();
-        await tester.pumpAndSettle();
+        expect(tester.widget<ReleaseDownloadButton>(release).show, show);
       }
     },
   );
 
   testWidgets(
-    'weekly listings show dated weekdays and the next scheduled day',
+    'weekly listings keep the next scheduled day in place while swiping',
     (tester) async {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(320, 780);
@@ -239,6 +243,7 @@ void main() {
         tester,
         tenraiApi: createFakeTenraiApi(),
         openAddSheet: false,
+        today: DateTime(2026, 11, 23),
         initialBookmarks: const [
           BookmarkedShowInfo(
             showName: 'Monday series',
@@ -252,10 +257,7 @@ void main() {
           ),
         ],
       );
-      await tapWeekday(tester, DateTime.monday);
-      await tester.pumpAndSettle();
-      final now = DateTime.now();
-      final monday = DateTime(now.year, now.month, now.day - now.weekday + 1);
+      final monday = DateTime(2026, 11, 23);
       expect(
         find.bySemanticsLabel(RegExp(DateFormat.yMMMMEEEEd().format(monday))),
         findsOneWidget,
@@ -266,16 +268,30 @@ void main() {
       );
       final mondayName = tester.widget<Text>(find.text('Monday series'));
       expect(mondayName.style?.fontFamily, PaperLantern.serif);
-      await tester.ensureVisible(
-        find.text('Next · Thursday', skipOffstage: false).first,
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('Next · Thursday'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-
-      await tester.fling(find.byType(PageView), const Offset(-275, 0), 650);
+      final next = find.text('Up next · Thursday');
+      expect(next.hitTestable(), findsOneWidget);
+      final origin = tester.getTopLeft(next);
+      final mondayTile = find.byKey(SchedulePage.showTileKey('Monday series'));
+      final tileOrigin = tester.getTopLeft(mondayTile);
+      final gesture = await tester.startGesture(tester.getCenter(mondayTile));
+      await gesture.moveBy(const Offset(-32, 0));
+      await gesture.moveBy(const Offset(-185, 0));
+      await tester.pump();
+      expect(tester.getTopLeft(mondayTile).dx, lessThan(tileOrigin.dx));
+      expect(next, findsOneWidget);
+      expect(tester.getTopLeft(next), origin);
+      await gesture.up();
       await tester.pumpAndSettle();
       expect(find.text('No shows scheduled for Tuesday'), findsOneWidget);
+      expect(tester.getTopLeft(next), origin);
+      await tester.tap(next);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(SchedulePage.showTileKey('Thursday series')),
+        findsOneWidget,
+      );
+      expect(next, findsOneWidget);
+      expect(tester.takeException(), isNull);
     },
   );
 
@@ -358,6 +374,7 @@ void main() {
         openAddSheet: false,
         initialBookmarks: [watched, manual],
         releases: releases,
+        today: DateTime(2026, 11, 27),
       );
       final friday = find.byKey(SchedulePage.weekdayKey(DateTime.friday));
       final sunday = find.byKey(SchedulePage.weekdayKey(DateTime.sunday));
@@ -372,7 +389,8 @@ void main() {
         lessThan(tester.getTopLeft(releaseTile).dx),
       );
       expect(tester.widget<Semantics>(friday).properties.selected, isTrue);
-      expect(find.text('Latest · Episode 04 · 1080p'), findsOneWidget);
+      expect(find.text('Latest · Episode 04'), findsOneWidget);
+      expect(find.textContaining('1080p'), findsNothing);
       expect(
         find.descendant(
           of: releaseTile,
@@ -541,7 +559,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Use this match'));
     await tester.pumpAndSettle();
-    expect(find.text('MyAnimeList #31964'), findsOneWidget);
+    expect(find.text('Open MyAnimeList'), findsOneWidget);
+    expect(find.text('Boku no Hero Academia'), findsOneWidget);
     await tester.pageBack();
     await tester.pumpAndSettle();
     final preferences = await SharedPreferences.getInstance();
@@ -557,7 +576,7 @@ void main() {
     await tester.tap(tile);
     await tester.pumpAndSettle();
     expect(find.byType(ShowInfoPage), findsOneWidget);
-    expect(find.text('MyAnimeList #31964'), findsOneWidget);
+    expect(find.text('Open MyAnimeList'), findsOneWidget);
     expect(find.text('Chosen by you'), findsOneWidget);
   });
 

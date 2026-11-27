@@ -34,17 +34,7 @@ class TodayWidgetProvider : AppWidgetProvider() {
 
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
-            ACTION_DOWNLOAD -> {
-                val key = intent.getStringExtra(EXTRA_KEY)
-                val date = intent.getStringExtra(EXTRA_DATE)?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
-                // A stale launcher row may still be visible when midnight or a bookmark edit occurs.
-                // The host rechecks both membership and episode eligibility before starting.
-                if (key != null && date != null && date == LocalDate.now()) {
-                    TodayWidgetHost.onDownload(context, key, date)
-                } else {
-                    redraw(context)
-                }
-            }
+            ACTION_DOWNLOAD -> downloadFromIntent(context, intent)
             Intent.ACTION_DATE_CHANGED, Intent.ACTION_TIME_CHANGED,
             Intent.ACTION_TIMEZONE_CHANGED, Intent.ACTION_LOCALE_CHANGED -> {
                 if (widgetIds(context).isNotEmpty()) {
@@ -57,7 +47,7 @@ class TodayWidgetProvider : AppWidgetProvider() {
     }
 
     companion object {
-        private const val ACTION_DOWNLOAD = "com.leapwardkoex.tamashii.widget.DOWNLOAD"
+        internal const val ACTION_DOWNLOAD = "com.leapwardkoex.tamashii.widget.DOWNLOAD"
         private const val EXTRA_KEY = "episodeKey"
         private const val EXTRA_DATE = "date"
         // Android selects the largest size that fits each live host surface, including after rotation.
@@ -67,6 +57,17 @@ class TodayWidgetProvider : AppWidgetProvider() {
             AppWidgetManager.getInstance(context).getAppWidgetIds(ComponentName(context, TodayWidgetProvider::class.java))
 
         fun redraw(context: Context) = update(context, AppWidgetManager.getInstance(context), widgetIds(context))
+
+        internal fun downloadFromIntent(context: Context, intent: Intent): Intent? {
+            val key = intent.getStringExtra(EXTRA_KEY)
+            val date = intent.getStringExtra(EXTRA_DATE)?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+            // A stale launcher row may still be visible after midnight or a bookmark edit.
+            if (key != null && date != null && date == LocalDate.now()) {
+                return TodayWidgetHost.onDownload(context, key, date)
+            }
+            redraw(context)
+            return null
+        }
 
         private fun update(context: Context, manager: AppWidgetManager, ids: IntArray) {
             if (ids.isEmpty()) return
@@ -93,15 +94,6 @@ class TodayWidgetProvider : AppWidgetProvider() {
             views.setContentDescription(R.id.widget_open, "$title. ${context.getString(R.string.today_widget_open)}")
             views.setOnClickPendingIntent(R.id.widget_empty, open)
 
-            val setup = content.rows.firstOrNull { it.state == TodayWidgetState.SETUP && it.episodeKey != null }
-            views.visible(R.id.widget_setup, setup != null)
-            if (setup?.episodeKey != null) {
-                val intent = TodayWidgetHost.setupIntent(context, setup.episodeKey, content.date)
-                val action = PendingIntent.getActivity(context, 1, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-                views.setOnClickPendingIntent(R.id.widget_setup, action)
-                views.setContentDescription(R.id.widget_setup, context.getString(R.string.today_widget_action_description,
-                    context.getString(R.string.today_widget_setup), setup.title))
-            }
             val empty = content.rows.isEmpty()
             views.visible(R.id.widget_empty, empty)
             views.visible(R.id.widget_list, !empty)
@@ -118,9 +110,8 @@ class TodayWidgetProvider : AppWidgetProvider() {
                 return views
             }
 
-            // List items supply only their episode key and date to this explicit, non-exported receiver.
-            val template = PendingIntent.getBroadcast(context, 0,
-                Intent(context, TodayWidgetProvider::class.java).setAction(ACTION_DOWNLOAD),
+            val template = PendingIntent.getActivity(context, 0,
+                Intent(context, WidgetRowActivity::class.java),
                 PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
             views.setPendingIntentTemplate(R.id.widget_list, template)
             val list = RemoteViews.RemoteCollectionItems.Builder().setHasStableIds(true).setViewTypeCount(2)
@@ -138,6 +129,8 @@ class TodayWidgetProvider : AppWidgetProvider() {
                             TodayWidgetArtwork.cached(context, row.imageUrl)?.also { coverCount++ }
                         } else null
                         val episode = RemoteViews(context.packageName, R.layout.today_widget_row)
+                        episode.setOnClickFillInIntent(R.id.widget_row,
+                            Intent(WidgetRowActivity.OPEN_SERIES).putExtra(WidgetRowActivity.EXTRA_TITLE, row.title))
                         episode.visible(R.id.widget_art, tall)
                         if (tall) {
                             episode.setTextViewText(R.id.widget_monogram, row.displayTitle.take(1))
@@ -149,7 +142,7 @@ class TodayWidgetProvider : AppWidgetProvider() {
                         val number = row.episode?.let { context.getString(R.string.today_widget_episode, it) }
                         val subtitle = when {
                             number == null -> status
-                            tall && row.state == TodayWidgetState.READY -> number
+                            tall && (row.state == TodayWidgetState.READY || row.state == TodayWidgetState.SETUP) -> number
                             else -> context.getString(R.string.today_widget_episode_status, number, status)
                         }
                         episode.setTextViewText(R.id.widget_subtitle, subtitle)
@@ -189,7 +182,7 @@ class TodayWidgetProvider : AppWidgetProvider() {
             views.setContentDescription(R.id.widget_action, if (action.showProgress) spoken else null)
             if (action.canDownload) {
                 views.setContentDescription(R.id.widget_ready_button, spoken)
-                val fill = Intent().putExtra(EXTRA_KEY, row.episodeKey).putExtra(EXTRA_DATE, date.toString())
+                val fill = Intent(ACTION_DOWNLOAD).putExtra(EXTRA_KEY, row.episodeKey).putExtra(EXTRA_DATE, date.toString())
                 views.setOnClickFillInIntent(R.id.widget_ready_button, fill)
             }
         }
@@ -208,8 +201,7 @@ class TodayWidgetProvider : AppWidgetProvider() {
 
         private fun TodayWidgetState.label() = when (this) {
             TodayWidgetState.EXPECTED -> R.string.today_widget_expected
-            TodayWidgetState.READY -> R.string.today_widget_released
-            TodayWidgetState.SETUP -> R.string.today_widget_setup_hint
+            TodayWidgetState.READY, TodayWidgetState.SETUP -> R.string.today_widget_released
             TodayWidgetState.QUEUED -> R.string.today_widget_queued
             TodayWidgetState.DOWNLOADING -> R.string.today_widget_downloading
             TodayWidgetState.WAITING -> R.string.today_widget_waiting

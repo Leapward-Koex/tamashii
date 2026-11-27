@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -17,6 +18,7 @@ import 'package:tamashii/providers/subsplease_api_providers.dart';
 import 'package:tamashii/providers/torrent_download_provider.dart';
 import 'package:tamashii/widgets/show_card.dart';
 import 'package:tamashii/widgets/release_reader_index.dart';
+import 'package:tamashii/widgets/staggered_reveal.dart';
 import 'package:tamashii/theme/paper_lantern.dart';
 
 class FakeSubsPleaseApi extends SubsPleaseApi {
@@ -159,12 +161,6 @@ void main() {
         releaseDate: DateTime.utc(2026, 11, 26).subtract(Duration(hours: i)),
       ),
   ];
-  final previousEpisode = createEpisode(
-    showName: foldReleases.first.show,
-    episode: '01',
-    releaseDate: DateTime.utc(2026, 11, 19),
-  );
-
   Future<void> pumpAtWidth(WidgetTester tester, double width) async {
     SharedPreferences.setMockInitialValues({});
     await tester.binding.setSurfaceSize(Size(width, 845));
@@ -176,11 +172,13 @@ void main() {
             FakeSubsPleaseApi(latestEpisodes: foldReleases),
           ),
           torrentManagerProvider.overrideWithValue(const TorrentManagerState()),
-          searchShowsProvider(foldReleases.first.show)
-              .overrideWith((_) async => [foldReleases.first, previousEpisode]),
-          for (final show in [...foldReleases, previousEpisode])
+          for (final show in foldReleases) ...[
             showCatalogMatchProvider(ShowCatalogTarget.fromRelease(show))
                 .overrideWith((_) async => const ShowCatalogMatch()),
+            showCatalogMatchProvider(
+              ShowCatalogTarget(title: show.show, page: show.page),
+            ).overrideWith((_) async => const ShowCatalogMatch()),
+          ],
           filteredShowsProvider('just one')
               .overrideWith((_) async => [foldReleases.last]),
           filteredShowsProvider('missing').overrideWith((_) async => []),
@@ -191,33 +189,48 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  ShowInfo displayedEpisode(WidgetTester tester) =>
+  ShowInfo displayedSeriesSource(WidgetTester tester) =>
       tester.widget<ShowInfoPage>(find.byType(ShowInfoPage)).release!;
 
   testWidgets(
-    'an older episode stays open when folded and Back returns to its release',
+    'opening a series from a home card animates into place and Back returns to the feed',
     (tester) async {
-      await pumpAtWidth(tester, 755);
-      final previous = find.widgetWithText(ListTile, 'Episode 01');
-      await tester.ensureVisible(previous);
-      await tester.pumpAndSettle();
-      await tester.tap(previous);
-      await tester.pumpAndSettle();
-      expect(displayedEpisode(tester), previousEpisode);
-      expect(
-        tester
-            .widget<ReleaseReaderIndex>(find.byType(ReleaseReaderIndex))
-            .selectedRelease,
-        foldReleases.first,
+      await pumpAtWidth(tester, 370);
+      await tester.tap(
+        find.byKey(ShowCard.featuredCardKey(foldReleases.first.show)),
       );
-      await tester.binding.setSurfaceSize(const Size(370, 845));
+      await tester.pump();
+      final fade = find.ancestor(
+        of: find.byType(ShowInfoPage),
+        matching: find.byKey(StaggeredReveal.fadeKeyForIndex(0)),
+      );
+      double opacity() => tester.widget<FadeTransition>(fade).opacity.value;
+      expect(opacity(), 0);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(opacity(), inExclusiveRange(0, 1));
       await tester.pumpAndSettle();
-      expect(displayedEpisode(tester), previousEpisode);
+      expect(opacity(), 1);
+      expect(displayedSeriesSource(tester), foldReleases.first);
       await tester.pageBack();
       await tester.pumpAndSettle();
-      expect(displayedEpisode(tester), foldReleases.first);
+      expect(find.byType(ShowInfoPage), findsNothing);
+      expect(find.byType(ShowCard), findsWidgets);
     },
   );
+
+  testWidgets('reduced motion opens the series immediately', (tester) async {
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+    await pumpAtWidth(tester, 370);
+    await tester.tap(
+      find.byKey(ShowCard.featuredCardKey(foldReleases.first.show)),
+    );
+    await tester.pump();
+    expect(displayedSeriesSource(tester), foldReleases.first);
+    expect(find.byKey(StaggeredReveal.fadeKeyForIndex(0)), findsNothing);
+    await tester.pumpAndSettle();
+  });
 
   testWidgets(
     'folding and unfolding preserve the selected release and index position',
@@ -225,7 +238,7 @@ void main() {
       await pumpAtWidth(tester, 755);
       final index = find.byType(ReleaseReaderIndex);
       expect(index, findsOneWidget);
-      expect(displayedEpisode(tester), foldReleases.first);
+      expect(displayedSeriesSource(tester), foldReleases.first);
       final indexScrollable = find.descendant(
         of: index,
         matching: find.byType(Scrollable),
@@ -241,17 +254,17 @@ void main() {
           .position
           .pixels;
       expect(offset, greaterThan(0));
-      expect(displayedEpisode(tester), foldReleases[10]);
+      expect(displayedSeriesSource(tester), foldReleases[10]);
 
       await tester.binding.setSurfaceSize(const Size(370, 845));
       await tester.pumpAndSettle();
       expect(index, findsNothing);
-      expect(find.text('Show info'), findsOneWidget);
-      expect(displayedEpisode(tester), foldReleases[10]);
+      expect(find.text('Series info'), findsOneWidget);
+      expect(displayedSeriesSource(tester), foldReleases[10]);
       await tester.binding.setSurfaceSize(const Size(755, 845));
       await tester.pumpAndSettle();
       expect(index, findsOneWidget);
-      expect(displayedEpisode(tester), foldReleases[10]);
+      expect(displayedSeriesSource(tester), foldReleases[10]);
       expect(
         tester.state<ScrollableState>(indexScrollable).position.pixels,
         closeTo(offset, 1),
@@ -275,7 +288,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.binding.setSurfaceSize(const Size(755, 845));
       await tester.pumpAndSettle();
-      expect(displayedEpisode(tester), foldReleases[11]);
+      expect(displayedSeriesSource(tester), foldReleases[11]);
     },
   );
 
@@ -290,7 +303,7 @@ void main() {
         await tester.pump(const Duration(milliseconds: 501));
         await tester.pumpAndSettle();
         if (query == 'just one') {
-          expect(displayedEpisode(tester), foldReleases.last);
+          expect(displayedSeriesSource(tester), foldReleases.last);
         } else {
           expect(find.text('No series found'), findsOneWidget);
           expect(find.byType(ShowInfoPage), findsNothing);
@@ -412,6 +425,20 @@ void main() {
 
       await tester.tap(find.byTooltip('Release options'));
       await tester.pumpAndSettle();
+      void expectAlignedMenu({required bool checked}) {
+        expect(
+          tester
+              .widget<CheckboxMenuButton>(find.byType(CheckboxMenuButton))
+              .value,
+          checked,
+        );
+        expect(
+          tester.getTopLeft(find.text('Watching only')).dx,
+          tester.getTopLeft(find.text('Refresh releases')).dx,
+        );
+      }
+
+      expectAlignedMenu(checked: false);
       await tester.tap(find.text('Refresh releases'));
       await tester.pumpAndSettle();
       expect(api.searches, ['Link Click', 'Link Click']);
@@ -421,6 +448,11 @@ void main() {
       await tester.tap(find.text('Watching only'));
       await tester.pumpAndSettle();
       expect(find.text('Watching only · Clear'), findsOneWidget);
+      await tester.tap(find.byTooltip('Release options'));
+      await tester.pumpAndSettle();
+      expectAlignedMenu(checked: true);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Watching only · Clear'));
       await tester.pumpAndSettle();
       expect(find.text('Watching only · Clear'), findsNothing);
